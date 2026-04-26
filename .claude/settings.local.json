@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(unzip -p \"C:/Users/Nate/.m2/repository/com/songsofsyx/songsofsyx/70.32/songsofsyx-70.32-sources.jar\" \"snake2d/LOG.java\")",
+      "Bash(unzip -l \"C:/Users/Nate/.m2/repository/com/songsofsyx/songsofsyx/70.32/songsofsyx-70.32-sources.jar\")",
+      "Bash(unzip -p \"C:/Users/Nate/.m2/repository/com/songsofsyx/songsofsyx/70.32/songsofsyx-70.32-sources.jar\" \"init/structure/STRUCTURES.java\")",
+      "Bash(unzip -p \"C:/Users/Nate/.m2/repository/com/songsofsyx/songsofsyx/70.32/songsofsyx-70.32-sources.jar\" \"init/structure/Structure.java\")",
+      "Bash(unzip -p \"C:/Users/Nate/.m2/repository/com/songsofsyx/songsofsyx/70.32/songsofsyx-70.32-sources.jar\" \"init/INIT.java\")",
+      "Bash(mkdir -p \"C:/Users/Nate/.m2/repository/com/songsofsyx/songsofsyx/70.32/sources\")",
+      "Bash(unzip -q -o \"C:/Users/Nate/.m2/repository/com/songsofsyx/songsofsyx/70.32/songsofsyx-70.32-sources.jar\" -d \"C:/Users/Nate/.m2/repository/com/songsofsyx/songsofsyx/70.32/sources\")",
+      "Bash(git -C \"C:\\\\Users\\\\Nate\\\\AppData\\\\Roaming\\\\songsofsyx\\\\mods\\\\sos-scripting-template\" diff pom.xml src/main/java/your/mod/MainScript.java)",
+      "Bash(git --no-pager diff -- pom.xml)",
+      "Bash(where mvn *)",
+      "Bash(xxd)",
+      "Bash(mkdir -p \".claude/memory\")",
+      "Bash(cp \"C:/Users/Nate/.claude/projects/C--Users-Nate-AppData-Roaming-songsofsyx-mods-Argon-Script-Example/memory/\"*.md \".claude/memory/\")"
+    ]
+  }
+}

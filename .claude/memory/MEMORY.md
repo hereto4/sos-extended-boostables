@@ -1,0 +1,10 @@
+- [Songs of Syx source JAR](reference_songsofsyx_sources.md) — local Maven path + `unzip -p` recipe for reading game source code
+- [Songs of Syx codebase overview](reference_songsofsyx_overview.md) — package map, key singletons, mod hook points (start here)
+- [SCRIPT mod API](reference_songsofsyx_script_api.md) — SCRIPT/SCRIPT_INSTANCE interfaces every mod implements; load mechanics, hook lifecycle
+- [Mod packaging & build flow](reference_songsofsyx_mod_packaging.md) — folder layout, _Info.txt schema, V70/V71 overlay rules, mvn validate/install, IntelliJ run configs, phase availability tests
+- [Iteration workflow & template gotchas](reference_songsofsyx_workflow.md) — day-to-day edit/build/launch loop, template corrections (System.out → LOG, your.mod placeholder), mvn-validate-after-update trap; mirrored to `doc/WORKFLOW.md`
+- [init/ — bootstrap, PATHS, configs](reference_songsofsyx_init.md) — startup sequence, every PATHS constant, JSON overlay rules, content-registry per domain
+- [game/ — GAME, save, time](reference_songsofsyx_game.md) — GAME singleton, Savable registration, TIME cycles, subsystem survey (battle/factions/events/raiding/etc)
+- [settlement/ — rooms, entities, jobs](reference_songsofsyx_settlement.md) — SETT hub, RoomBlueprint mod pattern, ENTITY/Humanoid/Animal, JOBS, PATHING, TileMap, STATS
+- [world/ + view/ + menu/](reference_songsofsyx_view.md) — WORLD strategic layer, VIEW pipeline, GuiSection/Interrupter/KeyPage frameworks, menu screens
+- [snake2d + util — engine APIs](reference_songsofsyx_engine.md) — CORE, Renderer/SPRITE, Input, LOG, custom collections, COLOR, D localization, INFO, sprite composer

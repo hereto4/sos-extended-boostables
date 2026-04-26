@@ -1,0 +1,7 @@
+VERSION: "1.0.0",
+GAME_VERSION_MAJOR: 70,
+GAME_VERSION_MINOR: 32,
+NAME: "sos-scripting-template",
+DESC: "This is an example mod made by Jake the game developer.",
+AUTHOR: "Jake",
+INFO: "Example",
