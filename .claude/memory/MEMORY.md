@@ -8,3 +8,7 @@
 - [settlement/ — rooms, entities, jobs](reference_songsofsyx_settlement.md) — SETT hub, RoomBlueprint mod pattern, ENTITY/Humanoid/Animal, JOBS, PATHING, TileMap, STATS
 - [world/ + view/ + menu/](reference_songsofsyx_view.md) — WORLD strategic layer, VIEW pipeline, GuiSection/Interrupter/KeyPage frameworks, menu screens
 - [snake2d + util — engine APIs](reference_songsofsyx_engine.md) — CORE, Renderer/SPRITE, Input, LOG, custom collections, COLOR, D localization, INFO, sprite composer
+- [Game source unzipped location](reference_game_source.md) — `.claude/game-source-java/` in this project, sourced from local Maven `songsofsyx-70.32-sources.jar`
+- [Project State: sos-extended-boostables](project_sos_extended_boostables.md) — ROOM__SLAVER boostable, finalized per-entity submission bonus design via `STATS.POP().COUNT.arrive`
+- [Modding Workflow Constraints](feedback_modding_workflow.md) — Minimize vanilla overwrites; use data files + SCRIPT API; .claude/game-source-java is read-only reference
+- [Memory File Location Policy](feedback_memory_location.md) — Project memories live in `[project]/.claude/memory/`, not the user-level auto-memory path; load and save here
