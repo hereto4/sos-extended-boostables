@@ -1,0 +1,9 @@
+#version 330 core
+in vec4 vColor;
+in vec4 vNormal;
+layout(location = 0) out vec4 out_diffuse;
+layout(location = 1) out vec4 out_normal;
+void main(){
+	out_diffuse = vColor;
+	out_normal = vNormal;
+}

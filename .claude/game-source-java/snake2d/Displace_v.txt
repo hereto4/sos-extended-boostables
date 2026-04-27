@@ -1,0 +1,25 @@
+#version 330 core
+const vec2 screen = vec2(SCREEN_X,SCREEN_Y);
+const vec2 trans = vec2(-1.0,1.0);
+layout(location = 0) in vec2 in_position1;
+layout(location = 1) in vec2 in_position2;
+layout(location = 2) in vec2 in_texCoo1;
+layout(location = 3) in vec2 in_texCoo2;
+layout(location = 4) in uvec2 in_texCooWidth;
+layout(location = 5) in vec4 in_color;
+layout(location = 6) in float in_scale;
+out vec2 gTexCoo1;
+out vec2 gTexCoo2;
+out vec2 gTexCooWidth;
+out vec2 gPos2;
+out vec4 gColor;
+out float gScale;
+void main(){
+gTexCoo1 = in_texCoo1;
+gTexCoo2 = in_texCoo2;
+gScale = in_scale;
+gTexCooWidth = in_texCooWidth;
+gColor = vec4(in_color.xyz*2.0, in_color.w);
+gPos2 = vec2((in_position2 * screen)+trans);
+gl_Position = vec4((in_position1 * screen)+trans, 0.0, 1.0);
+}

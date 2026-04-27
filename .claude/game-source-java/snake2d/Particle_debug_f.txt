@@ -1,0 +1,7 @@
+#version 330 core
+in vec4 vColor;
+out vec4 out_diffuse;
+
+void main(){
+	out_diffuse = vColor;
+}

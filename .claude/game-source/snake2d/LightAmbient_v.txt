@@ -1,0 +1,19 @@
+#version 330 core
+const vec2 screen = vec2(SCREEN_X,SCREEN_Y);
+const vec2 trans = vec2(-1.0,1.0);
+const float sqrt2 = sqrt(2.0);
+layout(location = 0) in vec3 in_tilt;
+layout(location = 1) in vec2 in_posXY;
+layout(location = 2) in vec3 in_color;
+layout(location = 3) in vec4 in_shaded;
+out vec3 v_tilt;
+out vec3 v_color;
+out vec3 v_dir;
+out vec2 v_sampler_coo;
+void main(){
+	v_tilt = in_tilt;
+	v_color = in_color;
+	v_sampler_coo = in_posXY*screen/2.0;
+	v_dir = (v_tilt - vec3(in_posXY, 0.0));
+	gl_Position = vec4((in_posXY * screen)+trans, in_shaded.x, 1.0);
+}

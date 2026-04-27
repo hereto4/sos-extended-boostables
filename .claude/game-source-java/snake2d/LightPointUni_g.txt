@@ -1,0 +1,42 @@
+#version 330 core
+layout (points) in;
+layout (triangle_strip, max_vertices = 4) out;
+uniform float dim = 0;
+in vec3 g_pos1[];
+in vec3 g_pos2[];
+in vec2 g_sampler1[];
+in vec2 g_sampler2[];
+in float g_radius[];
+in vec2 g_off[];
+in vec3 g_centre[];
+out float v_radius;
+out vec3 v_pos;
+out vec2 v_sampler;
+out vec3 v_centre;
+void main(){
+v_radius = g_radius[0];v_centre = g_centre[0];
+v_pos = vec3(g_pos1[0].x, g_pos1[0].y, 0);
+v_sampler = vec2(g_sampler1[0].x, g_sampler1[0].y);
+gl_Position = gl_in[0].gl_Position;
+EmitVertex();
+v_radius = g_radius[0];v_centre = g_centre[0];
+v_pos = vec3(g_pos2[0].x, g_pos1[0].y, 0);
+v_sampler = vec2(g_sampler2[0].x, g_sampler1[0].y);
+gl_Position = gl_in[0].gl_Position;
+gl_Position.x = g_off[0].x;
+EmitVertex();
+v_radius = g_radius[0];v_centre = g_centre[0];
+v_pos = vec3(g_pos1[0].x, g_pos2[0].y, 0);
+v_sampler = vec2(g_sampler1[0].x, g_sampler2[0].y);
+gl_Position = gl_in[0].gl_Position;
+gl_Position.y = g_off[0].y;
+EmitVertex();
+v_radius = g_radius[0];v_centre = g_centre[0];
+v_pos = vec3(g_pos2[0].x, g_pos2[0].y, 0);
+v_sampler = vec2(g_sampler2[0].x, g_sampler2[0].y);
+gl_Position = gl_in[0].gl_Position;
+gl_Position.x = g_off[0].x;
+gl_Position.y = g_off[0].y;
+EmitVertex();
+EndPrimitive();
+}

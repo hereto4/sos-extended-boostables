@@ -1,0 +1,47 @@
+#version 330 core
+layout (points) in;
+layout (triangle_strip, max_vertices = 4) out;
+in vec2 g_pos2[];
+in vec4 g_color[];
+in vec4 g_sideStrength[];
+in vec2 g_sampler_coo[];
+in vec2 g_sampler_coo2[];
+in float g_radius[];
+in vec3 g_dir[];
+in vec3 g_dir2[];
+out vec4 v_color;
+out vec3 v_dir;
+out float v_sideStrength;
+out vec2 v_sampler_coo;
+out float v_radius;
+void main(){
+v_color = g_color[0];v_dir = g_dir[0];
+v_sideStrength = g_sideStrength[0].r;
+v_sampler_coo = g_sampler_coo[0];
+v_radius = g_radius[0];
+gl_Position = gl_in[0].gl_Position;
+EmitVertex();
+v_color = g_color[0];v_dir = vec3(g_dir2[0].x, g_dir[0].y, g_dir[0].z);
+v_sideStrength = g_sideStrength[0].g;
+v_sampler_coo = vec2(g_sampler_coo2[0].x, g_sampler_coo[0].y);
+v_radius = g_radius[0];
+gl_Position = gl_in[0].gl_Position;
+gl_Position.x = g_pos2[0].x;
+EmitVertex();
+v_color = g_color[0];v_dir = vec3(g_dir[0].x, g_dir2[0].y, g_dir[0].z);
+v_sideStrength = g_sideStrength[0].a;
+v_sampler_coo = vec2(g_sampler_coo[0].x, g_sampler_coo2[0].y);
+v_radius = g_radius[0];
+gl_Position = gl_in[0].gl_Position;
+gl_Position.y = g_pos2[0].y;
+EmitVertex();
+v_color = g_color[0];v_dir = vec3(g_dir2[0].x, g_dir2[0].y, g_dir[0].z);
+v_sideStrength = g_sideStrength[0].b;
+v_sampler_coo = vec2(g_sampler_coo2[0].x, g_sampler_coo2[0].y);
+v_radius = g_radius[0];
+gl_Position = gl_in[0].gl_Position;
+gl_Position.x = g_pos2[0].x;
+gl_Position.y = g_pos2[0].y;
+EmitVertex();
+EndPrimitive();
+}

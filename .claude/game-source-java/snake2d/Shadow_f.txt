@@ -1,0 +1,8 @@
+#version 330 core
+in vec2 vTexCoo;
+in float vD;
+uniform sampler2DRect sampler1;
+layout(location = 0) out vec4 out_diffuse;
+void main(){
+if ((texture(sampler1, vTexCoo).w - vD) <= 0){discard;}
+}

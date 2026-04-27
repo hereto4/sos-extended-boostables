@@ -1,0 +1,34 @@
+#version 330 core
+layout (points) in;
+layout (triangle_strip, max_vertices = 4) out;
+in vec2 gSampler1[];
+in vec2 gSampler2[];
+in vec2 gPos2[];
+in vec4 gIntens[];
+out vec2 vSampler;
+out float vIntensity;
+void main(){
+vSampler = gSampler1[0];
+gl_Position = gl_in[0].gl_Position;
+vIntensity = gIntens[0].x;
+EmitVertex();
+vSampler =  gSampler1[0];
+vSampler.x =  gSampler2[0].x;
+gl_Position = gl_in[0].gl_Position;
+gl_Position.x = gPos2[0].x;
+vIntensity = gIntens[0].y;
+EmitVertex();
+vSampler =  gSampler1[0];
+vSampler.y =  gSampler2[0].y;
+gl_Position = gl_in[0].gl_Position;
+gl_Position.y = gPos2[0].y;
+vIntensity = gIntens[0].w;
+EmitVertex();
+vSampler =  gSampler2[0];
+gl_Position = gl_in[0].gl_Position;
+gl_Position.y = gPos2[0].y;
+gl_Position.x = gPos2[0].x;
+vIntensity = gIntens[0].z;
+EmitVertex();
+EndPrimitive();
+}

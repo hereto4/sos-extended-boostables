@@ -1,0 +1,36 @@
+#version 330 core
+layout (points) in;
+layout (triangle_strip, max_vertices = 4) out;
+in vec2 gTexCoo1[];
+in vec2 gTexCoo2[];
+in vec2 gTexCooWidth[];
+in vec2 gPos2[];
+in vec4 gColor[];
+in vec2 gNor[];
+out vec2 vTexCoo;
+out vec2 vTexCoo2;
+out vec4 vColor;
+void main(){
+vColor = gColor[0];
+vTexCoo = gTexCoo1[0]+vec2(0.5, 0.5);
+vTexCoo2 = gTexCoo2[0]+vec2(0.5, 0.5);
+gl_Position = gl_in[0].gl_Position;
+EmitVertex();
+vTexCoo = vec2(gTexCoo1[0].x+gTexCooWidth[0].x-0.5, gTexCoo1[0].y+0.5);
+vTexCoo2 = vec2(gTexCoo2[0].x+gTexCooWidth[0].x-0.5, gTexCoo2[0].y+0.5);
+gl_Position = gl_in[0].gl_Position;
+gl_Position.x = gPos2[0].x;
+EmitVertex();
+vTexCoo = vec2(gTexCoo1[0].x+0.5, gTexCoo1[0].y+gTexCooWidth[0].y-0.5);
+vTexCoo2 = vec2(gTexCoo2[0].x+0.5, gTexCoo2[0].y+gTexCooWidth[0].y-0.5);
+gl_Position = gl_in[0].gl_Position;
+gl_Position.y = gPos2[0].y;
+EmitVertex();
+vTexCoo = vec2(gTexCoo1[0].x+gTexCooWidth[0].x-0.5, gTexCoo1[0].y+gTexCooWidth[0].y-0.5);
+vTexCoo2 = vec2(gTexCoo2[0].x+gTexCooWidth[0].x-0.5, gTexCoo2[0].y+gTexCooWidth[0].y-0.5);
+gl_Position = gl_in[0].gl_Position;
+gl_Position.y = gPos2[0].y;
+gl_Position.x = gPos2[0].x;
+EmitVertex();
+EndPrimitive();
+}

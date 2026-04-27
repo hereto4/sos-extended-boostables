@@ -1,0 +1,18 @@
+#version 330 core
+const vec2 screen = vec2(SCREEN_X,SCREEN_Y);
+const vec2 trans = vec2(-1.0,1.0);
+uniform float u_depth = 1.0;
+layout(location = 0) in vec2 in_position1;
+layout(location = 1) in vec4 in_cornerI;
+layout(location = 2) in vec2 in_dim;
+out vec2 gPos2;
+out vec2 gSampler1;
+out vec2 gSampler2;
+out vec4 gIntens;
+void main(){
+gIntens = in_cornerI;
+gSampler1 = in_position1*screen/2;
+gSampler2 = vec2(in_position1.x + in_dim.x, in_position1.y + in_dim.x)*screen/2;
+gPos2 = vec2(in_position1.x + in_dim.x, in_position1.y + in_dim.x)*screen + trans;
+gl_Position = vec4((in_position1 * screen)+trans, u_depth, 1.0);
+}

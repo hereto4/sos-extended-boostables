@@ -1,0 +1,15 @@
+#version 330 core
+in vec2 vTexCoo;
+in vec2 vTexCoo2;
+in vec4 vColor;
+in float vScale;
+uniform sampler2DRect sampler1;
+uniform sampler2DRect sampler2;
+layout(location = 0) out vec4 out_diffuse;
+layout(location = 1) out vec4 out_normal;
+vec4 linear( sampler2DRect samp, vec2 texCoord_i ){vec4 p0q0 = texture(samp, texCoord_i);vec4 p1q0 = texture(samp, texCoord_i + vec2(1, 0));vec4 p0q1 = texture(samp, texCoord_i + vec2(0, 1));vec4 p1q1 = texture(samp, texCoord_i + vec2(1 , 1));float a = texCoord_i.x - int(texCoord_i.x);vec4 pInterp_q0 = mix( p0q0, p1q0, a );vec4 pInterp_q1 = mix( p0q1, p1q1, a );float b = texCoord_i.y - int(texCoord_i.y);return mix( pInterp_q0, pInterp_q1, b );}void main(){
+vec4 dis = linear(sampler1, vTexCoo);
+vec2 tex = vec2(vTexCoo2.x + (dis.r*vScale), vTexCoo2.y + (dis.g*vScale));
+out_diffuse = texture(sampler1, tex)*vColor;
+if (out_diffuse.w == 0.0) {discard;}out_normal = linear(sampler2, tex)*vec4(1.0,1.0,1.0,vColor.w);
+}

@@ -1,0 +1,32 @@
+#version 330 core
+uniform vec3 u_color = vec3(1.0,1.0,1.0);
+uniform float falloff = 2;
+uniform sampler2D Tdiffuse;
+uniform sampler2D Tnormal;
+in float v_radius;
+in vec3 v_pos;
+in vec2 v_sampler;
+in vec3 v_centre;
+layout(location = 0) out vec4 fragColor;
+vec4 texColor;
+vec4 normal;
+vec3 dir;
+float intensity;
+float dottis;
+void main(){
+texColor = texture(Tdiffuse, v_sampler);
+if (texColor.w <= 0.0){discard; return;}
+normal = texture(Tnormal, v_sampler);
+normal.rgb *= 2.0;
+normal.rgb -= 1.0;
+dir = v_centre-v_pos;
+intensity = length(dir)/v_radius;
+if (intensity >= 1.0){discard;}
+intensity = 1.0 - intensity;
+intensity = pow(intensity, falloff);
+dottis = dot(normal.rgb, normalize(dir));
+if (dottis > 0.0){
+fragColor.rgb = texColor.rgb*dottis*intensity*u_color.rgb;
+}else{discard;}
+
+}

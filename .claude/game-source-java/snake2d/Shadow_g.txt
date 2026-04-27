@@ -1,0 +1,29 @@
+#version 330 core
+layout (points) in;
+layout (triangle_strip, max_vertices = 4) out;
+in vec2 gTexCoo[];
+in vec2 gTexCoo2[];
+in vec2 gPos2[];
+in float gvD[];
+out float vD;
+out vec2 vTexCoo;
+void main(){
+vD = gvD[0];
+vTexCoo = gTexCoo[0];
+gl_Position = gl_in[0].gl_Position;
+EmitVertex();
+vTexCoo = vec2(gTexCoo2[0].x, gTexCoo[0].y);
+gl_Position = gl_in[0].gl_Position;
+gl_Position.x = gPos2[0].x;
+EmitVertex();
+vTexCoo = vec2(gTexCoo[0].x, gTexCoo2[0].y);
+gl_Position = gl_in[0].gl_Position;
+gl_Position.y = gPos2[0].y;
+EmitVertex();
+vTexCoo = vec2(gTexCoo2[0].x, gTexCoo2[0].y);
+gl_Position = gl_in[0].gl_Position;
+gl_Position.y = gPos2[0].y;
+gl_Position.x = gPos2[0].x;
+EmitVertex();
+EndPrimitive();
+}

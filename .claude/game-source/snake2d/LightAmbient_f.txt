@@ -1,0 +1,28 @@
+#version 330 core
+in vec3 v_tilt;
+in vec2 v_sampler_coo;
+in vec3 v_color;
+in vec3 v_dir;
+uniform sampler2D Tdiffuse;
+uniform sampler2D Tnormal;
+layout(location = 0) out vec4 fragColor;
+vec4 texColor;
+vec3 normal;
+float intensity;
+float dottis;
+void main(){
+	texColor = texture(Tdiffuse, v_sampler_coo);
+	if (texColor.w <= 0.0){
+		discard; 
+		return;
+	}
+		normal = texture(Tnormal, v_sampler_coo).rgb;
+		normal *= 2.0;
+		normal -= 1.0;
+		dottis = dot(normal.rgb, v_tilt);
+		if (dottis > 0.0){
+			fragColor.rgb = texColor.rgb*dottis*v_color.rgb;
+	}else{
+		discard;
+	}
+}

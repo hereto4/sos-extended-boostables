@@ -1,0 +1,39 @@
+#version 330 core
+in vec2 vTexCoo;
+in vec2 vTexCoo2;
+in vec4 vColor;
+uniform sampler2DRect sampler1;
+uniform sampler2DRect sampler2;
+layout(location = 0) out vec4 out_diffuse;
+layout(location = 1) out vec4 out_normal;
+float ww;
+void main(){
+out_diffuse = texture(sampler1, vTexCoo);
+ww = out_diffuse.w;
+if (out_diffuse.w == 0){discard;}
+out_diffuse = texture(sampler1, vTexCoo2)*vColor;
+out_diffuse.w = out_diffuse.w*ww;
+if (vColor.w < 1){out_normal = vec4(0.0,0.0,0.0,0.0);}
+else{
+float sd = 0;
+float dw = 0;
+out_normal = vec4(0.0,0.0,0.0,0.0);
+vec2 dxy = vTexCoo2+vec2(-0.45, -0.45);
+vec4 tsample = texture(sampler2, dxy);
+dw = tsample.w*(1.0-(dxy.x-int(dxy.x)))*(1.0-(dxy.y-int(dxy.y)));sd += dw;
+out_normal += tsample*dw;
+dxy = vTexCoo2+vec2(-0.45, 0.45);
+tsample = texture(sampler2, dxy);
+dw = tsample.w*(1.0-(dxy.x-int(dxy.x)))*(dxy.y-int(dxy.y));sd += dw;
+out_normal += tsample*dw;
+dxy = vTexCoo2+vec2(0.45, -0.45);
+tsample = texture(sampler2, dxy);
+dw = tsample.w*(dxy.x-int(dxy.x))*(1.0-(dxy.y-int(dxy.y)));sd += dw;
+out_normal += tsample*dw;
+dxy = vTexCoo2+vec2(0.45, 0.45);
+tsample = texture(sampler2, dxy);
+dw = tsample.w*(dxy.x-int(dxy.x))*(dxy.y-int(dxy.y));sd += dw;
+out_normal += tsample*dw;
+out_normal/=sd;
+}
+}

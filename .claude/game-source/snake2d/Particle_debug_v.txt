@@ -1,0 +1,10 @@
+#version 330 core
+const vec2 screen = vec2(SCREEN_X,SCREEN_Y);
+const vec2 trans = vec2(-1.0,1.0);
+layout(location = 0) in vec2 in_position;
+layout(location = 2) in vec4 in_color;
+out vec4 vColor;
+void main(){
+vColor = in_color;
+gl_Position = vec4((in_position * screen)+trans, 0.0, 1.0);
+}

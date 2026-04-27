@@ -1,0 +1,30 @@
+#version 330 core
+const vec2 screen = vec2(SCREEN_X,SCREEN_Y);
+const vec2 trans = vec2(-1.0,1.0);
+const float sqrt2 = sqrt(2.0);
+layout(location = 0) in vec3 in_centreCoords;
+layout(location = 1) in vec2 in_posXY1;
+layout(location = 2) in vec2 in_posXY2;
+layout(location = 3) in vec4 in_color;
+layout(location = 4) in vec4 in_sideStrength;
+layout(location = 5) in float in_radius;
+layout(location = 6) in vec4 in_shaded;
+out vec2 g_pos2;
+out vec4 g_color;
+out vec4 g_sideStrength;
+out vec2 g_sampler_coo;
+out vec2 g_sampler_coo2;
+out float g_radius;
+out vec3 g_dir;
+out vec3 g_dir2;
+void main(){
+	g_color = in_color;
+	g_radius = in_radius;
+	g_sideStrength = in_sideStrength;
+	g_sampler_coo = in_posXY1*screen/2;
+	g_sampler_coo2 = in_posXY2*screen/2;
+	g_pos2 = vec2((in_posXY2 * screen)+trans);
+	g_dir = (in_centreCoords - vec3(in_posXY1, 0.0));
+	g_dir2 = (in_centreCoords - vec3(in_posXY2, 0.0));
+	gl_Position = vec4((in_posXY1 * screen)+trans, in_shaded.x, 1.0);
+}
