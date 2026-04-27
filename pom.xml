@@ -98,10 +98,10 @@
 
         <!-- These settings will go into the mods _Info.txt file -->
         <mod.version>${project.version}</mod.version>
-        <mod.name>sos-scripting-template</mod.name>
-        <mod.description>This is an example mod made by Jake the game developer.</mod.description>
-        <mod.author>Jake</mod.author>
-        <mod.info>Example</mod.info>
+        <mod.name>sos-extended-boostables</mod.name>
+        <mod.description>Adds extended boostable keys for room types not covered by vanilla.</mod.description>
+        <mod.author>Nate</mod.author>
+        <mod.info>Adds ROOM__SLAVER and future room boostables.</mod.info>
         <!--
             This is the game version you are currently using. When the game updates:
             * Download the new game version if you don't have it
