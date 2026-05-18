@@ -11,4 +11,5 @@
 - [Game source unzipped location](reference_game_source.md) — `.claude/game-source-java/` in this project, sourced from local Maven `songsofsyx-70.32-sources.jar`
 - [Project State: sos-extended-boostables](project_sos_extended_boostables.md) — ROOM__SLAVER boostable, finalized per-entity submission bonus design via `STATS.POP().COUNT.arrive`
 - [Modding Workflow Constraints](feedback_modding_workflow.md) — Minimize vanilla overwrites; use data files + SCRIPT API; .claude/game-source-java is read-only reference
+- [Conform New Features to Existing Patterns](feedback_conform_to_existing_patterns.md) — When extending a mod, mirror an already-implemented feature's key naming, registration approach, file layout, and style
 - [Memory File Location Policy](feedback_memory_location.md) — Project memories live in `[project]/.claude/memory/`, not the user-level auto-memory path; load and save here

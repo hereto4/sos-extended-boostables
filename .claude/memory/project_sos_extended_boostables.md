@@ -4,33 +4,35 @@ description: Current state and key decisions for the sos-extended-boostables mod
 type: project
 originSessionId: f4a7dc19-9fa3-4a12-9315-2717447ae117
 ---
-Adding new ROOM_*-style boostable keys to Songs of Syx v70.32 that don't exist in vanilla.
-First target: `ROOM__SLAVER` for the Slaver room (`settlement.room.law.slaver.ROOM_SLAVER`).
+Adds new ROOM_*-style boostable keys to Songs of Syx v70.32 that don't exist in vanilla. Both effects ship in the same jar (`your.mod.MainScript`).
 
-**Why:** The boostable keys produced by this mod are consumed by technologies (handled externally by the user). This mod registers the key and applies the effect at runtime.
+**Why:** Boostable keys produced by this mod are consumed by tech files (handled externally). This mod registers the keys and applies the effects at runtime.
 
-**How to apply:** File in `V70/assets/init/stats/boost/` named `__SLAVER.txt` with `CATEGORY: ROOM` produces key `ROOM__SLAVER`. Paired text file in `V70/assets/text/stats/boost/__SLAVER.txt`.
+**Key naming convention (followed strictly):** room internal key `_X` → boost key `ROOM__X` (double underscore). `BOOSTING.push()` strips ONE leading `_`, then prepends the category prefix, so push key `__X` → strip → `_X` → prepend `ROOM_` → `ROOM__X`.
 
-**Key naming insight:** `BOOSTING.push()` strips ONE leading `_`, then prepends the category prefix. File `__SLAVER` → strip `_` → `_SLAVER` → prepend `ROOM_` → `ROOM__SLAVER`.
+**Registration pattern (both keys):** `BOOSTING.MAP().tryGet(fullKey)` first; if null, fall back to `BOOSTING.push(pushKey, 1.0, name, desc, icon, BOOSTABLES.ROOMS())`. So registration works whether or not a data file is present.
 
-**ROOM_SLAVER facts:**
-- Internal key: `"_SLAVER"`, no existing boostable (bonus() returns null)
-- Converts prisoners to slaves via `Enslaved` AI + `WorkSlaver` AI
-- Station count determined by furniture; default workers = ceil(stations/4)
-- No `Industry` hook — effect application requires a Java script
+**Implemented boostables:**
 
-**Effect target decision (FINALIZED):** Option B — Per-Entity Submission Bonus.
+1. `ROOM__SLAVER` — registered programmatically (no data file). Effect attaches a `BoosterValue` to `BOOSTABLES.BEHAVIOUR().SUBMISSION` via a full `BValue`:
+   - `vGet(Induvidual)` returns `roomSlaver.get(player) - baseValue` only for `HTYPES.SLAVE()` whose `arrive == CAUSE_ARRIVES.PAROLE()` (i.e., produced by the Slaver room; vanilla sets PAROLE on slaver-room converts in `Enslaved.java:82`; trade slaves get `IMMIGRATED`).
+   - `vGet(Player)` / `vGet(PopTime)` returns `delta * processedRatio` for uprising risk.
+   - `processedRatio = parole_slaves / total_slaves` recomputed every 4s in `SCRIPT_INSTANCE.update` and immediately in `load`.
 
-The bonus applies a `BEHAVIOUR_SUBMISSION` modifier only to slaves that were processed through the Slaver room, not to trade slaves or born slaves.
+2. `ROOM__CANNIBAL` — registered both via data files (`V70/assets/{init,text}/stats/boost/__CANNIBAL.txt`) and the same programmatic fallback. Effect multiplies butcher yields at Cannibal Rooms by replacing each `Race.resources` `RES_AMOUNT.Imp` entry with a `BoostedResAmount` wrapper whose `amount()` returns `round(baseAmount * boostable.get(FACTIONS.player()))`.
+   - Why this is scoped to butchering: `Race.resources()` is read by vanilla ONLY in `WorkCannibal.butcher2.produce` (for amounts) and `ROOM_CANNIBAL.resources()` (for resource-set discovery — reads only `.resource()`, not `.amount()`).
+   - Patching uses `snake2d.util.sets.ArrayList.replace(int, E)` — no reflection required.
+   - Patching runs in `initBeforeGameInited()` (after `RACES.expand()`).
 
-**Implementation approach:**
-- Uses vanilla per-entity `DataNibble("POP_ARRIVE")` accessed via `STATS.POP().COUNT.arrive.get(Induvidual)`, which stores the last arrival `CAUSE_ARRIVE` for each entity. Save-compatible.
-- Slaver-room converts: `arrive == CAUSE_ARRIVES.PAROLE()` (set in `Enslaved.java:82` via `HTypeSet(HTYPES.SLAVE(), null, CAUSE_ARRIVES.PAROLE())`)
-- Trade slaves: `arrive == CAUSE_ARRIVES.IMMIGRATED()` (set in `PeopleSpawner.java:151`)
-- PAROLE on a SLAVE is unambiguous — all other PAROLE uses result in HTYPES.SUBJECT(), not slaves.
-- Script maintains `processedRatio = parole_slaves / total_slaves`, recomputed every 4 seconds.
-- Custom `BValue` (full interface, not BValuePlayerOnly): `vGet(Induvidual)` does per-entity check; `vGet(Player)` / `vGet(PopTime)` returns delta * processedRatio for uprising risk.
+**Implementation rules (followed in MainScript):**
+- No Lombok. Explicit `public MainScript() {}`.
+- `SCRIPT_INSTANCE` inlined as anonymous class in `createInstance()` — no separate `InstanceScript.java`.
+- Errors via `System.err.println`, informational via `System.out.println`.
+- `BoostedResAmount` is a static nested final class implementing `RES_AMOUNT, Serializable`.
 
-**SPEC.md** is the master reference document at project root.
+**Build/install:**
+- Maven outputs `target/out/sos-extended-boostables/` with full V70/ structure.
+- Maven not on PATH; invoke via `"/Applications/IntelliJ IDEA.app/Contents/plugins/maven/lib/maven3/bin/mvn" -f .../pom.xml package`.
+- pom.xml: `mod.name=sos-extended-boostables`, `mod.author=Nate`, `mod.info="Adds ROOM__SLAVER and ROOM__CANNIBAL boostables."`. The `<artifactId>` remains `sos-scripting-template` (template-default, harmless).
 
-**How to apply:** See `SPEC.md` in project root for file format, naming conventions, and implementation guide.
+**SPEC.md** at project root remains the SLAVER-focused design doc; it is not the authoritative implementation reference anymore — read `MainScript.java` for current behavior.

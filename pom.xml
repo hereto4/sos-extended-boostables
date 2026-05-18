@@ -101,7 +101,7 @@
         <mod.name>sos-extended-boostables</mod.name>
         <mod.description>Adds extended boostable keys for room types not covered by vanilla.</mod.description>
         <mod.author>Nate</mod.author>
-        <mod.info>Adds ROOM__SLAVER and future room boostables.</mod.info>
+        <mod.info>Adds ROOM__SLAVER and ROOM__CANNIBAL boostables.</mod.info>
         <!--
             This is the game version you are currently using. When the game updates:
             * Download the new game version if you don't have it

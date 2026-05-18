@@ -6,6 +6,11 @@ import game.battle.div.Div;
 import game.faction.FACTIONS;
 import game.faction.npc.FactionNPC;
 import game.faction.player.Player;
+import init.race.RACES;
+import init.race.Race;
+import init.resources.RESOURCE;
+import init.resources.RESOURCES;
+import init.resources.RES_AMOUNT;
 import init.sprite.UI.UI;
 import init.type.CAUSE_ARRIVES;
 import init.type.HTYPES;
@@ -17,14 +22,20 @@ import settlement.stats.Induvidual;
 import settlement.stats.STATS;
 import snake2d.util.file.FileGetter;
 import snake2d.util.file.FilePutter;
+import snake2d.util.sets.ArrayList;
+import snake2d.util.sets.LIST;
+import snake2d.util.sprite.SPRITE;
 import world.map.regions.Region;
 
 import java.io.IOException;
+import java.io.Serializable;
 
 @SuppressWarnings("unused")
 public final class MainScript implements SCRIPT {
 
-    private static final String BOOSTABLE_KEY = "ROOM__SLAVER";
+    private static final String SLAVER_KEY = "ROOM__SLAVER";
+    private static final String CANNIBAL_KEY = "ROOM__CANNIBAL";
+
     private double processedRatio = 0.0;
 
     public MainScript() {}
@@ -36,7 +47,7 @@ public final class MainScript implements SCRIPT {
 
     @Override
     public CharSequence desc() {
-        return "Adds extended boostable support for the Slaver room.";
+        return "Adds extended boostable keys for room types not covered by vanilla.";
     }
 
     @Override
@@ -46,20 +57,33 @@ public final class MainScript implements SCRIPT {
 
     @Override
     public void initBeforeGameInited() {
-        if (BOOSTING.MAP().tryGet(BOOSTABLE_KEY) == null) {
-            BOOSTING.push("__SLAVER", 1.0,
-                    "Slaver",
-                    "The effectiveness of your Slaver room. Higher values increase the submission of slaves processed through it.",
-                    UI.icons().s.slave,
-                    BOOSTABLES.ROOMS());
+        Boostable roomSlaver = ensureBoostable(SLAVER_KEY, "__SLAVER", "Slaver",
+                "The effectiveness of your Slaver room. Higher values increase the submission of slaves processed through it.",
+                UI.icons().s.slave);
+        if (roomSlaver != null) {
+            registerSlaverEffect(roomSlaver);
         }
 
-        Boostable roomSlaver = BOOSTING.MAP().tryGet(BOOSTABLE_KEY);
-        if (roomSlaver == null) {
-            System.err.println("[sos-extended-boostables] Could not register boostable: " + BOOSTABLE_KEY);
-            return;
+        Boostable roomCannibal = ensureBoostable(CANNIBAL_KEY, "__CANNIBAL", "Cannibal Rooms",
+                "Multiplies the amount of resources gained when a corpse is butchered at a Cannibal Room. Per-race yields are defined in each race's RESOURCES.",
+                UI.icons().s.smallSkull);
+        if (roomCannibal != null) {
+            registerCannibalEffect(roomCannibal);
         }
+    }
 
+    private static Boostable ensureBoostable(String fullKey, String pushKey, String name, String desc, SPRITE icon) {
+        if (BOOSTING.MAP().tryGet(fullKey) == null) {
+            BOOSTING.push(pushKey, 1.0, name, desc, icon, BOOSTABLES.ROOMS());
+        }
+        Boostable b = BOOSTING.MAP().tryGet(fullKey);
+        if (b == null) {
+            System.err.println("[sos-extended-boostables] Could not register boostable: " + fullKey);
+        }
+        return b;
+    }
+
+    private void registerSlaverEffect(Boostable roomSlaver) {
         Boostable submission = BOOSTABLES.BEHAVIOUR().SUBMISSION;
         BSourceInfo info = new BSourceInfo("Slaver Training", UI.icons().s.slave);
 
@@ -88,6 +112,23 @@ public final class MainScript implements SCRIPT {
         };
 
         new BoosterValue(bv, info, 2.0, false).add(submission);
+    }
+
+    private void registerCannibalEffect(Boostable roomCannibal) {
+        int patched = 0;
+        for (Race race : RACES.all()) {
+            LIST<RES_AMOUNT> list = race.resources();
+            if (!(list instanceof ArrayList)) continue;
+            @SuppressWarnings("unchecked")
+            ArrayList<RES_AMOUNT> al = (ArrayList<RES_AMOUNT>) list;
+            for (int i = 0; i < al.size(); i++) {
+                RES_AMOUNT a = al.get(i);
+                if (a instanceof BoostedResAmount) continue;
+                al.replace(i, new BoostedResAmount(a.resource(), a.amount(), roomCannibal));
+                patched++;
+            }
+        }
+        System.out.println("[sos-extended-boostables] Wrapped " + patched + " race RESOURCES entries with " + CANNIBAL_KEY + " multiplier.");
     }
 
     @Override
@@ -125,5 +166,30 @@ public final class MainScript implements SCRIPT {
                 processed++;
         }
         processedRatio = total == 0 ? 0.0 : (double) processed / total;
+    }
+
+    private static final class BoostedResAmount implements RES_AMOUNT, Serializable {
+        private static final long serialVersionUID = 1L;
+        private final byte cIndex;
+        private final int baseAmount;
+        private final Boostable boost;
+
+        BoostedResAmount(RESOURCE resource, int baseAmount, Boostable boost) {
+            this.cIndex = resource.bIndex();
+            this.baseAmount = baseAmount;
+            this.boost = boost;
+        }
+
+        @Override
+        public RESOURCE resource() {
+            return RESOURCES.ALL().get(cIndex);
+        }
+
+        @Override
+        public int amount() {
+            double mult = boost.get(FACTIONS.player());
+            if (mult <= 0) return 0;
+            return (int) Math.round(baseAmount * mult);
+        }
     }
 }
