@@ -13,3 +13,5 @@
 - [Modding Workflow Constraints](feedback_modding_workflow.md) — Minimize vanilla overwrites; use data files + SCRIPT API; .claude/game-source-java is read-only reference
 - [Conform New Features to Existing Patterns](feedback_conform_to_existing_patterns.md) — When extending a mod, mirror an already-implemented feature's key naming, registration approach, file layout, and style
 - [Memory File Location Policy](feedback_memory_location.md) — Project memories live in `[project]/.claude/memory/`, not the user-level auto-memory path; load and save here
+- [Maven (IntelliJ-bundled) path](reference_maven_intellij.md) — `mvn` not on PATH; use IntelliJ's bundled mvn.cmd absolute path for builds
+- [Do not clobber _Info.txt](feedback_info_txt_clobber.md) — `mvn install`'s `copy-mod-info` step rewrites project-root `_Info.txt` from a pom template; sync pom before building, never patch the rendered file

@@ -64,9 +64,9 @@ public final class MainScript implements SCRIPT {
             registerSlaverEffect(roomSlaver);
         }
 
-        Boostable roomCannibal = ensureBoostable(CANNIBAL_KEY, "__CANNIBAL", "Cannibal Rooms",
-                "Multiplies the amount of resources gained when a corpse is butchered at a Cannibal Room. Per-race yields are defined in each race's RESOURCES.",
-                UI.icons().s.smallSkull);
+        Boostable roomCannibal = ensureBoostable(CANNIBAL_KEY, "__CANNIBAL", "Cannibal",
+                "Multiplies the amount of resources gained when a corpse is butchered at a Cannibal Room.",
+                SETT.ROOMS().CANNIBAL.icon);
         if (roomCannibal != null) {
             registerCannibalEffect(roomCannibal);
         }
