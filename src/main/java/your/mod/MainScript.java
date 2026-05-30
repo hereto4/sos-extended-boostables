@@ -1,7 +1,6 @@
 package your.mod;
 
 import game.boosting.*;
-import game.boosting.BValue.PopTime;
 import game.battle.div.Div;
 import game.faction.FACTIONS;
 import game.faction.npc.FactionNPC;
@@ -13,6 +12,7 @@ import init.resources.RESOURCES;
 import init.resources.RES_AMOUNT;
 import init.sprite.UI.UI;
 import init.type.CAUSE_ARRIVES;
+import init.type.HCLASS_RACE;
 import init.type.HTYPES;
 import script.SCRIPT;
 import settlement.entity.ENTITY;
@@ -101,8 +101,10 @@ public final class MainScript implements SCRIPT {
                 return (roomSlaver.get(f) - roomSlaver.baseValue) * processedRatio;
             }
 
+            // v71: BValue.PopTime was removed and replaced by the per-population-class
+            // query vGet(HCLASS_RACE). Mirror the old PopTime aggregate value here.
             @Override
-            public double vGet(PopTime t) {
+            public double vGet(HCLASS_RACE reg) {
                 return (roomSlaver.get(FACTIONS.player()) - roomSlaver.baseValue) * processedRatio;
             }
 
