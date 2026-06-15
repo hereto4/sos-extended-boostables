@@ -2,16 +2,23 @@ package your.mod;
 
 import game.boosting.*;
 import game.battle.div.Div;
+import game.battle.thread.status.DivStatus;
 import game.faction.FACTIONS;
 import game.faction.npc.FactionNPC;
 import game.faction.player.Player;
+import game.time.TIME;
+import init.constant.Config;
 import init.race.RACES;
 import init.race.Race;
 import init.resources.RESOURCE;
 import init.resources.RESOURCES;
 import init.resources.RES_AMOUNT;
 import init.sprite.UI.UI;
+import init.trade.TR;
+import init.trade.TRADE_TYPE;
 import init.type.CAUSE_ARRIVES;
+import init.type.HCLASS;
+import init.type.HCLASSES;
 import init.type.HCLASS_RACE;
 import init.type.HTYPES;
 import script.SCRIPT;
@@ -20,23 +27,82 @@ import settlement.entity.humanoid.Humanoid;
 import settlement.main.SETT;
 import settlement.stats.Induvidual;
 import settlement.stats.STATS;
+import settlement.stats.stat.STAT;
+import settlement.stats.standing.STANDINGS;
+import settlement.stats.standing.StatStanding;
 import snake2d.util.file.FileGetter;
 import snake2d.util.file.FilePutter;
+import snake2d.util.misc.CLAMP;
 import snake2d.util.sets.ArrayList;
 import snake2d.util.sets.LIST;
 import snake2d.util.sprite.SPRITE;
+import world.WORLD;
+import world.army.AD;
+import world.entity.army.WArmy;
+import world.entity.caravan.Shipment;
 import world.map.regions.Region;
+import world.region.RD;
 
 import java.io.IOException;
 import java.io.Serializable;
+import java.lang.reflect.Field;
+import java.util.Collections;
+import java.util.IdentityHashMap;
+import java.util.Set;
 
 @SuppressWarnings("unused")
 public final class MainScript implements SCRIPT {
 
     private static final String SLAVER_KEY = "ROOM__SLAVER";
     private static final String CANNIBAL_KEY = "ROOM__CANNIBAL";
+    private static final String PLUNDER_KEY = "CIVIC_PLUNDER";
+
+    // Each ROOM_*_ALL umbrella key plus the child prefix it cascades to.
+    private static final String MINE_ALL_KEY = "ROOM_MINE_ALL";
+    private static final String WORKSHOP_ALL_KEY = "ROOM_WORKSHOP_ALL";
+    private static final String FARM_ALL_KEY = "ROOM_FARM_ALL";
+    private static final String REFINER_ALL_KEY = "ROOM_REFINER_ALL";
+
+    /** Vanilla raid loots once every this many seconds of raiding (WArmyState.raiding accumulator). */
+    private static final double RAID_PERIOD = 120.0;
+
+    // BATTLE_FEAR: a per-division aura. A division projects fear equal to its soldiers' BATTLE_FEAR
+    // (race-sourced, so the division value is that race's fear); enemy divisions within range take a
+    // morale penalty that falls off linearly with distance and is capped/floored.
+    private static final String FEAR_KEY = "BATTLE_FEAR";
+    private static final double FEAR_AURA_RANGE = 8.0;    // tiles; fear falls to 0 at this distance
+    private static final double FEAR_INTENSITY_SCALE = 1.0; // summed fear -> intensity (pre-clamp)
+    private static final double FEAR_MORALE_FLOOR = 0.4;  // most fear can do: morale ×0.4
+    private static final int FEAR_MAX_ENEMIES = 8;        // cap on nearby enemies considered
+
+    private Boostable battleFear;
+
+    // STAT_* prefix: keys that scale a race-stat value. First one: STAT_WORK_RETIREMENT, which
+    // multiplies how much retirement contributes to subjects' fulfillment (a net boost: the
+    // retirement weight scales, the fulfillment denominator is held at baseline).
+    private static final String STAT_RETIREMENT_KEY = "STAT_WORK_RETIREMENT";
+    private static final String RETIREMENT_STAT_KEY = "WORK_RETIREMENT";
+    private static final double STAT_REFRESH_SECONDS = 2.0;
 
     private double processedRatio = 0.0;
+
+    /** CIVIC_PLUNDER, resolved at init; null until then. */
+    private Boostable civicPlunder;
+
+    /** Per-army raid accumulators, mirroring WArmy.stateFloat for player raiders only. */
+    private final IdentityHashMap<WArmy, Double> raidTimers = new IdentityHashMap<>();
+    private final Set<WArmy> seenRaiders = Collections.newSetFromMap(new IdentityHashMap<WArmy, Boolean>());
+
+    // --- STAT_WORK_RETIREMENT state (all reflection guarded; on any failure we disable cleanly) ---
+    private Boostable statRetirement;     // the CIVIC-less STAT_WORK_RETIREMENT boostable
+    private STAT retirementStat;          // the engine WORK_RETIREMENT standing stat
+    private double statTimer = 0;
+    private boolean statInited = false;
+    private boolean statDisabled = false;
+    private double statLastF = Double.NaN;
+    private Field fMax, fFrom, fTo, fMaxes, fDefs;
+    private double[][] baseWeights;       // [race.index][hclass.index] baseline retirement weights
+    private double[] baseCitMaxes, baseCitDefs, baseSlaMaxes, baseSlaDefs;
 
     public MainScript() {}
 
@@ -59,22 +125,72 @@ public final class MainScript implements SCRIPT {
     public void initBeforeGameInited() {
         Boostable roomSlaver = ensureBoostable(SLAVER_KEY, "__SLAVER", "Slaver",
                 "The effectiveness of your Slaver room. Higher values increase the submission of slaves processed through it.",
-                UI.icons().s.slave);
+                UI.icons().s.slave, BOOSTABLES.ROOMS());
         if (roomSlaver != null) {
             registerSlaverEffect(roomSlaver);
         }
 
         Boostable roomCannibal = ensureBoostable(CANNIBAL_KEY, "__CANNIBAL", "Cannibal",
                 "Multiplies the amount of resources gained when a corpse is butchered at a Cannibal Room.",
-                SETT.ROOMS().CANNIBAL.icon);
+                SETT.ROOMS().CANNIBAL.icon, BOOSTABLES.ROOMS());
         if (roomCannibal != null) {
             registerCannibalEffect(roomCannibal);
         }
+
+        // CIVIC_PLUNDER: increases resources gained from raiding with your armies on enemy territory.
+        // (Distinct from vanilla CIVIC_RAIDING / "Raid Security", which lowers the chance of being raided.)
+        civicPlunder = ensureBoostable(PLUNDER_KEY, "PLUNDER", "Raid Plunder",
+                "Multiplies the resources your armies plunder while raiding enemy territory.",
+                UI.icons().s.sword, BOOSTABLES.CIVICS());
+
+        // ROOM_*_ALL umbrella keys: one tooltip line that cascades to every matching room boostable.
+        registerRoomAllCascade(MINE_ALL_KEY, "MINE_ALL", "Mines (All)", "ROOM_MINE_",
+                "Affects every Mine room type at once.");
+        registerRoomAllCascade(WORKSHOP_ALL_KEY, "WORKSHOP_ALL", "Workshops (All)", "ROOM_WORKSHOP_",
+                "Affects every Workshop room type at once.");
+        registerRoomAllCascade(FARM_ALL_KEY, "FARM_ALL", "Farms (All)", "ROOM_FARM_",
+                "Affects every Farm room type at once.");
+        registerRoomAllCascade(REFINER_ALL_KEY, "REFINER_ALL", "Refineries (All)", "ROOM_REFINER_",
+                "Affects every Refinery room type at once.");
+
+        // STAT_* prefix. New BoostableCat whose prefix is "STAT_"; push key "WORK_RETIREMENT"
+        // -> "STAT_WORK_RETIREMENT". Effect applied at runtime via handleStatRetirement().
+        BoostableCat statCat = new BoostableCat("STAT_", "Stats", "", BoostableCat.TYPE_SETT, UI.icons().s.human);
+        statRetirement = ensureBoostable(STAT_RETIREMENT_KEY, "WORK_RETIREMENT", "Retirement Desire",
+                "Multiplies how much retirement contributes to your subjects' fulfillment.",
+                UI.icons().s.human, statCat);
+        retirementStat = findStat(RETIREMENT_STAT_KEY);
+        if (retirementStat == null) {
+            System.err.println("[sos-extended-boostables] STAT_WORK_RETIREMENT: stat '" + RETIREMENT_STAT_KEY + "' not found; disabling.");
+            statDisabled = true;
+        }
+
+        // BATTLE_FEAR: register in the BATTLE category (base 0 — no fear by default; races add via
+        // BATTLE_FEAR>ADD). Then install the morale aura. Registered here so it exists when race
+        // BOOST promises resolve at finishSetup.
+        battleFear = ensureBoostable(FEAR_KEY, "FEAR", "Fear",
+                "Soldiers who project fear lower the BATTLE_MORALE of nearby enemy divisions. Grant via a race's BATTLE_FEAR>ADD.",
+                UI.icons().s.crazy, BOOSTABLES.BATTLE(), 0.0);
+        if (battleFear != null) {
+            registerFearAura(battleFear);
+        }
     }
 
-    private static Boostable ensureBoostable(String fullKey, String pushKey, String name, String desc, SPRITE icon) {
+    private static STAT findStat(String key) {
+        for (STAT s : STATS.all()) {
+            if (key.equals(s.key()))
+                return s;
+        }
+        return null;
+    }
+
+    private static Boostable ensureBoostable(String fullKey, String pushKey, String name, String desc, SPRITE icon, BoostableCat cat) {
+        return ensureBoostable(fullKey, pushKey, name, desc, icon, cat, 1.0);
+    }
+
+    private static Boostable ensureBoostable(String fullKey, String pushKey, String name, String desc, SPRITE icon, BoostableCat cat, double baseValue) {
         if (BOOSTING.MAP().tryGet(fullKey) == null) {
-            BOOSTING.push(pushKey, 1.0, name, desc, icon, BOOSTABLES.ROOMS());
+            BOOSTING.push(pushKey, baseValue, name, desc, icon, cat);
         }
         Boostable b = BOOSTING.MAP().tryGet(fullKey);
         if (b == null) {
@@ -133,6 +249,86 @@ public final class MainScript implements SCRIPT {
         System.out.println("[sos-extended-boostables] Wrapped " + patched + " race RESOURCES entries with " + CANNIBAL_KEY + " multiplier.");
     }
 
+    /**
+     * Installs the BATTLE_FEAR morale aura: a multiplicative factor on BATTLE_MORALE whose intensity,
+     * for a division, comes from nearby <em>enemy</em> divisions that project fear. Mirrors how the
+     * engine's own morale factors (Situation/Surrounded) work — it reads the per-division nearby-enemy
+     * list the engine already maintains in {@link DivStatus}, so there is no spatial work of our own
+     * and no per-soldier cost. Morale is a division-level boostable, queried ~once/second/division.
+     *
+     * <p>Span [1, FLOOR] with isMul: intensity 0 → ×1 (no effect, incl. all non-Div queries), intensity
+     * 1 → ×FLOOR. Intensity = clamp(Σ enemyFear × linearFalloff, 0, 1), so multiple nearby fearful
+     * enemies stack but are capped, and the floor bounds the worst case.
+     */
+    private void registerFearAura(Boostable fear) {
+        Boostable morale = BOOSTABLES.BATTLE().MORALE;
+        BSourceInfo info = new BSourceInfo("Fear", UI.icons().s.crazy);
+
+        BValue bv = new BValue() {
+            @Override public double vGet(Div d) { return fearIntensity(d, fear); }
+            @Override public double vGet(Induvidual indu) { return 0; }
+            @Override public double vGet(Player f) { return 0; }
+            @Override public double vGet(FactionNPC f) { return 0; }
+            @Override public double vGet(Region reg) { return 0; }
+            @Override public double vGet(HCLASS_RACE reg) { return 0; }
+        };
+
+        new BoosterValue(bv, info, 1.0, FEAR_MORALE_FLOOR, true).add(morale);
+    }
+
+    /** Total fear intensity (0..1) bearing on division {@code d} from nearby enemy divisions. */
+    private static double fearIntensity(Div d, Boostable fear) {
+        if (d == null) return 0;
+        DivStatus st = d.status();
+        if (st == null) return 0;
+        int n = st.enemiesClosest();
+        if (n <= 0) return 0;
+
+        ArrayList<Div> buf = new ArrayList<>(FEAR_MAX_ENEMIES);
+        st.enemiesClosest(buf);
+
+        double sum = 0;
+        int c = Math.min(buf.size(), FEAR_MAX_ENEMIES);
+        for (int i = 0; i < c; i++) {
+            Div e = buf.get(i);
+            if (e == null || e.men() == 0) continue;
+            double ef = fear.get(e);
+            if (ef <= 0) continue;
+            double falloff = 1.0 - st.enemyClosestDist(i) / FEAR_AURA_RANGE;
+            if (falloff <= 0) continue;
+            sum += ef * falloff;
+        }
+        return CLAMP.d(sum * FEAR_INTENSITY_SCALE, 0, 1);
+    }
+
+    /**
+     * Registers a single ROOM_*_ALL umbrella boostable and makes its value cascade onto every existing
+     * boostable whose key starts with {@code childPrefix}. A tech that boosts the umbrella shows ONE line
+     * ("Mines (All) *1.5") yet every matching room is multiplied. The umbrella resolves tech boosts per
+     * target via the engine's BValueFaction, so the cascade is correct for any query target (the employee
+     * Induvidual that room production passes in).
+     */
+    private void registerRoomAllCascade(String fullKey, String pushKey, String name, String childPrefix, String desc) {
+        // Collect children BEFORE pushing the umbrella so the umbrella can never be its own child.
+        snake2d.util.sets.ArrayListGrower<Boostable> children = new snake2d.util.sets.ArrayListGrower<>();
+        SPRITE icon = UI.icons().s.house;
+        for (Boostable b : BOOSTING.ALL()) {
+            if (b.key != null && b.key.startsWith(childPrefix) && !b.key.equals(fullKey)) {
+                if (children.size() == 0) icon = b.nativeIcon;
+                children.add(b);
+            }
+        }
+
+        Boostable umbrella = ensureBoostable(fullKey, pushKey, name, desc, icon, BOOSTABLES.ROOMS());
+        if (umbrella == null) return;
+
+        BSourceInfo info = new BSourceInfo(name, icon);
+        for (Boostable child : children) {
+            new UmbrellaBooster(umbrella, info).add(child);
+        }
+        System.out.println("[sos-extended-boostables] " + fullKey + " cascades to " + children.size() + " room boostables.");
+    }
+
     @Override
     public SCRIPT_INSTANCE createInstance() {
         return new SCRIPT_INSTANCE() {
@@ -141,9 +337,17 @@ public final class MainScript implements SCRIPT {
             @Override
             public void update(double ds) {
                 timer -= ds;
-                if (timer > 0) return;
-                timer = 4.0;
-                recomputeRatio();
+                if (timer <= 0) {
+                    timer = 4.0;
+                    recomputeRatio();
+                }
+                handleRaidPlunder(ds);
+
+                statTimer -= ds;
+                if (statTimer <= 0) {
+                    statTimer = STAT_REFRESH_SECONDS;
+                    handleStatRetirement();
+                }
             }
 
             @Override
@@ -152,6 +356,8 @@ public final class MainScript implements SCRIPT {
             @Override
             public void load(FileGetter file) throws IOException {
                 recomputeRatio();
+                raidTimers.clear();
+                statTimer = 0; // reassert STAT scaling promptly after load (engine setAll ran during load)
             }
         };
     }
@@ -168,6 +374,158 @@ public final class MainScript implements SCRIPT {
                 processed++;
         }
         processedRatio = total == 0 ? 0.0 : (double) processed / total;
+    }
+
+    /**
+     * Delivers supplemental raid spoils for CIVIC_PLUNDER. Vanilla still loots its full 100% inside
+     * WArmyState.raiding; here we additionally ship {@code (plunder-1)} times the same per-tick loot for
+     * each player army actually in the raiding state. This leaves all vanilla mechanics intact
+     * (raiding(), UI, sprites, devastation, population loss) and touches only the resource spoils, which is
+     * exactly "resources gained from raiding". Battle-victory and conquest spoils are untouched.
+     */
+    private void handleRaidPlunder(double ds) {
+        if (civicPlunder == null) return;
+        Player p = FACTIONS.player();
+        if (p == null || p.capitolRegion() == null) {
+            if (!raidTimers.isEmpty()) raidTimers.clear();
+            return;
+        }
+        double plunder = civicPlunder.get(p);
+        if (plunder <= 1.0) {
+            if (!raidTimers.isEmpty()) raidTimers.clear();
+            return;
+        }
+        double bonus = plunder - 1.0;
+
+        seenRaiders.clear();
+        for (WArmy a : p.armies().all()) {
+            if (!a.raiding()) continue;
+            Region reg = a.region();
+            if (reg == null) continue;
+            seenRaiders.add(a);
+
+            Double prev = raidTimers.get(a);
+            double acc = (prev == null ? 0.0 : prev) + ds;
+            if (acc >= RAID_PERIOD) {
+                acc -= RAID_PERIOD;
+                emitRaidBonus(a, reg, p, bonus);
+            }
+            raidTimers.put(a, acc);
+        }
+
+        // Drop accumulators for armies that are no longer raiding / no longer exist.
+        if (raidTimers.size() != seenRaiders.size()) {
+            raidTimers.keySet().retainAll(seenRaiders);
+        }
+    }
+
+    /** Replicates the per-tick loot of WArmyState.raiding, scaled by {@code bonus} (= plunder-1). */
+    private void emitRaidBonus(WArmy a, Region reg, Player p, double bonus) {
+        // Once the region is fully devastated vanilla loots nothing, so neither do we.
+        if (RD.DEVASTATION().current.get(reg) >= RD.DEVASTATION().current.max(reg))
+            return;
+
+        double rd = RD.RACES().popSize(reg);
+        if (rd <= 0) return;
+        double ad = (double) AD.men(null).get(a) / Config.battle().MEN_PER_ARMY;
+        double dd = ad / rd;
+        double d = 180 * dd / (TIME.secondsPerDay() * 4);
+        if (d <= 0) return;
+
+        Shipment s = null;
+        for (RESOURCE res : RESOURCES.ALL()) {
+            int baseAm = (int) Math.ceil(RD.OUTPUT().get(TR.get(res)).loot(reg) * d * 10.0);
+            int am = (int) Math.round(baseAm * bonus);
+            if (am > 0) {
+                if (s == null) {
+                    s = WORLD.ENTITIES().caravans.create(a.ctx(), a.cty(), p.capitolRegion(), TRADE_TYPE.spoils);
+                    if (s == null) return;
+                }
+                s.loadAndReserve(TR.get(res), am);
+            }
+        }
+    }
+
+    /**
+     * Applies STAT_WORK_RETIREMENT. The engine has no boostable seam in the standing system, so we
+     * reflectively scale the WORK_RETIREMENT per-class standing weight (a {@code final} field) by
+     * F = STAT_WORK_RETIREMENT.get(player) for every race, and hold the cached fulfillment
+     * denominators ({@code StandingCitizen.maxes/defs}) at their baseline so the result is a *net*
+     * boost to retirement fulfillment rather than a reweighting. All writes are absolute (idempotent)
+     * and fully guarded — any reflection failure disables the feature without affecting the game.
+     * The standing computation itself is untouched, so there is no per-subject runtime cost; this
+     * runs only every {@link #STAT_REFRESH_SECONDS}s and the weight rescale is skipped when F is
+     * unchanged.
+     */
+    private void handleStatRetirement() {
+        if (statDisabled || statRetirement == null || retirementStat == null) return;
+        Player p = FACTIONS.player();
+        if (p == null) return;
+        try {
+            if (!statInited) initStatReflection();
+
+            double f = statRetirement.get(p);
+            if (f != statLastF) {
+                for (Race r : RACES.all()) {
+                    StatStanding.StandingDef def = r.stats().def(retirementStat.standing());
+                    if (def == null) continue;
+                    double[] bw = baseWeights[r.index];
+                    for (HCLASS c : HCLASSES.ALL()) {
+                        StatStanding.StandingDef.StandingData sd = def.get(c);
+                        double v = bw[c.index()] * f;
+                        fMax.setDouble(sd, v);
+                        if (def.inverted) { fFrom.setDouble(sd, v); fTo.setDouble(sd, 0.0); }
+                        else { fFrom.setDouble(sd, 0.0); fTo.setDouble(sd, v); }
+                    }
+                }
+                statLastF = f;
+            }
+
+            // Hold the fulfillment denominators at baseline so scaled retirement is a net gain, not a
+            // reweight. The engine only writes these in setAll() (init/load), so reasserting here also
+            // repairs them after a load.
+            restoreDenominators(STANDINGS.CITIZEN(), baseCitMaxes, baseCitDefs);
+            restoreDenominators(STANDINGS.SLAVE(), baseSlaMaxes, baseSlaDefs);
+        } catch (Throwable t) {
+            statDisabled = true;
+            System.err.println("[sos-extended-boostables] STAT_WORK_RETIREMENT disabled (reflection failed): " + t);
+        }
+    }
+
+    private void initStatReflection() throws Exception {
+        StatStanding.StandingDef sample = RACES.all().get(0).stats().def(retirementStat.standing());
+        Class<?> sdClass = sample.get(HCLASSES.ALL().get(0)).getClass();
+        fMax = sdClass.getDeclaredField("max");   fMax.setAccessible(true);
+        fFrom = sdClass.getDeclaredField("from");  fFrom.setAccessible(true);
+        fTo = sdClass.getDeclaredField("to");      fTo.setAccessible(true);
+
+        Class<?> scClass = STANDINGS.CITIZEN().getClass();
+        fMaxes = scClass.getDeclaredField("maxes"); fMaxes.setAccessible(true);
+        fDefs = scClass.getDeclaredField("defs");   fDefs.setAccessible(true);
+
+        // Capture baseline per-class weights (read happens before any scaling -> true baseline).
+        baseWeights = new double[RACES.all().size()][];
+        for (Race r : RACES.all()) {
+            StatStanding.StandingDef def = r.stats().def(retirementStat.standing());
+            double[] bw = new double[HCLASSES.ALL().size()];
+            for (HCLASS c : HCLASSES.ALL())
+                bw[c.index()] = def.get(c).max;
+            baseWeights[r.index] = bw;
+        }
+
+        baseCitMaxes = ((double[]) fMaxes.get(STANDINGS.CITIZEN())).clone();
+        baseCitDefs  = ((double[]) fDefs.get(STANDINGS.CITIZEN())).clone();
+        baseSlaMaxes = ((double[]) fMaxes.get(STANDINGS.SLAVE())).clone();
+        baseSlaDefs  = ((double[]) fDefs.get(STANDINGS.SLAVE())).clone();
+
+        statInited = true;
+    }
+
+    private void restoreDenominators(Object standingCitizen, double[] baseMaxes, double[] baseDefs) throws Exception {
+        double[] m = (double[]) fMaxes.get(standingCitizen);
+        double[] d = (double[]) fDefs.get(standingCitizen);
+        System.arraycopy(baseMaxes, 0, m, 0, Math.min(baseMaxes.length, m.length));
+        System.arraycopy(baseDefs, 0, d, 0, Math.min(baseDefs.length, d.length));
     }
 
     private static final class BoostedResAmount implements RES_AMOUNT, Serializable {
@@ -192,6 +550,40 @@ public final class MainScript implements SCRIPT {
             double mult = boost.get(FACTIONS.player());
             if (mult <= 0) return 0;
             return (int) Math.round(baseAmount * mult);
+        }
+    }
+
+    /**
+     * A multiplicative factor placed on each ROOM_*_X boostable whose value mirrors the live aggregated
+     * value of an umbrella ROOM_*_ALL boostable for the same query target. getValue is identity, so
+     * {@code get(o) == umbrella.get(o)}. No deadlock: the umbrella never references its children.
+     */
+    private static final class UmbrellaBooster extends Booster {
+        private final Boostable umbrella;
+
+        UmbrellaBooster(Boostable umbrella, BSourceInfo info) {
+            super(info, true); // multiplicative
+            this.umbrella = umbrella;
+        }
+
+        @Override
+        public double from() {
+            return 1.0;
+        }
+
+        @Override
+        public double to() {
+            return 1.0;
+        }
+
+        @Override
+        public double getValue(double input) {
+            return input;
+        }
+
+        @Override
+        protected double pget(BOOSTABLE_O o) {
+            return umbrella.get(o);
         }
     }
 }

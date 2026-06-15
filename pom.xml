@@ -101,7 +101,7 @@
         <mod.name>Extended Boostables</mod.name>
         <mod.description>Adds extended boostable keys for room types not covered by vanilla.</mod.description>
         <mod.author>Glorfy</mod.author>
-        <mod.info>Adds ROOM__SLAVER and ROOM__CANNIBAL boostables.</mod.info>
+        <mod.info>Adds ROOM__SLAVER, ROOM__CANNIBAL, CIVIC_PLUNDER, ROOM_MINE/WORKSHOP/FARM/REFINER_ALL, STAT_WORK_RETIREMENT, and BATTLE_FEAR boostables.</mod.info>
         <!--
             This is the game version you are currently using. When the game updates:
             * Download the new game version if you don't have it
