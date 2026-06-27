@@ -1,5 +1,12 @@
 # sos-extended-boostables — Project Specification
 
+> **Status note (2026-06-27): `STAT_WORK_RETIREMENT` is DISABLED** (commented out in
+> `MainScript.java`, not deleted; 7 blocks + 6 imports tagged `STAT_WORK_RETIREMENT DISABLED
+> (2026-06-27)`). In v71 its reflective pinning of `StandingCitizen.maxes/defs` inflated player-city
+> happiness → runaway immigration, from a fresh start with no techs. Create-A-Culture was investigated
+> and exonerated. Re-enable only after re-validating the reflection against the v71 standing internals.
+> Full diagnosis: `.claude/memory/reference_immigration_happiness_bug.md`. Rebuild required afterward.
+
 ## Purpose
 Add new `ROOM_*`-style boostable keys to Songs of Syx (v70.32) that are not present in vanilla, enabling other mods and technologies to target room types that previously had no boostable. The first implementation is `ROOM__SLAVER`, targeting the Slaver room (`settlement.room.law.slaver.ROOM_SLAVER`).
 

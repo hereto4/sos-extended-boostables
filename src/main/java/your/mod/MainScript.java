@@ -17,19 +17,22 @@ import init.sprite.UI.UI;
 import init.trade.TR;
 import init.trade.TRADE_TYPE;
 import init.type.CAUSE_ARRIVES;
-import init.type.HCLASS;
-import init.type.HCLASSES;
+// STAT_WORK_RETIREMENT DISABLED (2026-06-27): HCLASS/HCLASSES used only by that feature.
+// import init.type.HCLASS;
+// import init.type.HCLASSES;
 import init.type.HCLASS_RACE;
 import init.type.HTYPES;
 import script.SCRIPT;
+import settlement.room.knowledge.university.ROOM_UNIVERSITY;
 import settlement.entity.ENTITY;
 import settlement.entity.humanoid.Humanoid;
 import settlement.main.SETT;
 import settlement.stats.Induvidual;
 import settlement.stats.STATS;
-import settlement.stats.stat.STAT;
-import settlement.stats.standing.STANDINGS;
-import settlement.stats.standing.StatStanding;
+// STAT_WORK_RETIREMENT DISABLED (2026-06-27): STAT/STANDINGS/StatStanding used only by that feature.
+// import settlement.stats.stat.STAT;
+// import settlement.stats.standing.STANDINGS;
+// import settlement.stats.standing.StatStanding;
 import snake2d.util.file.FileGetter;
 import snake2d.util.file.FilePutter;
 import snake2d.util.misc.CLAMP;
@@ -45,7 +48,8 @@ import world.region.RD;
 
 import java.io.IOException;
 import java.io.Serializable;
-import java.lang.reflect.Field;
+// STAT_WORK_RETIREMENT DISABLED (2026-06-27): reflection Field used only by that feature.
+// import java.lang.reflect.Field;
 import java.util.Collections;
 import java.util.IdentityHashMap;
 import java.util.Set;
@@ -56,6 +60,7 @@ public final class MainScript implements SCRIPT {
     private static final String SLAVER_KEY = "ROOM__SLAVER";
     private static final String CANNIBAL_KEY = "ROOM__CANNIBAL";
     private static final String PLUNDER_KEY = "CIVIC_PLUNDER";
+    private static final String INDOCTRINATION_KEY = "CIVIC_INDOCTRINATION";
 
     // Each ROOM_*_ALL umbrella key plus the child prefix it cascades to.
     private static final String MINE_ALL_KEY = "ROOM_MINE_ALL";
@@ -77,32 +82,44 @@ public final class MainScript implements SCRIPT {
 
     private Boostable battleFear;
 
+    // ===== STAT_WORK_RETIREMENT DISABLED (2026-06-27) =====================================
+    // Temporarily removed because its reflective standing/denominator manipulation inflated
+    // citizen happiness in v71 (-> runaway immigration). It runs every 2s regardless of techs,
+    // and no shipped tech/data file boosts the key (F is always 1.0), so it currently provides
+    // no benefit while pinning the v71 fulfillment denominators incorrectly. Re-enable only after
+    // re-validating the reflection against the v71 StandingCitizen/StandingData internals.
+    // To restore: uncomment this block plus the four other STAT_WORK_RETIREMENT-marked blocks.
+    //
     // STAT_* prefix: keys that scale a race-stat value. First one: STAT_WORK_RETIREMENT, which
     // multiplies how much retirement contributes to subjects' fulfillment (a net boost: the
     // retirement weight scales, the fulfillment denominator is held at baseline).
-    private static final String STAT_RETIREMENT_KEY = "STAT_WORK_RETIREMENT";
-    private static final String RETIREMENT_STAT_KEY = "WORK_RETIREMENT";
-    private static final double STAT_REFRESH_SECONDS = 2.0;
+    // private static final String STAT_RETIREMENT_KEY = "STAT_WORK_RETIREMENT";
+    // private static final String RETIREMENT_STAT_KEY = "WORK_RETIREMENT";
+    // private static final double STAT_REFRESH_SECONDS = 2.0;
 
     private double processedRatio = 0.0;
 
     /** CIVIC_PLUNDER, resolved at init; null until then. */
     private Boostable civicPlunder;
 
+    /** CIVIC_INDOCTRINATION, resolved at init; null until then. */
+    private Boostable civicIndoctrination;
+
     /** Per-army raid accumulators, mirroring WArmy.stateFloat for player raiders only. */
     private final IdentityHashMap<WArmy, Double> raidTimers = new IdentityHashMap<>();
     private final Set<WArmy> seenRaiders = Collections.newSetFromMap(new IdentityHashMap<WArmy, Boolean>());
 
+    // ===== STAT_WORK_RETIREMENT DISABLED (2026-06-27) — see note above; re-enable together =====
     // --- STAT_WORK_RETIREMENT state (all reflection guarded; on any failure we disable cleanly) ---
-    private Boostable statRetirement;     // the CIVIC-less STAT_WORK_RETIREMENT boostable
-    private STAT retirementStat;          // the engine WORK_RETIREMENT standing stat
-    private double statTimer = 0;
-    private boolean statInited = false;
-    private boolean statDisabled = false;
-    private double statLastF = Double.NaN;
-    private Field fMax, fFrom, fTo, fMaxes, fDefs;
-    private double[][] baseWeights;       // [race.index][hclass.index] baseline retirement weights
-    private double[] baseCitMaxes, baseCitDefs, baseSlaMaxes, baseSlaDefs;
+    // private Boostable statRetirement;     // the CIVIC-less STAT_WORK_RETIREMENT boostable
+    // private STAT retirementStat;          // the engine WORK_RETIREMENT standing stat
+    // private double statTimer = 0;
+    // private boolean statInited = false;
+    // private boolean statDisabled = false;
+    // private double statLastF = Double.NaN;
+    // private Field fMax, fFrom, fTo, fMaxes, fDefs;
+    // private double[][] baseWeights;       // [race.index][hclass.index] baseline retirement weights
+    // private double[] baseCitMaxes, baseCitDefs, baseSlaMaxes, baseSlaDefs;
 
     public MainScript() {}
 
@@ -143,6 +160,18 @@ public final class MainScript implements SCRIPT {
                 "Multiplies the resources your armies plunder while raiding enemy territory.",
                 UI.icons().s.sword, BOOSTABLES.CIVICS());
 
+        // CIVIC_INDOCTRINATION: increases the effectiveness (gain rate) of indoctrinating subjects.
+        // Indoctrination is accumulated in the seam-less StatsEducation.educate(), but a university's
+        // learningSpeed = learningSpeed*(1-degrade)*quality*bonus().get(subject), so a conditional factor
+        // on each university room's bonus() boostable scales the gain — for exactly the races on the
+        // indoctrination policy (see registerIndoctrinationEffect).
+        civicIndoctrination = ensureBoostable(INDOCTRINATION_KEY, "INDOCTRINATION", "Indoctrination",
+                "Multiplies how quickly subjects on the indoctrination policy are indoctrinated at universities.",
+                UI.icons().s.admin, BOOSTABLES.CIVICS());
+        if (civicIndoctrination != null) {
+            registerIndoctrinationEffect(civicIndoctrination);
+        }
+
         // ROOM_*_ALL umbrella keys: one tooltip line that cascades to every matching room boostable.
         registerRoomAllCascade(MINE_ALL_KEY, "MINE_ALL", "Mines (All)", "ROOM_MINE_",
                 "Affects every Mine room type at once.");
@@ -153,17 +182,18 @@ public final class MainScript implements SCRIPT {
         registerRoomAllCascade(REFINER_ALL_KEY, "REFINER_ALL", "Refineries (All)", "ROOM_REFINER_",
                 "Affects every Refinery room type at once.");
 
+        // ===== STAT_WORK_RETIREMENT DISABLED (2026-06-27) — see note on the constants block =====
         // STAT_* prefix. New BoostableCat whose prefix is "STAT_"; push key "WORK_RETIREMENT"
         // -> "STAT_WORK_RETIREMENT". Effect applied at runtime via handleStatRetirement().
-        BoostableCat statCat = new BoostableCat("STAT_", "Stats", "", BoostableCat.TYPE_SETT, UI.icons().s.human);
-        statRetirement = ensureBoostable(STAT_RETIREMENT_KEY, "WORK_RETIREMENT", "Retirement Desire",
-                "Multiplies how much retirement contributes to your subjects' fulfillment.",
-                UI.icons().s.human, statCat);
-        retirementStat = findStat(RETIREMENT_STAT_KEY);
-        if (retirementStat == null) {
-            System.err.println("[sos-extended-boostables] STAT_WORK_RETIREMENT: stat '" + RETIREMENT_STAT_KEY + "' not found; disabling.");
-            statDisabled = true;
-        }
+        // BoostableCat statCat = new BoostableCat("STAT_", "Stats", "", BoostableCat.TYPE_SETT, UI.icons().s.human);
+        // statRetirement = ensureBoostable(STAT_RETIREMENT_KEY, "WORK_RETIREMENT", "Retirement Desire",
+        //         "Multiplies how much retirement contributes to your subjects' fulfillment.",
+        //         UI.icons().s.human, statCat);
+        // retirementStat = findStat(RETIREMENT_STAT_KEY);
+        // if (retirementStat == null) {
+        //     System.err.println("[sos-extended-boostables] STAT_WORK_RETIREMENT: stat '" + RETIREMENT_STAT_KEY + "' not found; disabling.");
+        //     statDisabled = true;
+        // }
 
         // BATTLE_FEAR: register in the BATTLE category (base 0 — no fear by default; races add via
         // BATTLE_FEAR>ADD). Then install the morale aura. Registered here so it exists when race
@@ -174,15 +204,23 @@ public final class MainScript implements SCRIPT {
         if (battleFear != null) {
             registerFearAura(battleFear);
         }
+
+        // Low-Positive tooltip recolor: flip the engine's green/red for boostables where a LOWER value
+        // is the positive outcome (e.g. PHYSICS_SOILING). The color decision is hardcoded in the engine
+        // with no seam, so this self-attaches a Java agent that rewrites those methods. Fully guarded:
+        // if the JVM blocks self-attach it logs the -javaagent fallback and leaves tooltips as vanilla.
+        // See your.mod.boostcolor.LowPositiveColors / ColorAgent.
+        your.mod.boostcolor.ColorAgent.install();
     }
 
-    private static STAT findStat(String key) {
-        for (STAT s : STATS.all()) {
-            if (key.equals(s.key()))
-                return s;
-        }
-        return null;
-    }
+    // ===== STAT_WORK_RETIREMENT DISABLED (2026-06-27) — helper used only by that feature =====
+    // private static STAT findStat(String key) {
+    //     for (STAT s : STATS.all()) {
+    //         if (key.equals(s.key()))
+    //             return s;
+    //     }
+    //     return null;
+    // }
 
     private static Boostable ensureBoostable(String fullKey, String pushKey, String name, String desc, SPRITE icon, BoostableCat cat) {
         return ensureBoostable(fullKey, pushKey, name, desc, icon, cat, 1.0);
@@ -247,6 +285,34 @@ public final class MainScript implements SCRIPT {
             }
         }
         System.out.println("[sos-extended-boostables] Wrapped " + patched + " race RESOURCES entries with " + CANNIBAL_KEY + " multiplier.");
+    }
+
+    /**
+     * Installs the CIVIC_INDOCTRINATION effect. Indoctrination is accumulated in
+     * {@code StatsEducation.educate(indu, speed)}, which has no boostable seam, but a university's
+     * learning speed is {@code learningSpeed*(1-degrade)*quality*bonus().get(subject)} — so adding a
+     * conditional multiplicative {@link Booster} to each university room's {@code bonus()} boostable
+     * scales the learning speed, and therefore the indoctrination gain. The factor is {@code 1.0}
+     * (no-op) except for subjects whose race is on the indoctrination policy, where it equals
+     * {@code CIVIC_INDOCTRINATION.get(player)} — so education-only races are untouched and the boost
+     * only applies while a race is actually being indoctrinated. Same shape as the SLAVER/umbrella
+     * effects: a {@link Booster} added to an existing engine {@link Boostable}.
+     *
+     * <p>Schools ({@code ROOM_SCHOOL}) compute learning speed without a {@code bonus()} factor (they
+     * never register one — {@code bonus()} is null), so child indoctrination in schools is unaffected;
+     * universities are the covered venue.
+     */
+    private void registerIndoctrinationEffect(Boostable civic) {
+        BSourceInfo info = new BSourceInfo("Indoctrination", UI.icons().s.admin);
+        int patched = 0;
+        for (ROOM_UNIVERSITY u : SETT.ROOMS().UNIVERSITIES) {
+            Boostable bonus = u.bonus();
+            if (bonus == null) continue;
+            new IndoctrinationBooster(civic, info).add(bonus);
+            patched++;
+        }
+        System.out.println("[sos-extended-boostables] " + INDOCTRINATION_KEY
+                + " scales learning speed on " + patched + " university room type(s).");
     }
 
     /**
@@ -343,11 +409,12 @@ public final class MainScript implements SCRIPT {
                 }
                 handleRaidPlunder(ds);
 
-                statTimer -= ds;
-                if (statTimer <= 0) {
-                    statTimer = STAT_REFRESH_SECONDS;
-                    handleStatRetirement();
-                }
+                // ===== STAT_WORK_RETIREMENT DISABLED (2026-06-27) — see note on the constants block =====
+                // statTimer -= ds;
+                // if (statTimer <= 0) {
+                //     statTimer = STAT_REFRESH_SECONDS;
+                //     handleStatRetirement();
+                // }
             }
 
             @Override
@@ -357,7 +424,8 @@ public final class MainScript implements SCRIPT {
             public void load(FileGetter file) throws IOException {
                 recomputeRatio();
                 raidTimers.clear();
-                statTimer = 0; // reassert STAT scaling promptly after load (engine setAll ran during load)
+                // ===== STAT_WORK_RETIREMENT DISABLED (2026-06-27) =====
+                // statTimer = 0; // reassert STAT scaling promptly after load (engine setAll ran during load)
             }
         };
     }
@@ -446,87 +514,93 @@ public final class MainScript implements SCRIPT {
         }
     }
 
-    /**
-     * Applies STAT_WORK_RETIREMENT. The engine has no boostable seam in the standing system, so we
-     * reflectively scale the WORK_RETIREMENT per-class standing weight (a {@code final} field) by
-     * F = STAT_WORK_RETIREMENT.get(player) for every race, and hold the cached fulfillment
-     * denominators ({@code StandingCitizen.maxes/defs}) at their baseline so the result is a *net*
-     * boost to retirement fulfillment rather than a reweighting. All writes are absolute (idempotent)
-     * and fully guarded — any reflection failure disables the feature without affecting the game.
-     * The standing computation itself is untouched, so there is no per-subject runtime cost; this
-     * runs only every {@link #STAT_REFRESH_SECONDS}s and the weight rescale is skipped when F is
-     * unchanged.
-     */
-    private void handleStatRetirement() {
-        if (statDisabled || statRetirement == null || retirementStat == null) return;
-        Player p = FACTIONS.player();
-        if (p == null) return;
-        try {
-            if (!statInited) initStatReflection();
-
-            double f = statRetirement.get(p);
-            if (f != statLastF) {
-                for (Race r : RACES.all()) {
-                    StatStanding.StandingDef def = r.stats().def(retirementStat.standing());
-                    if (def == null) continue;
-                    double[] bw = baseWeights[r.index];
-                    for (HCLASS c : HCLASSES.ALL()) {
-                        StatStanding.StandingDef.StandingData sd = def.get(c);
-                        double v = bw[c.index()] * f;
-                        fMax.setDouble(sd, v);
-                        if (def.inverted) { fFrom.setDouble(sd, v); fTo.setDouble(sd, 0.0); }
-                        else { fFrom.setDouble(sd, 0.0); fTo.setDouble(sd, v); }
-                    }
-                }
-                statLastF = f;
-            }
-
-            // Hold the fulfillment denominators at baseline so scaled retirement is a net gain, not a
-            // reweight. The engine only writes these in setAll() (init/load), so reasserting here also
-            // repairs them after a load.
-            restoreDenominators(STANDINGS.CITIZEN(), baseCitMaxes, baseCitDefs);
-            restoreDenominators(STANDINGS.SLAVE(), baseSlaMaxes, baseSlaDefs);
-        } catch (Throwable t) {
-            statDisabled = true;
-            System.err.println("[sos-extended-boostables] STAT_WORK_RETIREMENT disabled (reflection failed): " + t);
-        }
-    }
-
-    private void initStatReflection() throws Exception {
-        StatStanding.StandingDef sample = RACES.all().get(0).stats().def(retirementStat.standing());
-        Class<?> sdClass = sample.get(HCLASSES.ALL().get(0)).getClass();
-        fMax = sdClass.getDeclaredField("max");   fMax.setAccessible(true);
-        fFrom = sdClass.getDeclaredField("from");  fFrom.setAccessible(true);
-        fTo = sdClass.getDeclaredField("to");      fTo.setAccessible(true);
-
-        Class<?> scClass = STANDINGS.CITIZEN().getClass();
-        fMaxes = scClass.getDeclaredField("maxes"); fMaxes.setAccessible(true);
-        fDefs = scClass.getDeclaredField("defs");   fDefs.setAccessible(true);
-
-        // Capture baseline per-class weights (read happens before any scaling -> true baseline).
-        baseWeights = new double[RACES.all().size()][];
-        for (Race r : RACES.all()) {
-            StatStanding.StandingDef def = r.stats().def(retirementStat.standing());
-            double[] bw = new double[HCLASSES.ALL().size()];
-            for (HCLASS c : HCLASSES.ALL())
-                bw[c.index()] = def.get(c).max;
-            baseWeights[r.index] = bw;
-        }
-
-        baseCitMaxes = ((double[]) fMaxes.get(STANDINGS.CITIZEN())).clone();
-        baseCitDefs  = ((double[]) fDefs.get(STANDINGS.CITIZEN())).clone();
-        baseSlaMaxes = ((double[]) fMaxes.get(STANDINGS.SLAVE())).clone();
-        baseSlaDefs  = ((double[]) fDefs.get(STANDINGS.SLAVE())).clone();
-
-        statInited = true;
-    }
-
-    private void restoreDenominators(Object standingCitizen, double[] baseMaxes, double[] baseDefs) throws Exception {
-        double[] m = (double[]) fMaxes.get(standingCitizen);
-        double[] d = (double[]) fDefs.get(standingCitizen);
-        System.arraycopy(baseMaxes, 0, m, 0, Math.min(baseMaxes.length, m.length));
-        System.arraycopy(baseDefs, 0, d, 0, Math.min(baseDefs.length, d.length));
-    }
+    // ===== STAT_WORK_RETIREMENT DISABLED (2026-06-27) ====================================
+    // The three methods below (handleStatRetirement / initStatReflection / restoreDenominators)
+    // are commented out together with the constants, fields, registration and update-tick blocks
+    // marked elsewhere. Reflectively pinning StandingCitizen.maxes/defs inflated v71 happiness.
+    // Uncomment all STAT_WORK_RETIREMENT-marked blocks to restore (after re-validating v71 fields).
+    //
+    // /**
+    //  * Applies STAT_WORK_RETIREMENT. The engine has no boostable seam in the standing system, so we
+    //  * reflectively scale the WORK_RETIREMENT per-class standing weight (a {@code final} field) by
+    //  * F = STAT_WORK_RETIREMENT.get(player) for every race, and hold the cached fulfillment
+    //  * denominators ({@code StandingCitizen.maxes/defs}) at their baseline so the result is a *net*
+    //  * boost to retirement fulfillment rather than a reweighting. All writes are absolute (idempotent)
+    //  * and fully guarded — any reflection failure disables the feature without affecting the game.
+    //  * The standing computation itself is untouched, so there is no per-subject runtime cost; this
+    //  * runs only every STAT_REFRESH_SECONDS s and the weight rescale is skipped when F is
+    //  * unchanged.
+    //  */
+    // private void handleStatRetirement() {
+    //     if (statDisabled || statRetirement == null || retirementStat == null) return;
+    //     Player p = FACTIONS.player();
+    //     if (p == null) return;
+    //     try {
+    //         if (!statInited) initStatReflection();
+    //
+    //         double f = statRetirement.get(p);
+    //         if (f != statLastF) {
+    //             for (Race r : RACES.all()) {
+    //                 StatStanding.StandingDef def = r.stats().def(retirementStat.standing());
+    //                 if (def == null) continue;
+    //                 double[] bw = baseWeights[r.index];
+    //                 for (HCLASS c : HCLASSES.ALL()) {
+    //                     StatStanding.StandingDef.StandingData sd = def.get(c);
+    //                     double v = bw[c.index()] * f;
+    //                     fMax.setDouble(sd, v);
+    //                     if (def.inverted) { fFrom.setDouble(sd, v); fTo.setDouble(sd, 0.0); }
+    //                     else { fFrom.setDouble(sd, 0.0); fTo.setDouble(sd, v); }
+    //                 }
+    //             }
+    //             statLastF = f;
+    //         }
+    //
+    //         // Hold the fulfillment denominators at baseline so scaled retirement is a net gain, not a
+    //         // reweight. The engine only writes these in setAll() (init/load), so reasserting here also
+    //         // repairs them after a load.
+    //         restoreDenominators(STANDINGS.CITIZEN(), baseCitMaxes, baseCitDefs);
+    //         restoreDenominators(STANDINGS.SLAVE(), baseSlaMaxes, baseSlaDefs);
+    //     } catch (Throwable t) {
+    //         statDisabled = true;
+    //         System.err.println("[sos-extended-boostables] STAT_WORK_RETIREMENT disabled (reflection failed): " + t);
+    //     }
+    // }
+    //
+    // private void initStatReflection() throws Exception {
+    //     StatStanding.StandingDef sample = RACES.all().get(0).stats().def(retirementStat.standing());
+    //     Class<?> sdClass = sample.get(HCLASSES.ALL().get(0)).getClass();
+    //     fMax = sdClass.getDeclaredField("max");   fMax.setAccessible(true);
+    //     fFrom = sdClass.getDeclaredField("from");  fFrom.setAccessible(true);
+    //     fTo = sdClass.getDeclaredField("to");      fTo.setAccessible(true);
+    //
+    //     Class<?> scClass = STANDINGS.CITIZEN().getClass();
+    //     fMaxes = scClass.getDeclaredField("maxes"); fMaxes.setAccessible(true);
+    //     fDefs = scClass.getDeclaredField("defs");   fDefs.setAccessible(true);
+    //
+    //     // Capture baseline per-class weights (read happens before any scaling -> true baseline).
+    //     baseWeights = new double[RACES.all().size()][];
+    //     for (Race r : RACES.all()) {
+    //         StatStanding.StandingDef def = r.stats().def(retirementStat.standing());
+    //         double[] bw = new double[HCLASSES.ALL().size()];
+    //         for (HCLASS c : HCLASSES.ALL())
+    //             bw[c.index()] = def.get(c).max;
+    //         baseWeights[r.index] = bw;
+    //     }
+    //
+    //     baseCitMaxes = ((double[]) fMaxes.get(STANDINGS.CITIZEN())).clone();
+    //     baseCitDefs  = ((double[]) fDefs.get(STANDINGS.CITIZEN())).clone();
+    //     baseSlaMaxes = ((double[]) fMaxes.get(STANDINGS.SLAVE())).clone();
+    //     baseSlaDefs  = ((double[]) fDefs.get(STANDINGS.SLAVE())).clone();
+    //
+    //     statInited = true;
+    // }
+    //
+    // private void restoreDenominators(Object standingCitizen, double[] baseMaxes, double[] baseDefs) throws Exception {
+    //     double[] m = (double[]) fMaxes.get(standingCitizen);
+    //     double[] d = (double[]) fDefs.get(standingCitizen);
+    //     System.arraycopy(baseMaxes, 0, m, 0, Math.min(baseMaxes.length, m.length));
+    //     System.arraycopy(baseDefs, 0, d, 0, Math.min(baseDefs.length, d.length));
+    // }
 
     private static final class BoostedResAmount implements RES_AMOUNT, Serializable {
         private static final long serialVersionUID = 1L;
@@ -584,6 +658,60 @@ public final class MainScript implements SCRIPT {
         @Override
         protected double pget(BOOSTABLE_O o) {
             return umbrella.get(o);
+        }
+    }
+
+    /**
+     * A multiplicative factor placed on a university's learning-speed {@code bonus()} boostable. Its value
+     * is {@code CIVIC_INDOCTRINATION.get(player)} for a subject whose race is on the indoctrination policy
+     * and {@code 1.0} (a no-op) for everyone else — so learning speed (and hence indoctrination gain) is
+     * scaled exactly while a race is being indoctrinated, and education is never affected. getValue is
+     * identity (like {@link UmbrellaBooster}), so the multiplier is applied as-is rather than being clamped
+     * to [0,1] the way {@code BoosterValue} would. Only the per-Induvidual query (the one the educate path
+     * uses) carries the factor; faction/population-class queries return the neutral 1.0.
+     */
+    private static final class IndoctrinationBooster extends Booster {
+        private final Boostable civic;
+        private final BValue value;
+
+        IndoctrinationBooster(Boostable civic, BSourceInfo info) {
+            super(info, true); // multiplicative
+            this.civic = civic;
+            this.value = new BValue() {
+                @Override public double vGet(Induvidual indu) { return factor(indu.race()); }
+                @Override public double vGet(HCLASS_RACE reg) { return 1.0; }
+                @Override public double vGet(Player f) { return 1.0; }
+                @Override public double vGet(FactionNPC f) { return 1.0; }
+                @Override public double vGet(Region reg) { return 1.0; }
+                @Override public double vGet(Div div) { return 1.0; }
+            };
+        }
+
+        /** The multiplier to apply: the boostable value if {@code r} is being indoctrinated, else 1.0. */
+        private double factor(Race r) {
+            if (r != null && STATS.EDUCATION().policyIndoctor.is(r))
+                return civic.get(FACTIONS.player());
+            return 1.0;
+        }
+
+        @Override
+        public double from() {
+            return 1.0;
+        }
+
+        @Override
+        public double to() {
+            return 1.0;
+        }
+
+        @Override
+        public double getValue(double input) {
+            return input;
+        }
+
+        @Override
+        protected double pget(BOOSTABLE_O o) {
+            return o.boostableValue(value);
         }
     }
 }

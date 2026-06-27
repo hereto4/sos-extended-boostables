@@ -39,6 +39,12 @@ whatever matching `ROOM_*` boostables exist at load — including rooms added by
 | Key | Display | Category | Effect |
 |---|---|---|---|
 | `CIVIC_PLUNDER` | Raid Plunder | Civics | Multiplies the **resources your armies plunder while raiding** enemy territory. Vanilla still loots its full amount; this delivers the extra `(value − 1)×` as supplemental spoils. Scoped to the **raid action only** — battle-victory and conquest spoils are unaffected. Not to be confused with vanilla `CIVIC_RAIDING` ("Raid Security"), which lowers the chance of *being* raided. |
+| `CIVIC_INDOCTRINATION` | Indoctrination | Civics | Multiplies the **effectiveness of indoctrinating subjects** — i.e. how quickly subjects whose race is on the **indoctrination policy** gain the `INDOCTRINATION` stat at **universities**. Implemented as a multiplicative factor on each university's learning-speed (`bonus()`) boostable, active only for races currently being indoctrinated (education-only races are unaffected). |
+
+> **University-scoped.** Indoctrination is also gained by children in **Schools**, but schools compute
+> learning speed with no boostable factor, so school (child) indoctrination is **not** boosted — only
+> universities (adult indoctrination). The indoctrination policy itself is toggled per-race on the
+> school/university room UI; this key only amplifies it, it does not enable it.
 
 ## Battle keys
 
@@ -67,6 +73,23 @@ classes (Child/Citizen/Slave/Noble).
 
 ---
 
+## Tooltip coloring for "Low-Positive" effects
+
+Not a key — a display fix. In tooltips the game colors a boost **green** when it raises a boostable
+(`>ADD` positive / `>MUL` > 1) and **red** when it lowers it. That is backwards for effects where a
+**lower** value is the good outcome for the player (call these *Low-Positive* effects), e.g.
+`PHYSICS_SOILING` ("Soiling" — lower means less filth). For those, this mod **flips green ↔ red** so a
+booster that *lowers* the effect shows green and one that *raises* it shows red. The displayed number
+is never changed — only the color.
+
+- The list of inverted keys lives in `LowPositiveColors.KEYS` (in
+  `src/main/java/your/mod/boostcolor/LowPositiveColors.java`). It ships with `PHYSICS_SOILING`; add
+  more vanilla "lower is better" keys there.
+- The coloring is hardcoded in the engine with no modding seam, so this is done by a self-attaching
+  Java agent that rewrites the relevant tooltip methods at load (`your.mod.boostcolor.ColorAgent`).
+  It is fully guarded: if the JVM blocks self-attach, tooltips stay vanilla (the log prints a
+  `-javaagent:…` fallback) and the rest of the mod is unaffected.
+
 ## Usage example (tech file `BOOST:` block)
 
 ```
@@ -74,6 +97,7 @@ BOOST: {
     ROOM_MINE_ALL>MUL: 1.25,
     ROOM_REFINER_ALL>MUL: 1.15,
     CIVIC_PLUNDER>MUL: 2.0,
+    CIVIC_INDOCTRINATION>MUL: 1.5,
     STAT_WORK_RETIREMENT>MUL: 1.5,
 },
 ```

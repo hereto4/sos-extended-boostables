@@ -25,7 +25,24 @@ classes. **Full map: `doc/STAT_system_map.md`** (committed). Key facts:
 - No bytecode instrumentation available (SoS mods are plain jars, no Java agent), so an in-place
   boostable read inside the standing math isn't possible.
 
-**Status:** `STAT_WORK_RETIREMENT` IMPLEMENTED 2026-06-14 (net-boost approach). Pattern for future
+**Status:** `STAT_WORK_RETIREMENT` **DISABLED 2026-06-27** (commented out in `MainScript.java`, not
+deleted — 7 blocks tagged `STAT_WORK_RETIREMENT DISABLED (2026-06-27)`, plus its 6 now-unused imports;
+re-enable by uncommenting all of them). **Why disabled:** in v71 it inflated player-city **happiness →
+runaway immigration**, present from a fresh game start with no techs unlocked. Immigration "wanted" is
+happiness-driven (`Immigration.getImmigrants` uses `fulfillment/expectation × HAPPI`), and this feature
+is the ONLY mod code that mutates the fulfillment machinery directly — `restoreDenominators()` pins
+`StandingCitizen.maxes/defs` every 2s. The "net-boost" design assumes those denominators are STATIC
+after `setAll()` (true in the v70.32 source → a genuine no-op at F=1), but the **v71 standing rework**
+(per-HCLASS `MAX_CITY_POP`/`FULFILLMENT_EXPONENT`) appears to break that assumption, so pinning holds the
+denominator below its true value → fulfillment/happiness inflated. It also ran for nothing: **no shipped
+tech/data file boosts the key, so F was always 1.0.** Note: this is an EB-only bug; Create-A-Culture was
+investigated and exonerated (all its boosts are tech-level-gated → neutral at game start). **Before
+re-enabling:** re-validate the reflection against the actual **v71** `StandingCitizen`/`StandingData`
+(confirm `maxes/defs` are still static per-race); if v71 recomputes them during play, the
+denominator-pinning approach can't work and the net-boost needs a redesign. The diagnosis was made from
+v70.32 source only (no v71 jar/source was available on the build machine). See [[immigration-happiness-bug]].
+
+Original design (kept for the eventual re-implementation). Pattern for future
 `STAT_*` keys:
 - New `BoostableCat("STAT_", ...)` so push key `WORK_RETIREMENT` → `STAT_WORK_RETIREMENT`.
 - `MainScript.handleStatRetirement()` runs every 2s: F = `statRetirement.get(player)`; when F changes,
