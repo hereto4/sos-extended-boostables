@@ -1,0 +1,15 @@
+Changelog v1.2.2
+BUGFIXES
+- Happiness/immigration bug fix (temp. removed custom Retirement Key)
+
+Changelog v1.2.1
+- added new backend POPULATION_<RACE>_CITIZEN_OFCLASS_F keys that function like POPULATION_<RACE>_CITIZEN_CLASS_F used to in v70
+
+Changelog v1.2.0 - "The v71 Update"
+- Made compatible with game update v71
+
+Changelog v1.1.0
+ADDITIONS
+- Added new boost key `ROOM__CANNIBAL`
+-- Multiplies resource output of prisoners butchered in the cannibal room
+-- Used by the Snekk Race mod

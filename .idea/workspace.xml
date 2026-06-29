@@ -1,0 +1,200 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="AutoImportSettings">
+    <option name="autoReloadType" value="SELECTIVE" />
+  </component>
+  <component name="ChangeListManager">
+    <list default="true" id="7a96583c-c7b8-4ffb-8620-4d12c75a9672" name="Changes" comment="wip">
+      <change afterPath="$PROJECT_DIR$/.idea/Changelog.txt" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.idea/SteamDesc.bbcode" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.idea/compiler.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.idea/shelf/Uncommitted_changes_before_Update_at_6_29_2026_1_44_PM_[Changes]/shelved.patch" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.idea/shelf/Uncommitted_changes_before_Update_at_6_29_2026_1_44_PM_[Changes]/sos-extended-boostables.jar" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.idea/shelf/Uncommitted_changes_before_Update_at_6_29_2026_1_44_PM__Changes_.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.idea/vcs.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/target/extended-boostables-sources.jar" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/target/extended-boostables.jar" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/target/original-extended-boostables.jar" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/target/original-sos-extended-boostables.jar" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/target/out/Extended Boostables/_Info.txt" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/target/sos-extended-boostables-sources.jar" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/target/sos-extended-boostables.jar" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/target/sos-scripting-template-1.1.0-shaded.jar" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/target/sos-scripting-template-1.2.0-shaded.jar" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/_Info.txt" beforeDir="false" afterPath="$PROJECT_DIR$/_Info.txt" afterDir="false" />
+    </list>
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="Git.Settings">
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+  </component>
+  <component name="GitHubPullRequestSearchHistory">{
+  &quot;lastFilter&quot;: {
+    &quot;state&quot;: &quot;OPEN&quot;,
+    &quot;assignee&quot;: &quot;hereto4&quot;
+  }
+}</component>
+  <component name="GithubPullRequestsUISettings">{
+  &quot;selectedUrlAndAccountId&quot;: {
+    &quot;url&quot;: &quot;https://github.com/hereto4/sos-extended-boostables.git&quot;,
+    &quot;accountId&quot;: &quot;99e4c94c-0e3d-44db-a66f-1a1ba44e41f1&quot;
+  }
+}</component>
+  <component name="McpProjectServerCommands">
+    <commands />
+    <urls />
+  </component>
+  <component name="ProjectColorInfo">{
+  &quot;associatedIndex&quot;: 4
+}</component>
+  <component name="ProjectId" id="3CuuKO7efonOvcbLtCkv61Xlbn8" />
+  <component name="ProjectViewState">
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showLibraryContents" value="true" />
+    <option name="sortByType" value="true" />
+    <option name="sortKey" value="BY_TYPE" />
+  </component>
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;Application.DEBUG.executor&quot;: &quot;Run&quot;,
+    &quot;Maven.sos-scripting-template [clean].executor&quot;: &quot;Run&quot;,
+    &quot;ModuleVcsDetector.initialDetectionPerformed&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.MCP Project settings loaded&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;main&quot;,
+    &quot;ignore.virus.scanning.warn.message&quot;: &quot;true&quot;,
+    &quot;kotlin-language-version-configured&quot;: &quot;true&quot;,
+    &quot;last_opened_file_path&quot;: &quot;C:/Users/Nate/AppData/Roaming/songsofsyx/mods/sos-extended-boostables&quot;,
+    &quot;project.structure.last.edited&quot;: &quot;Libraries&quot;,
+    &quot;project.structure.proportion&quot;: &quot;0.0&quot;,
+    &quot;project.structure.side.proportion&quot;: &quot;0.41609195&quot;
+  }
+}</component>
+  <component name="RecentsManager">
+    <key name="CopyFile.RECENT_KEYS">
+      <recent name="C:\Users\Nate\AppData\Roaming\songsofsyx\mods\sos-extended-boostables" />
+      <recent name="C:\Users\Nate\AppData\Roaming\songsofsyx\mods\sos-extended-boostables\.idea" />
+    </key>
+  </component>
+  <component name="RunManager" selected="Application.DEBUG" />
+  <component name="SharedIndexes">
+    <attachedChunks>
+      <set>
+        <option value="bundled-jdk-30f59d01ecdd-2fc7cc6b9a17-intellij.indexing.shared.core-IU-253.32098.101" />
+      </set>
+    </attachedChunks>
+  </component>
+  <component name="TaskManager">
+    <task active="true" id="Default" summary="Default task">
+      <changelist id="7a96583c-c7b8-4ffb-8620-4d12c75a9672" name="Changes" comment="" />
+      <created>1777247713024</created>
+      <option name="number" value="Default" />
+      <option name="presentableId" value="Default" />
+      <updated>1777247713024</updated>
+    </task>
+    <task id="LOCAL-00001" summary="Planning (Steps 1-2)">
+      <option name="closed" value="true" />
+      <created>1777268316495</created>
+      <option name="number" value="00001" />
+      <option name="presentableId" value="LOCAL-00001" />
+      <option name="project" value="LOCAL" />
+      <updated>1777268316495</updated>
+    </task>
+    <task id="LOCAL-00002" summary="Planning (remaining steps)">
+      <option name="closed" value="true" />
+      <created>1777270839585</created>
+      <option name="number" value="00002" />
+      <option name="presentableId" value="LOCAL-00002" />
+      <option name="project" value="LOCAL" />
+      <updated>1777270839585</updated>
+    </task>
+    <task id="LOCAL-00003" summary="Memory files transfer from local to project directory + new policy to use this dir">
+      <option name="closed" value="true" />
+      <created>1777271251906</created>
+      <option name="number" value="00003" />
+      <option name="presentableId" value="LOCAL-00003" />
+      <option name="project" value="LOCAL" />
+      <updated>1777271251906</updated>
+    </task>
+    <task id="LOCAL-00004" summary="_info">
+      <option name="closed" value="true" />
+      <created>1779135031342</created>
+      <option name="number" value="00004" />
+      <option name="presentableId" value="LOCAL-00004" />
+      <option name="project" value="LOCAL" />
+      <updated>1779135031342</updated>
+    </task>
+    <task id="LOCAL-00005" summary="v1.1.0 - final ROOM__CANNIBAL key addition">
+      <option name="closed" value="true" />
+      <created>1779317200579</created>
+      <option name="number" value="00005" />
+      <option name="presentableId" value="LOCAL-00005" />
+      <option name="project" value="LOCAL" />
+      <updated>1779317200581</updated>
+    </task>
+    <task id="LOCAL-00006" summary="reverted jar name change to avoid script not found errors on existing saves.">
+      <option name="closed" value="true" />
+      <created>1779317715726</created>
+      <option name="number" value="00006" />
+      <option name="presentableId" value="LOCAL-00006" />
+      <option name="project" value="LOCAL" />
+      <updated>1779317715726</updated>
+    </task>
+    <task id="LOCAL-00007" summary="reverted jar name change to avoid script not found errors on existing saves.">
+      <option name="closed" value="true" />
+      <created>1779317725443</created>
+      <option name="number" value="00007" />
+      <option name="presentableId" value="LOCAL-00007" />
+      <option name="project" value="LOCAL" />
+      <updated>1779317725443</updated>
+    </task>
+    <task id="LOCAL-00008" summary="Base game v71 update; first pass">
+      <option name="closed" value="true" />
+      <created>1780103824651</created>
+      <option name="number" value="00008" />
+      <option name="presentableId" value="LOCAL-00008" />
+      <option name="project" value="LOCAL" />
+      <updated>1780103824651</updated>
+    </task>
+    <task id="LOCAL-00009" summary="wip">
+      <option name="closed" value="true" />
+      <created>1781531788819</created>
+      <option name="number" value="00009" />
+      <option name="presentableId" value="LOCAL-00009" />
+      <option name="project" value="LOCAL" />
+      <updated>1781531788819</updated>
+    </task>
+    <option name="localTasksCounter" value="10" />
+    <servers />
+  </component>
+  <component name="Vcs.Log.Tabs.Properties">
+    <option name="TAB_STATES">
+      <map>
+        <entry key="MAIN">
+          <value>
+            <State />
+          </value>
+        </entry>
+      </map>
+    </option>
+  </component>
+  <component name="VcsManagerConfiguration">
+    <MESSAGE value="Planning (Steps 1-2)" />
+    <MESSAGE value="Planning (remaining steps)" />
+    <MESSAGE value="Memory files transfer from local to project directory + new policy to use this dir" />
+    <MESSAGE value="_info" />
+    <MESSAGE value="v1.1.0 - final ROOM__CANNIBAL key addition" />
+    <MESSAGE value="reverted jar name change to avoid script not found errors on existing saves." />
+    <MESSAGE value="Base game v71 update; first pass" />
+    <MESSAGE value="wip" />
+    <option name="LAST_COMMIT_MESSAGE" value="wip" />
+  </component>
+</project>
