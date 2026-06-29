@@ -6,7 +6,7 @@
 
     <groupId>org.example</groupId>
     <artifactId>sos-scripting-template</artifactId>
-    <version>1.2.1</version>
+    <version>1.2.4</version>
 
     <profiles>
         <profile>
@@ -101,7 +101,7 @@
         <mod.name>Extended Boostables</mod.name>
         <mod.description>Adds extended boostable keys for room types not covered by vanilla.</mod.description>
         <mod.author>Glorfy</mod.author>
-        <mod.info>Adds ROOM__SLAVER, ROOM__CANNIBAL, CIVIC_PLUNDER, CIVIC_INDOCTRINATION, ROOM_MINE/WORKSHOP/FARM/REFINER_ALL, STAT_WORK_RETIREMENT, and BATTLE_FEAR boostables.</mod.info>
+        <mod.info>Adds ROOM__SLAVER, ROOM__CANNIBAL, CIVIC_PLUNDER, ROOM_MINE/WORKSHOP/FARM/REFINER_ALL, and BATTLE_FEAR boostables.</mod.info>
         <!--
             This is the game version you are currently using. When the game updates:
             * Download the new game version if you don't have it
@@ -112,7 +112,7 @@
             * Maven is then able to find and resolve the new Songs of Syx code
          -->
         <game.version.major>71</game.version.major>
-        <game.version.minor>19</game.version.minor>
+        <game.version.minor>40</game.version.minor>
 
         <!-- Build settings -->
         <game.version.directory>V${game.version.major}</game.version.directory>
@@ -254,6 +254,20 @@
                                     <exclude>com.songsofsyx:*</exclude>
                                 </excludes>
                             </artifactSet>
+                            <!-- Drop Javassist's HotSwapper: it references com.sun.jdi (the jdk.jdi
+                                 module), which is absent from the game's bundled JRE. The game's
+                                 ScriptLoad does Class.forName on EVERY class in the mod jar, so an
+                                 unloadable class throws NoClassDefFoundError -> "could not be loaded"
+                                 and crashes startup. The ColorAgent never uses HotSwapper. Filter
+                                 excludes match the original (pre-relocation) path. -->
+                            <filters>
+                                <filter>
+                                    <artifact>org.javassist:javassist</artifact>
+                                    <excludes>
+                                        <exclude>javassist/util/HotSwapper*</exclude>
+                                    </excludes>
+                                </filter>
+                            </filters>
                             <createDependencyReducedPom>false</createDependencyReducedPom>
                             <!-- Relocate the shaded Javassist so its class names can never collide with the
                                  game's classes (the script loader rejects any jar class that already exists

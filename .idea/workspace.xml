@@ -4,27 +4,23 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="7a96583c-c7b8-4ffb-8620-4d12c75a9672" name="Changes" comment="wip">
-      <change afterPath="$PROJECT_DIR$/.idea/Changelog.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/SteamDesc.bbcode" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/compiler.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/shelf/Uncommitted_changes_before_Update_at_6_29_2026_1_44_PM_[Changes]/shelved.patch" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/shelf/Uncommitted_changes_before_Update_at_6_29_2026_1_44_PM_[Changes]/sos-extended-boostables.jar" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/shelf/Uncommitted_changes_before_Update_at_6_29_2026_1_44_PM__Changes_.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/vcs.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/target/extended-boostables-sources.jar" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/target/extended-boostables.jar" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/target/original-extended-boostables.jar" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/target/original-sos-extended-boostables.jar" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/target/out/Extended Boostables/_Info.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/target/sos-extended-boostables-sources.jar" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/target/sos-extended-boostables.jar" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/target/sos-scripting-template-1.1.0-shaded.jar" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/target/sos-scripting-template-1.2.0-shaded.jar" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/_Info.txt" beforeDir="false" afterPath="$PROJECT_DIR$/_Info.txt" afterDir="false" />
+    <list default="true" id="7a96583c-c7b8-4ffb-8620-4d12c75a9672" name="Changes" comment="added unversioned files">
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/pom.xml" beforeDir="false" afterPath="$PROJECT_DIR$/pom.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/classes/your/mod/MainScript$1.class" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/classes/your/mod/MainScript$2.class" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/classes/your/mod/MainScript$3.class" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/classes/your/mod/MainScript$4.class" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/classes/your/mod/MainScript$BoostedResAmount.class" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/classes/your/mod/MainScript$UmbrellaBooster.class" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/classes/your/mod/MainScript.class" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/maven-status/maven-compiler-plugin/compile/default-compile/createdFiles.lst" beforeDir="false" afterPath="$PROJECT_DIR$/target/maven-status/maven-compiler-plugin/compile/default-compile/createdFiles.lst" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/maven-status/maven-compiler-plugin/compile/default-compile/inputFiles.lst" beforeDir="false" afterPath="$PROJECT_DIR$/target/maven-status/maven-compiler-plugin/compile/default-compile/inputFiles.lst" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/out/Extended Boostables/V71/assets/init/stats/boost/__CANNIBAL.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/out/Extended Boostables/V71/assets/text/stats/boost/__CANNIBAL.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/out/Extended Boostables/V71/script/_src/sos-extended-boostables-sources.jar" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/out/Extended Boostables/V71/script/sos-extended-boostables.jar" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/out/Extended Boostables/_Info.txt" beforeDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -84,7 +80,6 @@
       <recent name="C:\Users\Nate\AppData\Roaming\songsofsyx\mods\sos-extended-boostables\.idea" />
     </key>
   </component>
-  <component name="RunManager" selected="Application.DEBUG" />
   <component name="SharedIndexes">
     <attachedChunks>
       <set>
@@ -172,7 +167,23 @@
       <option name="project" value="LOCAL" />
       <updated>1781531788819</updated>
     </task>
-    <option name="localTasksCounter" value="10" />
+    <task id="LOCAL-00010" summary="Updated _Info and changelog for v1.2.2, and removed gitignore lines">
+      <option name="closed" value="true" />
+      <created>1782759562364</created>
+      <option name="number" value="00010" />
+      <option name="presentableId" value="LOCAL-00010" />
+      <option name="project" value="LOCAL" />
+      <updated>1782759562364</updated>
+    </task>
+    <task id="LOCAL-00011" summary="added unversioned files">
+      <option name="closed" value="true" />
+      <created>1782759581877</created>
+      <option name="number" value="00011" />
+      <option name="presentableId" value="LOCAL-00011" />
+      <option name="project" value="LOCAL" />
+      <updated>1782759581877</updated>
+    </task>
+    <option name="localTasksCounter" value="12" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -195,6 +206,8 @@
     <MESSAGE value="reverted jar name change to avoid script not found errors on existing saves." />
     <MESSAGE value="Base game v71 update; first pass" />
     <MESSAGE value="wip" />
-    <option name="LAST_COMMIT_MESSAGE" value="wip" />
+    <MESSAGE value="Updated _Info and changelog for v1.2.2, and removed gitignore lines" />
+    <MESSAGE value="added unversioned files" />
+    <option name="LAST_COMMIT_MESSAGE" value="added unversioned files" />
   </component>
 </project>

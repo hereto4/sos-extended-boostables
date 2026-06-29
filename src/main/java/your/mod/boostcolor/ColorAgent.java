@@ -130,10 +130,14 @@ public final class ColorAgent {
                 }
             }
         } catch (Throwable t) {
-            System.err.println("[sos-extended-boostables] Low-Positive tooltip recolor unavailable "
-                    + "(JVM blocked self-attach). To enable it, add this to the game's Java arguments:\n"
+            // Not an error: the game's bundled JRE has no jdk.attach module (no
+            // com.sun.tools.attach.VirtualMachine), so self-attach can't work here. Log to stdout
+            // (not stderr) so this stays out of the game's ERROR LOG. The recolor stays inactive; it
+            // can still be enabled by launching with the -javaagent arg below (premain path).
+            System.out.println("[sos-extended-boostables] Low-Positive tooltip recolor inactive "
+                    + "(JVM blocked self-attach; harmless). To enable it, add to the game's Java arguments:\n"
                     + "    -javaagent:\"" + jar + "\"\n"
-                    + "Cause: " + t);
+                    + "Reason: " + t);
             return false;
         }
 

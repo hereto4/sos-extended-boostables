@@ -1,3 +1,9 @@
+Changelog v1.2.3
+BUGFIXES
+- actually fixed happiness bug this time
+- disabled tech recolor feature until error can be resolved
+- fixed backend OFCLASS key being misplaced inside the Plunder code
+
 Changelog v1.2.2
 BUGFIXES
 - Happiness/immigration bug fix (temp. removed custom Retirement Key)
