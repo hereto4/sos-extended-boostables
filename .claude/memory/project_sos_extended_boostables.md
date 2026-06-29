@@ -128,6 +128,15 @@ Adds new boostable keys to Songs of Syx (now v71.19, see [[v71-migration]]) that
    breakdown omits the indoctrination line (×1.0 is hidden anyway); the actual gain still scales via the
    Induvidual query, and the tech tooltip for `CIVIC_INDOCTRINATION` displays normally.
 
+6. `POPULATION_<RACE>_<CLASS>_OFCLASS_F` — **GVALUES.FACTION values, not boostables** (the registry tech
+   `REQUIRES:` blocks query, `init/tech/TECH.java:71`). Added 2026-06-17 to fix a v71 regression: vanilla's
+   `POPULATION_<RACE>_<CLASS>_F` silently changed its denominator from the class to the whole population
+   (`SValues.java`), so any noble breaks `EQUAL: 1.0` monorace requirements. `registerCitizenRaceFractions()`
+   (called from `initBeforeGameInited`) pushes one value per race × player class carrying the exact v70
+   expression `STATS.POP().POP.data(class).get(race)/.get(null)`. Computed live, so independent of `SValues`;
+   only needs to be in the map before `init.finish()` resolves REQUIRES promises (initBeforeGameInited window).
+   Consumed by Create-A-Culture's monorace techs. Full analysis in [[v71-migration]].
+
 **Implementation rules (followed in MainScript):**
 - No Lombok. Explicit `public MainScript() {}`.
 - `SCRIPT_INSTANCE` inlined as anonymous class in `createInstance()` — no separate `InstanceScript.java`.

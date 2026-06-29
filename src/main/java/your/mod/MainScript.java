@@ -4,6 +4,7 @@ import game.boosting.*;
 import game.battle.div.Div;
 import game.battle.thread.status.DivStatus;
 import game.faction.FACTIONS;
+import game.faction.Faction;
 import game.faction.npc.FactionNPC;
 import game.faction.player.Player;
 import game.time.TIME;
@@ -22,6 +23,8 @@ import init.type.CAUSE_ARRIVES;
 // import init.type.HCLASSES;
 import init.type.HCLASS_RACE;
 import init.type.HTYPES;
+import init.value.GVALUES;
+import util.data.DOUBLE_O;
 import script.SCRIPT;
 import settlement.room.knowledge.university.ROOM_UNIVERSITY;
 import settlement.entity.ENTITY;
@@ -485,6 +488,58 @@ public final class MainScript implements SCRIPT {
         if (raidTimers.size() != seenRaiders.size()) {
             raidTimers.keySet().retainAll(seenRaiders);
         }
+
+        // POPULATION_<RACE>_<CLASS>_OFCLASS_F: restores the v70 meaning of the vanilla
+        // POPULATION_<RACE>_<CLASS>_F GVALUE for tech REQUIRES.
+        registerCitizenRaceFractions();
+    }
+
+    /**
+     * Re-registers the per-class population fraction that vanilla used through v70 and silently changed
+     * in v71. The vanilla {@code POPULATION_<RACE>_<CLASS>_F} GVALUE (in {@code settlement.stats.SValues})
+     * changed its denominator from "this class" to "the entire population":
+     * <pre>
+     *   v70:  POP(class, race) / POP(class, *)      // fraction of that class which is this race
+     *   v71:  POP(class, race) / POP(*,    *)        // fraction of the whole population
+     * </pre>
+     * The v71 form means any noble — even a noble of the same race, since nobles are class NOBLE, not
+     * CITIZEN — inflates the denominator without touching the numerator, so {@code EQUAL: 1.0} "monorace"
+     * tech requirements can no longer be satisfied once a single noble is appointed.
+     *
+     * <p>This registers a parallel key {@code POPULATION_<RACE>_<CLASS>_OFCLASS_F} carrying the old v70
+     * expression verbatim ({@code STATS.POP().POP.data(class).get(race) / STATS.POP().POP.data(class).get(null)}),
+     * for every race × player class. Tech files that want the original behaviour point {@code REQUIRES.EQUAL} at this key
+     * instead of the vanilla one. The value is computed live per query, so it needs nothing from
+     * {@code SValues}; it only has to exist in the {@code GVALUES.FACTION} map before {@code init.finish()}
+     * resolves the tech requirement promises — which is exactly what {@code initBeforeGameInited} guarantees
+     * (the per-game {@code GVALUES} clear has already run by then, and the lock resolution has not).
+     */
+    private void registerCitizenRaceFractions() {
+        int n = 0;
+        for (Race r : RACES.all()) {
+            final Race fr = r;
+            for (HCLASS cl : HCLASSES.ALL()) {
+                if (!cl.player) continue;
+                final HCLASS fcl = cl;
+                String key = "POPULATION_" + r.key + "_" + cl.key + "_OFCLASS_F";
+                if (GVALUES.FACTION.get(key) != null) continue; // already present this session
+                GVALUES.FACTION.push(key, cl.names + ": " + r.info.names, cl.icon(),
+                        new DOUBLE_O<Faction>() {
+                            @Override
+                            public double getD(Faction o) {
+                                // Exact v70 expression: fraction of the class population that is this
+                                // race. v71 replaced both terms (POP.data -> POP.tot, and the per-class
+                                // denominator -> whole-population), which is what broke the requirement.
+                                double div = STATS.POP().POP.data(fcl).get(null);
+                                if (div == 0) return 0;
+                                return STATS.POP().POP.data(fcl).get(fr) / div;
+                            }
+                        }, true);
+                n++;
+            }
+        }
+        System.out.println("[sos-extended-boostables] Registered " + n
+                + " POPULATION_*_*_OFCLASS_F values (v70 per-class race fractions).");
     }
 
     /** Replicates the per-tick loot of WArmyState.raiding, scaled by {@code bonus} (= plunder-1). */

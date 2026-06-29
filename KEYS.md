@@ -71,6 +71,30 @@ classes (Child/Citizen/Slave/Noble).
 > zero value on retirement stays at zero (0 × value = 0) — it amplifies existing desire rather than
 > creating it.
 
+## Requirement keys (`REQUIRES:` blocks — GVALUES, not boostables)
+
+These are **faction GVALUES** (the registry tech `REQUIRES:` blocks query), not `BOOST:` boostables.
+They reinstate the pre-v71 meaning of the vanilla population-fraction value.
+
+| Key pattern | Value |
+|---|---|
+| `POPULATION_<RACE>_<CLASS>_OFCLASS_F` | Fraction of the given population **class** that is the given **race** — `STATS.POP().POP.data(class).get(race) / .get(null)`. Registered for every race × player class (CITIZEN, NOBLE, SLAVE, …). |
+
+> **Why this exists.** In v70 `POPULATION_<RACE>_<CLASS>_F` meant "fraction of that *class* which is this
+> race." In v71 the vanilla key's denominator silently changed to the **whole population**, so any noble —
+> even a same-race noble (nobles are class NOBLE, not CITIZEN) — drops `POPULATION_<RACE>_CITIZEN_F` below
+> `1.0` and breaks `EQUAL: 1.0` "monorace" requirements. Use the `_OFCLASS_F` key for the original behaviour.
+
+Example (tech `REQUIRES:` block — "100% of citizens are Tilapi, nobles irrelevant"):
+
+```
+REQUIRES: {
+    EQUAL: {
+        POPULATION_TILAPI_CITIZEN_OFCLASS_F: 1.0,
+    },
+},
+```
+
 ---
 
 ## Tooltip coloring for "Low-Positive" effects

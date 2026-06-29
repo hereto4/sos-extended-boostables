@@ -15,7 +15,7 @@
 - [Memory File Location Policy](feedback_memory_location.md) — Project memories live in `[project]/.claude/memory/`, not the user-level auto-memory path; load and save here
 - [Maven (IntelliJ-bundled) path](reference_maven_intellij.md) — `mvn` not on PATH; use IntelliJ's bundled mvn.cmd absolute path for builds
 - [Do not clobber _Info.txt](feedback_info_txt_clobber.md) — `mvn install`'s `copy-mod-info` step rewrites project-root `_Info.txt` from a pom template; sync pom before building, never patch the rendered file
-- [v71 migration](project_v71_migration.md) — migrated to game v71.19; only code break was BValue.PopTime→vGet(HCLASS_RACE); V70 left as-is; stale target/out can re-pollute V70
+- [v71 migration](project_v71_migration.md) — migrated to game v71.19; code break was BValue.PopTime→vGet(HCLASS_RACE); V70 left as-is; stale target/out can re-pollute V70; ALSO: v71 silently changed POPULATION_*_F GVALUE denominator (class→total pop) breaking CaC monorace techs — fixed via POPULATION_*_*_OFCLASS_F
 - [GAME ctor init timing](sos_game_init_timing.md) — subsystem ordering; initBeforeGameInited fires after SETT/FACTIONS construction, before finishSetup (still valid in v71.19)
 - [STAT system seams](reference_stat_system_seams.md) — STAT_* keys hook race STATS:{} via reflective final-weight scaling + denominator restore (net-boost); STAT_WORK_RETIREMENT **DISABLED 2026-06-27** (inflated happiness in v71); full map in doc/STAT_system_map.md
 - [Immigration/happiness bug](reference_immigration_happiness_bug.md) — why EB's STAT_WORK_RETIREMENT caused runaway v71 immigration (happiness denominator pinning); CAC exonerated; the fix + how to re-enable safely
