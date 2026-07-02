@@ -4,7 +4,7 @@ description: Current state and key decisions for the sos-extended-boostables mod
 type: project
 originSessionId: f4a7dc19-9fa3-4a12-9315-2717447ae117
 ---
-Adds new boostable keys to Songs of Syx (now v71.19, see [[v71-migration]]) that don't exist in vanilla. All effects ship in the same jar (`your.mod.MainScript`). Keys: `ROOM__SLAVER`, `ROOM__CANNIBAL`, `CIVIC_PLUNDER`, `ROOM_MINE_ALL`, `ROOM_WORKSHOP_ALL`, `ROOM_FARM_ALL`, `ROOM_REFINER_ALL`, ~~`STAT_WORK_RETIREMENT`~~ (DISABLED — see below), `BATTLE_FEAR` (2026-06-14), `CIVIC_INDOCTRINATION` (2026-06-15), plus the Low-Positive tooltip recolor UI fix (2026-06-15).
+Adds new boostable keys to Songs of Syx (now v71.19, see [[v71-migration]]) that don't exist in vanilla. All effects ship in the same jar (`your.mod.MainScript`). Keys: `ROOM__SLAVER`, `ROOM__CANNIBAL`, `CIVIC_PLUNDER`, `ROOM_MINE_ALL`, `ROOM_WORKSHOP_ALL`, `ROOM_FARM_ALL`, `ROOM_REFINER_ALL`, ~~`STAT_WORK_RETIREMENT`~~ (DISABLED — see below), `BATTLE_FEAR` (2026-06-14), `CIVIC_INDOCTRINATION` (2026-06-15, later SHELVED 2026-06-29 — see [[v71-migration]]), `CLASS_CITIZEN` (2026-07-02, initial test — see #8 below), plus the Low-Positive tooltip recolor UI fix (2026-06-15).
 
 **⚠️ `STAT_WORK_RETIREMENT` DISABLED 2026-06-27** (commented out in `MainScript.java`, not deleted; 7 blocks + 6 imports tagged `STAT_WORK_RETIREMENT DISABLED (2026-06-27)`). It inflated player-city **happiness → runaway immigration** in v71, from a fresh start with no techs. Its `restoreDenominators()` pins `StandingCitizen.maxes/defs` every 2s; the "denominator stays static after init" assumption that makes this a no-op held in the v70.32 source but appears broken by the v71 standing rework. It also did nothing useful — no tech/data file boosts the key, so F was always 1.0. CAC was investigated and exonerated (its boosts are all tech-level-gated → neutral at game start). Re-enable only after re-validating the reflection against v71 `StandingCitizen`/`StandingData`. Full analysis: [[stat-system-seams]] and [[immigration-happiness-bug]]. **Rebuild required** to regenerate `V71/script/sos-extended-boostables.jar` (the `V70/` jar still has the old code; out of v71 scope).
 
@@ -136,6 +136,30 @@ Adds new boostable keys to Songs of Syx (now v71.19, see [[v71-migration]]) that
    expression `STATS.POP().POP.data(class).get(race)/.get(null)`. Computed live, so independent of `SValues`;
    only needs to be in the map before `init.finish()` resolves REQUIRES promises (initBeforeGameInited window).
    Consumed by Create-A-Culture's monorace techs. Full analysis in [[v71-migration]].
+
+8. `CLASS_<CLASS>` "Class Treatment" keys — **added 2026-07-02, IMPLEMENTED but NOT YET BUILT/TESTED
+   in-game** (this session was on a Mac that can't build v71 — see the handoff below). New `CLASS_`
+   `BoostableCat` (prefix applied by `BOOSTING.push`, so push key `"CITIZEN"` → `CLASS_CITIZEN`). Multiplies
+   a curated set of **per-subject** boostables, but only for subjects of the matching `HCLASS`. **Initial
+   test = `CLASS_CITIZEN` only**, on two targets: **`RATES_SHOPPING`** (market-access desire; the SHOPPING
+   need's growth rate, base 0.15, read per-subject at `StatsNeeds.java:171` `n.need.rate.get(i)`) and
+   **`ROOM_MINE_ORE`** (ore-mine "job skill" = the mine's `bonus()`, base 1.0, read per-worker at
+   `IndustryUtil.java:80` `bonus.get(h.indu())`). SoS has no separate skill stat — the room's `bonus()`
+   boostable IS the worker skill. Effect = a nested `ClassTreatmentBooster extends Booster` (multiplicative,
+   `from()=to()=1`, `getValue(input)=input`, `pget(o)=o.boostableValue(value)`) added to each target; its
+   `BValue.vGet(Induvidual)` returns `CLAMP.d(CLASS_CITIZEN.get(player), 0.5, 1.5)` only when
+   `indu.clas()==HCLASSES.CITIZEN()`, and neutral `1.0` for all other subjects and the five other v71
+   `vGet` overloads (so only the per-subject reads of Citizens are scaled — same shape as `ROOM__SLAVER`).
+   Display name uses the vanilla HCLASS name → **"Class Treatment (Plebeian)"**; key stays `CLASS_CITIZEN`.
+   **Min/Max 0.5/1.5** enforced by clamping the applied factor (the engine has no boostable cap). **Zero-multiply
+   safety-net** (user-required): `registerClassTreatment` skips any target whose `baseValue==0` (a `×` on a
+   zero base is a no-op and would feed the engine's unguarded `x/0` tooltip/progress math — `Boostable.progress`,
+   `COMPARATOR.progress`, `RESOURCE`/SPOILAGE, `GFORMAT.f0/f1`), and the [0.5,1.5] clamp means the factor can
+   never move a value across the zero boundary. All APIs verified against real v71.19 source at
+   `../../sos-scripting-template/.claude/game-source-v71.19/`. Full design + evidence:
+   `../../sos-scripting-template/.claude/SPEC_CLASS_KEYS.md`; expansion (SLAVE/NOBLE + more stats) is a
+   data-only table extension — **every added target must be a per-`Induvidual` boostable**; non-boostable
+   stats would need the reflection path (higher risk, see [[stat-system-seams]]).
 
 **Implementation rules (followed in MainScript):**
 - No Lombok. Explicit `public MainScript() {}`.

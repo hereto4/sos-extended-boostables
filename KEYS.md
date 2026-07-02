@@ -71,6 +71,33 @@ classes (Child/Citizen/Slave/Noble).
 > zero value on retirement stays at zero (0 × value = 0) — it amplifies existing desire rather than
 > creating it.
 
+## Class keys (`CLASS_*` prefix)
+
+`CLASS_<CLASS>` keys ("Class Treatment") multiply a curated set of per-subject stats **only for
+player-city subjects belonging to that population class** (`HCLASS`). Default `1.0`, and the applied
+multiplier is **clamped to [0.5, 1.5]** (so `>MUL: 1.5` is the max useful boost; the engine has no
+value cap, so the clamp is what enforces the range). The label uses the vanilla class name.
+
+| Key | Display | Applies to | Currently multiplies |
+|---|---|---|---|
+| `CLASS_CITIZEN` | Class Treatment (Plebeian) | Citizen-class subjects | **desire for Market access** (`RATES_SHOPPING`) and **Ore-Mine job skill** (`ROOM_MINE_ORE`) |
+
+> **Initial test scope.** Only `CLASS_CITIZEN` is registered, and it affects just the two stats above —
+> a deliberately small set to validate the mechanism. `CLASS_SLAVE` / `CLASS_NOBLE` and a wider stat
+> list are planned once this is confirmed working in-game.
+>
+> **How it works.** A conditional multiplicative `Booster` is attached to each target boostable; it
+> returns the clamped `CLASS_CITIZEN` value only for subjects whose class is Citizen (via the subject's
+> `Induvidual` at the engine's per-subject read-point) and a neutral `1.0` for everyone else — same
+> shape as `ROOM__SLAVER`. Higher `RATES_SHOPPING` = citizens want the market sooner; higher
+> `ROOM_MINE_ORE` = citizen ore-miners are more productive.
+>
+> **Zero-multiply safety-net.** Any target boostable whose base value is `0` is skipped (a `×` on a
+> zero base is a no-op and would feed the game's known unguarded divide-by-zero tooltip/progress math),
+> and the [0.5, 1.5] clamp means the factor can never turn a value into `0` (or a `0` into non-zero).
+
+Grant via a tech `BOOST:` block, e.g. `CLASS_CITIZEN>MUL: 1.25`.
+
 ## Requirement keys (`REQUIRES:` blocks — GVALUES, not boostables)
 
 These are **faction GVALUES** (the registry tech `REQUIRES:` blocks query), not `BOOST:` boostables.

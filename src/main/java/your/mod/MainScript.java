@@ -77,6 +77,17 @@ public final class MainScript implements SCRIPT {
     private static final String FARM_ALL_KEY = "ROOM_FARM_ALL";
     private static final String REFINER_ALL_KEY = "ROOM_REFINER_ALL";
 
+    // CLASS_<CLASS> "Class Treatment" keys (2026-07-02). A conditional multiplicative factor applied to
+    // selected per-subject boostables, but ONLY for subjects of the matching population class (HCLASS);
+    // every other subject/query gets the neutral 1.0 (same shape as the SLAVER/umbrella/indoctrination
+    // effects). The applied multiplier is clamped to [CLASS_MIN, CLASS_MAX] so it can never reach 0 — a
+    // multiply-by-0 both zeroes the value and feeds the engine's unguarded x/0 tooltip/progress math.
+    // Initial test: CLASS_CITIZEN only, on RATES_SHOPPING (market-access desire) and ROOM_MINE_ORE
+    // (ore-mine job skill). See ../../../sos-scripting-template/.claude/SPEC_CLASS_KEYS.md.
+    private static final String CLASS_CITIZEN_KEY = "CLASS_CITIZEN";
+    private static final double CLASS_MIN = 0.5;
+    private static final double CLASS_MAX = 1.5;
+
     /** Vanilla raid loots once every this many seconds of raiding (WArmyState.raiding accumulator). */
     private static final double RAID_PERIOD = 120.0;
 
@@ -215,6 +226,22 @@ public final class MainScript implements SCRIPT {
                 UI.icons().s.crazy, BOOSTABLES.BATTLE(), 0.0);
         if (battleFear != null) {
             registerFearAura(battleFear);
+        }
+
+        // CLASS_<CLASS> "Class Treatment": multiply selected per-subject boostables for subjects of a
+        // given population class (HCLASS). New "CLASS_" category (prefix applied by BOOSTING.push, so
+        // push key "CITIZEN" -> "CLASS_CITIZEN"). Display name uses the vanilla HCLASS name -> "Class
+        // Treatment (Plebeian)". Initial test: CLASS_CITIZEN on RATES_SHOPPING (market-access desire)
+        // and ROOM_MINE_ORE (ore-mine job skill). Add classes/targets by extending the table below.
+        BoostableCat classCat = new BoostableCat("CLASS_", "Class Treatment", "",
+                BoostableCat.TYPE_SETT, UI.icons().s.human);
+        Boostable classCitizen = ensureBoostable(CLASS_CITIZEN_KEY, "CITIZEN",
+                "Class Treatment (" + HCLASSES.CITIZEN().name + ")",
+                "Multiplies selected stats for your " + HCLASSES.CITIZEN().name + "-class subjects.",
+                UI.icons().s.human, classCat);
+        if (classCitizen != null) {
+            registerClassTreatment(classCitizen, HCLASSES.CITIZEN(),
+                    new String[] { "RATES_SHOPPING", "ROOM_MINE_ORE" });
         }
 
         // POPULATION_<RACE>_<CLASS>_OFCLASS_F GVALUEs: restore the v70 per-class race-fraction meaning
@@ -413,6 +440,40 @@ public final class MainScript implements SCRIPT {
             new UmbrellaBooster(umbrella, info).add(child);
         }
         System.out.println("[sos-extended-boostables] " + fullKey + " cascades to " + children.size() + " room boostables.");
+    }
+
+    /**
+     * Installs a CLASS_&lt;CLASS&gt; "Class Treatment" effect: attaches a conditional multiplicative
+     * {@link ClassTreatmentBooster} to each named target boostable. The booster scales the target only
+     * for subjects whose {@link HCLASS} matches {@code hclass} (per the employee/subject {@code Induvidual}
+     * the engine passes at each read-point); every other subject and every non-Induvidual query returns
+     * the neutral {@code 1.0}. The multiplier is {@code classKey.get(player)} clamped to
+     * [{@link #CLASS_MIN}, {@link #CLASS_MAX}]. Same shape as the SLAVER/umbrella/(shelved)indoctrination
+     * effects — a {@link Booster} added to an existing engine {@link Boostable}.
+     *
+     * <p><b>Zero-multiply safety-net.</b> Targets whose {@code baseValue == 0} are skipped (a
+     * multiplicative booster there is a no-op and would add a tooltip line that can hit the engine's
+     * unguarded {@code x/0} progress/percentage math). And because the clamped factor is always in
+     * [0.5, 1.5], it can never turn a value into 0 nor a 0 into non-zero, so the booster never
+     * introduces a divide-by-zero of its own.
+     */
+    private void registerClassTreatment(Boostable classKey, HCLASS hclass, String[] targetKeys) {
+        BSourceInfo info = new BSourceInfo("Class Treatment (" + hclass.name + ")", classKey.nativeIcon);
+        int n = 0;
+        for (String key : targetKeys) {
+            Boostable target = BOOSTING.MAP().tryGet(key);
+            if (target == null) {
+                System.err.println("[sos-extended-boostables] " + classKey.key + " target not found: " + key);
+                continue;
+            }
+            if (target.baseValue == 0) { // zero-multiply safety-net: skip zero-base boostables
+                System.out.println("[sos-extended-boostables] " + classKey.key + " skips zero-base boostable: " + key);
+                continue;
+            }
+            new ClassTreatmentBooster(classKey, hclass, info).add(target);
+            n++;
+        }
+        System.out.println("[sos-extended-boostables] " + classKey.key + " attached to " + n + " boostable(s).");
     }
 
     @Override
@@ -726,6 +787,61 @@ public final class MainScript implements SCRIPT {
         @Override
         protected double pget(BOOSTABLE_O o) {
             return umbrella.get(o);
+        }
+    }
+
+    /**
+     * A conditional multiplicative factor placed on a per-subject boostable (e.g. {@code RATES_SHOPPING},
+     * {@code ROOM_MINE_ORE}). Its value is {@code CLASS_<CLASS>.get(player)} clamped to
+     * [{@link #CLASS_MIN}, {@link #CLASS_MAX}] for a subject whose {@link HCLASS} matches {@code hclass},
+     * and {@code 1.0} (a no-op) for every other subject and every non-Induvidual query — so only the
+     * per-subject read of the targeted class is scaled. {@code getValue} is identity (like
+     * {@link UmbrellaBooster}), so the multiplier applies as-is rather than being clamped to [0,1] the
+     * way a {@code BoosterValue} would; {@code pget} routes the query object into the {@link BValue}.
+     */
+    private static final class ClassTreatmentBooster extends Booster {
+        private final Boostable classKey;   // the CLASS_<CLASS> boostable
+        private final HCLASS hclass;        // the population class this booster applies to
+        private final BValue value;
+
+        ClassTreatmentBooster(Boostable classKey, HCLASS hclass, BSourceInfo info) {
+            super(info, true); // multiplicative
+            this.classKey = classKey;
+            this.hclass = hclass;
+            this.value = new BValue() {
+                @Override public double vGet(Induvidual indu) { return factor(indu); }
+                @Override public double vGet(HCLASS_RACE reg) { return 1.0; }
+                @Override public double vGet(Player f) { return 1.0; }
+                @Override public double vGet(FactionNPC f) { return 1.0; }
+                @Override public double vGet(Region reg) { return 1.0; }
+                @Override public double vGet(Div div) { return 1.0; }
+            };
+        }
+
+        /** Clamped class multiplier for subjects in {@code hclass}; neutral 1.0 for everyone else. */
+        private double factor(Induvidual indu) {
+            if (indu == null || indu.clas() != hclass) return 1.0;
+            return CLAMP.d(classKey.get(FACTIONS.player()), CLASS_MIN, CLASS_MAX);
+        }
+
+        @Override
+        public double from() {
+            return 1.0;
+        }
+
+        @Override
+        public double to() {
+            return 1.0;
+        }
+
+        @Override
+        public double getValue(double input) {
+            return input;
+        }
+
+        @Override
+        protected double pget(BOOSTABLE_O o) {
+            return o.boostableValue(value);
         }
     }
 
