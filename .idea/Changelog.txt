@@ -1,3 +1,7 @@
+Changelog v1.2.4
+- recategorized CIVIC_PLUNDER to WORLD_PLUNDER; no functional change
+- fixed CIVIC_INDOCTRINATION
+
 Changelog v1.2.3
 BUGFIXES
 - actually fixed happiness bug this time

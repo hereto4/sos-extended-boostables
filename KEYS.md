@@ -1,7 +1,7 @@
 # Extended Boostables — added boostable keys
 
 All keys this mod registers, for use in tech files (and anywhere the game consumes boostables).
-Reference them in a tech's `BOOST:` block, e.g. `ROOM_MINE_ALL>MUL: 1.5` or `CIVIC_PLUNDER>ADD: 0.5`.
+Reference them in a tech's `BOOST:` block, e.g. `ROOM_MINE_ALL>MUL: 1.5` or `WORLD_PLUNDER>ADD: 0.5`.
 Every key has a base value of `1.0`, so `>MUL` is the natural operator (`>MUL: 1.5` = +50%).
 
 Game version: 71.19.
@@ -34,12 +34,17 @@ whatever matching `ROOM_*` boostables exist at load — including rooms added by
 > The umbrella applies multiplicatively to each room. When the umbrella isn't boosted by any tech it
 > is a no-op (the per-room production breakdown may show a neutral `×1.0` line for it).
 
+## World keys
+
+| Key | Display | Category | Effect |
+|---|---|---|---|
+| `WORLD_PLUNDER` | Raid Plunder | World | Multiplies the **resources your armies plunder while raiding** enemy territory. Vanilla still loots its full amount; this delivers the extra `(value − 1)×` as supplemental spoils. Scoped to the **raid action only** — battle-victory and conquest spoils are unaffected. Not to be confused with vanilla `CIVIC_RAIDING` ("Raid Security"), which lowers the chance of *being* raided. Renamed 2026-07-04 from `CIVIC_PLUNDER` (moved from the Civics group to the World group; now `TYPE_WORLD`). |
+
 ## Civic keys
 
 | Key | Display | Category | Effect |
 |---|---|---|---|
-| `CIVIC_PLUNDER` | Raid Plunder | Civics | Multiplies the **resources your armies plunder while raiding** enemy territory. Vanilla still loots its full amount; this delivers the extra `(value − 1)×` as supplemental spoils. Scoped to the **raid action only** — battle-victory and conquest spoils are unaffected. Not to be confused with vanilla `CIVIC_RAIDING` ("Raid Security"), which lowers the chance of *being* raided. |
-| `CIVIC_INDOCTRINATION` | Indoctrination | Civics | Multiplies the **effectiveness of indoctrinating subjects** — i.e. how quickly subjects whose race is on the **indoctrination policy** gain the `INDOCTRINATION` stat at **universities**. Implemented as a multiplicative factor on each university's learning-speed (`bonus()`) boostable, active only for races currently being indoctrinated (education-only races are unaffected). |
+| `CIVIC_INDOCTRINATION` | Indoctrination | Civics | Multiplies the **effectiveness of indoctrinating subjects** — i.e. how quickly subjects whose **(class, race) education policy** is `INDOCTRINATION` gain the `INDOCTRINATION` stat at **universities**. Implemented as a multiplicative factor on each university's learning-speed (`bonus()`) boostable, active only for subjects currently on the INDOCTRINATION policy (plain-education subjects are unaffected). Universities only — schools have no `bonus()` factor. |
 
 > **University-scoped.** Indoctrination is also gained by children in **Schools**, but schools compute
 > learning speed with no boostable factor, so school (child) indoctrination is **not** boosted — only
@@ -71,32 +76,49 @@ classes (Child/Citizen/Slave/Noble).
 > zero value on retirement stays at zero (0 × value = 0) — it amplifies existing desire rather than
 > creating it.
 
-## Class keys (`CLASS_*` prefix)
+## Class keys (`CLASS_*` prefix) — ⚠️ SHELVED 2026-07-04 (not in current build)
 
-`CLASS_<CLASS>` keys ("Class Treatment") multiply a curated set of per-subject stats **only for
-player-city subjects belonging to that population class** (`HCLASS`). Default `1.0`, and the applied
-multiplier is **clamped to [0.5, 1.5]** (so `>MUL: 1.5` is the max useful boost; the engine has no
-value cap, so the clamp is what enforces the range). The label uses the vanilla class name.
+> **These keys are not registered in the current jar.** The feature was confirmed working in-game
+> (CLASS_CITIZEN need-rates + CLASS_CITIZEN_MINE all-mine output), then shelved for a later update — all
+> `CLASS_*` code is commented out in `MainScript.java`. The section below documents the design for when it
+> is re-enabled (uncomment the five `CLASS_*`-marked blocks).
 
-| Key | Display | Applies to | Currently multiplies |
+`CLASS_<CLASS>[_<ROOMTYPE>]` keys ("Class Treatment") multiply a curated set of per-subject stats
+**only for player-city subjects belonging to that population class** (`HCLASS`). Default `1.0`, and the
+applied multiplier is **clamped to [0.5, 1.5]** (so `>MUL: 1.5` is the max useful boost; the engine has
+no value cap, so the clamp is what enforces the range). The in-game name follows `<ClassName-plural>
+(<aspect>)` — the bare per-class key is `(Needs)`, a room-typed key is the room's gerund (e.g. `(Mining)`).
+
+**Every** `CLASS_<CLASS>*` key multiplies that class's three **need-growth rates** — `RATES_HUNGER`,
+`RATES_THIRST`, `RATES_SHOPPING` (higher = the class gets hungry/thirsty/shopping-hungry *faster*;
+this rising neediness is the intended trade-off "cost" of better treatment). A **room-typed** variant
+`CLASS_<CLASS>_<ROOMTYPE>` *additionally* multiplies that class's **output across every room of the
+type**, via the matching `ROOM_<ROOMTYPE>_ALL` umbrella.
+
+| Key | Display | Applies to | Multiplies |
 |---|---|---|---|
-| `CLASS_CITIZEN` | Class Treatment (Plebeian) | Citizen-class subjects | **desire for Market access** (`RATES_SHOPPING`) and **Ore-Mine job skill** (`ROOM_MINE_ORE`) |
+| `CLASS_CITIZEN` | Plebeians (Needs) | Citizen-class subjects | `RATES_HUNGER`, `RATES_THIRST`, `RATES_SHOPPING` |
+| `CLASS_CITIZEN_MINE` | Plebeians (Mining) | Citizen-class subjects | the three rates above **+** all Mine output (`ROOM_MINE_ALL` → every `ROOM_MINE_*`) |
 
-> **Initial test scope.** Only `CLASS_CITIZEN` is registered, and it affects just the two stats above —
-> a deliberately small set to validate the mechanism. `CLASS_SLAVE` / `CLASS_NOBLE` and a wider stat
-> list are planned once this is confirmed working in-game.
+> **Roadmap.** `CLASS_CITIZEN` + `CLASS_CITIZEN_MINE` are live. `CLASS_CITIZEN_FARM` / `_REFINER` /
+> `_WORKSHOP` (each = the three rates + its `ROOM_<TYPE>_ALL`) and then the other classes
+> (`CLASS_SLAVE*`, `CLASS_NOBLE*`) are one-liners in `registerClassKey`, staged after in-game validation.
 >
 > **How it works.** A conditional multiplicative `Booster` is attached to each target boostable; it
-> returns the clamped `CLASS_CITIZEN` value only for subjects whose class is Citizen (via the subject's
-> `Induvidual` at the engine's per-subject read-point) and a neutral `1.0` for everyone else — same
-> shape as `ROOM__SLAVER`. Higher `RATES_SHOPPING` = citizens want the market sooner; higher
-> `ROOM_MINE_ORE` = citizen ore-miners are more productive.
+> returns the clamped key value only for subjects whose class matches (via the subject's `Induvidual` at
+> the engine's per-subject read-point) and a neutral `1.0` for everyone else — same shape as
+> `ROOM__SLAVER`. For the room target the booster sits on the `ROOM_<TYPE>_ALL` umbrella, whose cascade
+> carries the per-class factor into each room's per-employee bonus read.
+>
+> **Stacking.** The three rate targets are shared, so if you boost both `CLASS_CITIZEN` and a room-typed
+> `CLASS_CITIZEN_<ROOMTYPE>`, a Citizen's need-rates are multiplied by *both* factors (each still clamped
+> to [0.5, 1.5] individually).
 >
 > **Zero-multiply safety-net.** Any target boostable whose base value is `0` is skipped (a `×` on a
 > zero base is a no-op and would feed the game's known unguarded divide-by-zero tooltip/progress math),
 > and the [0.5, 1.5] clamp means the factor can never turn a value into `0` (or a `0` into non-zero).
 
-Grant via a tech `BOOST:` block, e.g. `CLASS_CITIZEN>MUL: 1.25`.
+Grant via a tech `BOOST:` block, e.g. `CLASS_CITIZEN>MUL: 1.25` or `CLASS_CITIZEN_MINE>MUL: 1.4`.
 
 ## Requirement keys (`REQUIRES:` blocks — GVALUES, not boostables)
 
@@ -147,7 +169,7 @@ is never changed — only the color.
 BOOST: {
     ROOM_MINE_ALL>MUL: 1.25,
     ROOM_REFINER_ALL>MUL: 1.15,
-    CIVIC_PLUNDER>MUL: 2.0,
+    WORLD_PLUNDER>MUL: 2.0,
     CIVIC_INDOCTRINATION>MUL: 1.5,
     STAT_WORK_RETIREMENT>MUL: 1.5,
 },

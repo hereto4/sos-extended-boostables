@@ -40,7 +40,7 @@ start. Verified each CAC mechanism is neutral at level 0:
   at level 0. (It also only responds to `Induvidual` queries, while immigration queries `POP_CL` — so the
   human `CIVIC_IMMIGRATION>MUL` tech wouldn't even affect immigration speed.)
 - The two mods ARE intentionally coupled: CAC's `RACE_HAVENS.txt` consumes EB keys (`ROOM_*_ALL`,
-  `BATTLE_FEAR`, `CIVIC_INDOCTRINATION`, `CIVIC_PLUNDER`, `ROOM__CANNIBAL`). Tech BOOST keys resolve
+  `BATTLE_FEAR`, `CIVIC_INDOCTRINATION`, `WORLD_PLUNDER` (renamed 2026-07-04 from `CIVIC_PLUNDER`), `ROOM__CANNIBAL`). Tech BOOST keys resolve
   lazily via `BoostSpecs.PromiseList` on `BOOSTING.waiting` at `finishSetup` — AFTER EB registers its
   keys in `initBeforeGameInited` — so the coupling resolves fine. All still level-gated.
 

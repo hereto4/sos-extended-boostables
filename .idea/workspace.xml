@@ -4,13 +4,41 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="7a96583c-c7b8-4ffb-8620-4d12c75a9672" name="Changes" comment="v1.2.3 - unversioned files">
+    <list default="true" id="7a96583c-c7b8-4ffb-8620-4d12c75a9672" name="Changes" comment="v1.2.4">
+      <change beforePath="$PROJECT_DIR$/.claude/memory/MEMORY.md" beforeDir="false" afterPath="$PROJECT_DIR$/.claude/memory/MEMORY.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.claude/memory/project_sos_extended_boostables.md" beforeDir="false" afterPath="$PROJECT_DIR$/.claude/memory/project_sos_extended_boostables.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.claude/memory/project_v71_migration.md" beforeDir="false" afterPath="$PROJECT_DIR$/.claude/memory/project_v71_migration.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.claude/memory/reference_immigration_happiness_bug.md" beforeDir="false" afterPath="$PROJECT_DIR$/.claude/memory/reference_immigration_happiness_bug.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/Changelog.txt" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/Changelog.txt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/KEYS.md" beforeDir="false" afterPath="$PROJECT_DIR$/KEYS.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/V71/script/sos-extended-boostables.jar" beforeDir="false" afterPath="$PROJECT_DIR$/V71/script/sos-extended-boostables.jar" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/_Info.txt" beforeDir="false" afterPath="$PROJECT_DIR$/_Info.txt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/pom.xml" beforeDir="false" afterPath="$PROJECT_DIR$/pom.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/your/mod/MainScript.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/your/mod/MainScript.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/classes/your/mod/MainScript$1.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/your/mod/MainScript$1.class" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/classes/your/mod/MainScript$2.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/your/mod/MainScript$2.class" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/classes/your/mod/MainScript$3.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/your/mod/MainScript$3.class" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/classes/your/mod/MainScript$4.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/your/mod/MainScript$4.class" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/classes/your/mod/MainScript$BoostedResAmount.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/your/mod/MainScript$BoostedResAmount.class" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/classes/your/mod/MainScript$UmbrellaBooster.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/your/mod/MainScript$UmbrellaBooster.class" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/classes/your/mod/MainScript.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/your/mod/MainScript.class" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/maven-status/maven-compiler-plugin/compile/default-compile/createdFiles.lst" beforeDir="false" afterPath="$PROJECT_DIR$/target/maven-status/maven-compiler-plugin/compile/default-compile/createdFiles.lst" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/original-sos-extended-boostables.jar" beforeDir="false" afterPath="$PROJECT_DIR$/target/original-sos-extended-boostables.jar" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/out/Extended Boostables/V71/script/_src/sos-extended-boostables-sources.jar" beforeDir="false" afterPath="$PROJECT_DIR$/target/out/Extended Boostables/V71/script/_src/sos-extended-boostables-sources.jar" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/out/Extended Boostables/V71/script/sos-extended-boostables.jar" beforeDir="false" afterPath="$PROJECT_DIR$/target/out/Extended Boostables/V71/script/sos-extended-boostables.jar" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/out/Extended Boostables/_Info.txt" beforeDir="false" afterPath="$PROJECT_DIR$/target/out/Extended Boostables/_Info.txt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/sos-extended-boostables-sources.jar" beforeDir="false" afterPath="$PROJECT_DIR$/target/sos-extended-boostables-sources.jar" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/sos-extended-boostables.jar" beforeDir="false" afterPath="$PROJECT_DIR$/target/sos-extended-boostables.jar" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/sos-scripting-template-1.2.4-shaded.jar" beforeDir="false" afterPath="$PROJECT_DIR$/target/sos-scripting-template-1.2.4-shaded.jar" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
     <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="EmbeddingIndexingInfo">
+    <option name="cachedIndexableFilesCount" value="13362" />
   </component>
   <component name="Git.Settings">
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
@@ -65,7 +93,19 @@
       <recent name="C:\Users\Nate\AppData\Roaming\songsofsyx\mods\sos-extended-boostables\.idea" />
     </key>
   </component>
-  <component name="RunManager" selected="Application.DEBUG" />
+  <component name="RunManager" selected="Application.DEBUG">
+    <configuration default="true" type="JetRunConfigurationType">
+      <module name="sos-extended-boostables" />
+      <method v="2">
+        <option name="Make" enabled="true" />
+      </method>
+    </configuration>
+    <configuration default="true" type="KotlinStandaloneScriptRunConfigurationType">
+      <module name="sos-extended-boostables" />
+      <option name="filePath" />
+      <method v="2" />
+    </configuration>
+  </component>
   <component name="SharedIndexes">
     <attachedChunks>
       <set>
@@ -185,7 +225,15 @@
       <option name="project" value="LOCAL" />
       <updated>1782763068874</updated>
     </task>
-    <option name="localTasksCounter" value="14" />
+    <task id="LOCAL-00014" summary="v1.2.4">
+      <option name="closed" value="true" />
+      <created>1782943324185</created>
+      <option name="number" value="00014" />
+      <option name="presentableId" value="LOCAL-00014" />
+      <option name="project" value="LOCAL" />
+      <updated>1782943324185</updated>
+    </task>
+    <option name="localTasksCounter" value="15" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -212,6 +260,7 @@
     <MESSAGE value="added unversioned files" />
     <MESSAGE value="v1.2.3" />
     <MESSAGE value="v1.2.3 - unversioned files" />
-    <option name="LAST_COMMIT_MESSAGE" value="v1.2.3 - unversioned files" />
+    <MESSAGE value="v1.2.4" />
+    <option name="LAST_COMMIT_MESSAGE" value="v1.2.4" />
   </component>
 </project>
