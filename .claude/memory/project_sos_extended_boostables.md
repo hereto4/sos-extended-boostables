@@ -4,7 +4,7 @@ description: Current state and key decisions for the sos-extended-boostables mod
 type: project
 originSessionId: f4a7dc19-9fa3-4a12-9315-2717447ae117
 ---
-Adds new boostable keys to Songs of Syx (now v71.19, see [[v71-migration]]) that don't exist in vanilla. All effects ship in the same jar (`your.mod.MainScript`). Keys: `ROOM__SLAVER`, `ROOM__CANNIBAL`, `CIVIC_PLUNDER`, `ROOM_MINE_ALL`, `ROOM_WORKSHOP_ALL`, `ROOM_FARM_ALL`, `ROOM_REFINER_ALL`, ~~`STAT_WORK_RETIREMENT`~~ (DISABLED — see below), `BATTLE_FEAR` (2026-06-14), `CIVIC_INDOCTRINATION` (2026-06-15, later SHELVED 2026-06-29 — see [[v71-migration]]), `CLASS_CITIZEN` (2026-07-02, initial test — see #8 below), plus the Low-Positive tooltip recolor UI fix (2026-06-15).
+Adds new boostable keys to Songs of Syx (now v71.19, see [[v71-migration]]) that don't exist in vanilla. All effects ship in the same jar (`your.mod.MainScript`). Keys: `ROOM__SLAVER`, `ROOM__CANNIBAL`, `WORLD_PLUNDER` (renamed 2026-07-04 from `CIVIC_PLUNDER`), `ROOM_MINE_ALL`, `ROOM_WORKSHOP_ALL`, `ROOM_FARM_ALL`, `ROOM_REFINER_ALL`, ~~`STAT_WORK_RETIREMENT`~~ (DISABLED — see below), `BATTLE_FEAR` (2026-06-14), `CIVIC_INDOCTRINATION` (2026-06-15; SHELVED 2026-06-29, RE-ENABLED 2026-07-05 on the v71.40 policy API — see #7), ~~`CLASS_CITIZEN` + `CLASS_CITIZEN_MINE`~~ ("Class Treatment" family — confirmed working then SHELVED 2026-07-04, code `//`-commented; see #8 below), plus the Low-Positive tooltip recolor UI fix (2026-06-15).
 
 **⚠️ `STAT_WORK_RETIREMENT` DISABLED 2026-06-27** (commented out in `MainScript.java`, not deleted; 7 blocks + 6 imports tagged `STAT_WORK_RETIREMENT DISABLED (2026-06-27)`). It inflated player-city **happiness → runaway immigration** in v71, from a fresh start with no techs. Its `restoreDenominators()` pins `StandingCitizen.maxes/defs` every 2s; the "denominator stays static after init" assumption that makes this a no-op held in the v70.32 source but appears broken by the v71 standing rework. It also did nothing useful — no tech/data file boosts the key, so F was always 1.0. CAC was investigated and exonerated (its boosts are all tech-level-gated → neutral at game start). Re-enable only after re-validating the reflection against v71 `StandingCitizen`/`StandingData`. Full analysis: [[stat-system-seams]] and [[immigration-happiness-bug]]. **Rebuild required** to regenerate `V71/script/sos-extended-boostables.jar` (the `V70/` jar still has the old code; out of v71 scope).
 
@@ -12,7 +12,7 @@ Adds new boostable keys to Songs of Syx (now v71.19, see [[v71-migration]]) that
 
 **Key naming convention (followed strictly):** room internal key `_X` → boost key `ROOM__X` (double underscore). `BOOSTING.push()` strips ONE leading `_`, then prepends the category prefix, so push key `__X` → strip → `_X` → prepend `ROOM_` → `ROOM__X`.
 
-**Registration pattern (all keys):** `ensureBoostable(fullKey, pushKey, name, desc, icon, cat)` — `BOOSTING.MAP().tryGet(fullKey)` first; if null, fall back to `BOOSTING.push(pushKey, 1.0, name, desc, icon, cat)`. (As of 2026-06-14 `ensureBoostable` takes the `BoostableCat` as a param — `BOOSTABLES.ROOMS()` for ROOM_* keys, `BOOSTABLES.CIVICS()` for CIVIC_PLUNDER.) So registration works whether or not a data file is present.
+**Registration pattern (all keys):** `ensureBoostable(fullKey, pushKey, name, desc, icon, cat)` — `BOOSTING.MAP().tryGet(fullKey)` first; if null, fall back to `BOOSTING.push(pushKey, 1.0, name, desc, icon, cat)`. (As of 2026-06-14 `ensureBoostable` takes the `BoostableCat` as a param — `BOOSTABLES.ROOMS()` for ROOM_* keys, `BoostableCat.ALL().WORLD` for WORLD_PLUNDER — was `BOOSTABLES.CIVICS()` until the 2026-07-04 rename.) So registration works whether or not a data file is present.
 
 **Implemented boostables:**
 
@@ -26,9 +26,13 @@ Adds new boostable keys to Songs of Syx (now v71.19, see [[v71-migration]]) that
    - Patching uses `snake2d.util.sets.ArrayList.replace(int, E)` — no reflection required.
    - Patching runs in `initBeforeGameInited()` (after `RACES.expand()`).
 
-3. `CIVIC_PLUNDER` ("Raid Plunder") — registered programmatically in CIVICS category
-   (`BOOSTING.push("PLUNDER", 1.0, ..., BOOSTABLES.CIVICS())`, icon `s.sword`),
-   base 1.0. Distinct from vanilla `CIVIC_RAIDING` ("Raid Security", lowers chance of
+3. `WORLD_PLUNDER` ("Raid Plunder") — **renamed 2026-07-04 from `CIVIC_PLUNDER`**; registered
+   programmatically under the engine WORLD category (`BOOSTING.push("PLUNDER", 1.0, ...,
+   BoostableCat.ALL().WORLD)`, prefix `"WORLD_"`, `TYPE_WORLD`, icon `s.sword`), base 1.0. Moved out of
+   CIVICS (TYPE_SETT) so it groups with the other `WORLD_*` keys in the World boost panel; the effect is
+   unchanged (read via the player faction, so type-agnostic). `BoostableCat.ALL()` is populated well
+   before `initBeforeGameInited` (vanilla region init registers `WORLD_*` boostables against it).
+   Distinct from vanilla `CIVIC_RAIDING` ("Raid Security", lowers chance of
    *being* raided, read at `RaidingUtil.java:60`). NO engine read-point exists for a
    plunder boostable — raid loot is hardcoded in the `final static WArmyState.raiding`
    anonymous class (`WArmyState.java:155`: `am = ceil(RD.OUTPUT().get(TR.get(res)).loot(reg)*d*10)`
@@ -102,31 +106,37 @@ Adds new boostable keys to Songs of Syx (now v71.19, see [[v71-migration]]) that
    explicit choice). Main tech-NODE tooltip (`Node.hoverInfoGet`) is uncolored on 70.33 → not a target;
    add `view.ui.tech.Node` if a future version colors it.
 
-7. `CIVIC_INDOCTRINATION` ("Indoctrination", CIVICS, base 1.0, added 2026-06-15) — multiplies the
-   **effectiveness (gain rate) of indoctrinating subjects**. Registered programmatically
+7. `CIVIC_INDOCTRINATION` ("Indoctrination", CIVICS, base 1.0, added 2026-06-15) — **SHELVED 2026-06-29
+   (v71.40 removed `StatsEducation.policyIndoctor`), then RE-ENABLED 2026-07-05 with the effect migrated
+   to the v71.40 education-policy API.** Root cause it resurfaced: CAC tech (`RACE_HUMAN`, `RACE_AMEVIA`)
+   boosts this key, so with EB not registering it the game logged it as an unknown key on exit; the fix
+   was to re-register + re-implement (chosen over stubbing an inert key or stripping the CAC refs).
+   Multiplies the **effectiveness (gain rate) of indoctrinating subjects**. Registered programmatically
    (`ensureBoostable("CIVIC_INDOCTRINATION", "INDOCTRINATION", ... BOOSTABLES.CIVICS())`, icon
-   `UI.icons().s.admin`). Indoctrination is gained only in `StatsEducation.educate(Induvidual, double)`
-   (target = `STATS.EDUCATION().INDOCTRINATION` when `policyIndoctor.is(race)`, else `EDUCATION`), and
-   that method reads **no boostable** (the gain `am = EDUCATION.indu().max(i) * speed` has no seam; the
-   underlying `data` is shared between EDUCATION and INDOCTRINATION so its `max` can't be scaled
-   selectively). The seam used instead: a university's learning speed is
-   `learningSpeed*(1-degrade)*quality*bonus().get(subject)` (`ROOM_UNIVERSITY.learningSpeed`), and
-   `bonus()` (`RoomBlueprintImp.bonus()`) is a real `Boostable`. So `registerIndoctrinationEffect`
-   iterates `SETT.ROOMS().UNIVERSITIES` and adds an `IndoctrinationBooster` (new nested final class,
-   mirrors `UmbrellaBooster`: `isMul=true`, `from()=to()=1`, `getValue(input)=input`,
-   `pget(o)=o.boostableValue(value)`) to each `u.bonus()` (null-checked). The `BValue` returns
-   `civicIndoctrination.get(FACTIONS.player())` for `vGet(Induvidual)` **only when**
-   `STATS.EDUCATION().policyIndoctor.is(indu.race())`, else `1.0`; every other query
-   (`HCLASS_RACE`/`Player`/`FactionNPC`/`Region`/`Div`) returns the neutral `1.0`. So learning (hence
-   indoctrination gain) scales only for races on the indoctrination policy; education-only races are
-   untouched. **Known limitation (user accepted):** `ROOM_SCHOOL` computes learning speed with no
-   `bonus()` factor (never `pushBo`s → `bonus()` is null), so **school/child indoctrination is NOT
-   boosted** — universities (adults) only. The rejected alternative was a bytecode-agent patch of
-   `educate()` (would cover both schools+universities at the chokepoint, but ties a gameplay key to the
-   in-game-unverified self-attach; agent route remains the documented fallback if school coverage is
-   wanted). Cosmetic: `vGet(HCLASS_RACE)`→1.0 means the university's per-race "Learning speed" tooltip
-   breakdown omits the indoctrination line (×1.0 is hidden anyway); the actual gain still scales via the
-   Induvidual query, and the tech tooltip for `CIVIC_INDOCTRINATION` displays normally.
+   `UI.icons().s.admin`). Indoctrination is gained through the education path, which reads **no boostable**
+   for the gain amount itself; the seam used instead: a university's learning speed is
+   `bonus().get(subject) * (1-degrade) * boosts` (v71.40 `RoomEducationHelper.learningSpeed(ins, h)`,
+   `h = student.indu()`), and `bonus()` (`RoomBlueprintIns.bonus()`) is a real per-`Induvidual` `Boostable`.
+   So `registerIndoctrinationEffect` iterates `SETT.ROOMS().UNIVERSITIES` (`ROOMS.java:506`,
+   `LIST<ROOM_UNIVERSITY>`) and adds an `IndoctrinationBooster` (nested final class, mirrors
+   `UmbrellaBooster`: `isMul=true`, `from()=to()=1`, `getValue(input)=input`, `pget(o)=o.boostableValue(value)`)
+   to each `u.bonus()` (null-checked). **v71.40 policy check:** the booster resolves the INDOCTRINATION
+   `StatsEducation.StatEducation` once (match `total.key()=="INDOCTRINATION"`, fallback `edu.all.get(1)` —
+   engine order is [EDUCATION, INDOCTRINATION]) and its `vGet(Induvidual)` returns
+   `civicIndoctrination.get(FACTIONS.player())` **only when**
+   `STATS.EDUCATION().policy(indu.clas(), indu.race()) == that INDOCTRINATION instance`, else `1.0`; every
+   other query (`HCLASS_RACE`/`Player`/`FactionNPC`/`Region`/`Div`) returns neutral `1.0`. Note this is now
+   correctly **per (class, race)** — v71.40 policy is per-`HCLASS_RACE`, not per-race as the old
+   `policyIndoctor.is(race)` was. Learning (hence indoctrination gain) scales only for subjects on the
+   INDOCTRINATION policy; plain-education subjects untouched. **Known limitation (user accepted):** schools
+   compute learning speed with no `bonus()` factor, so **school/child indoctrination is NOT boosted** —
+   universities (adults) only. The rejected alternative was a bytecode-agent patch of the educate chokepoint
+   (covers schools too, but ties a gameplay key to the in-game-unverified self-attach). Cosmetic:
+   `vGet(HCLASS_RACE)`→1.0 means the university per-race "Learning speed" tooltip omits the indoctrination
+   line (×1.0 hidden anyway); the actual gain still scales via the Induvidual query. **Built clean v71.40. In-game
+   2026-07-05: key appears and is recognized (unknown-key-on-exit report gone) — CONFIRMED. Applied
+   multiplier effect NOT yet verified** (still to check: grant the key + set a race's class to INDOCTRINATION,
+   watch university learning speed / indoctrination gain rise for those subjects only).
 
 6. `POPULATION_<RACE>_<CLASS>_OFCLASS_F` — **GVALUES.FACTION values, not boostables** (the registry tech
    `REQUIRES:` blocks query, `init/tech/TECH.java:71`). Added 2026-06-17 to fix a v71 regression: vanilla's
@@ -137,29 +147,38 @@ Adds new boostable keys to Songs of Syx (now v71.19, see [[v71-migration]]) that
    only needs to be in the map before `init.finish()` resolves REQUIRES promises (initBeforeGameInited window).
    Consumed by Create-A-Culture's monorace techs. Full analysis in [[v71-migration]].
 
-8. `CLASS_<CLASS>` "Class Treatment" keys — **added 2026-07-02, IMPLEMENTED but NOT YET BUILT/TESTED
-   in-game** (this session was on a Mac that can't build v71 — see the handoff below). New `CLASS_`
-   `BoostableCat` (prefix applied by `BOOSTING.push`, so push key `"CITIZEN"` → `CLASS_CITIZEN`). Multiplies
-   a curated set of **per-subject** boostables, but only for subjects of the matching `HCLASS`. **Initial
-   test = `CLASS_CITIZEN` only**, on two targets: **`RATES_SHOPPING`** (market-access desire; the SHOPPING
-   need's growth rate, base 0.15, read per-subject at `StatsNeeds.java:171` `n.need.rate.get(i)`) and
-   **`ROOM_MINE_ORE`** (ore-mine "job skill" = the mine's `bonus()`, base 1.0, read per-worker at
-   `IndustryUtil.java:80` `bonus.get(h.indu())`). SoS has no separate skill stat — the room's `bonus()`
-   boostable IS the worker skill. Effect = a nested `ClassTreatmentBooster extends Booster` (multiplicative,
-   `from()=to()=1`, `getValue(input)=input`, `pget(o)=o.boostableValue(value)`) added to each target; its
-   `BValue.vGet(Induvidual)` returns `CLAMP.d(CLASS_CITIZEN.get(player), 0.5, 1.5)` only when
-   `indu.clas()==HCLASSES.CITIZEN()`, and neutral `1.0` for all other subjects and the five other v71
-   `vGet` overloads (so only the per-subject reads of Citizens are scaled — same shape as `ROOM__SLAVER`).
-   Display name uses the vanilla HCLASS name → **"Class Treatment (Plebeian)"**; key stays `CLASS_CITIZEN`.
-   **Min/Max 0.5/1.5** enforced by clamping the applied factor (the engine has no boostable cap). **Zero-multiply
-   safety-net** (user-required): `registerClassTreatment` skips any target whose `baseValue==0` (a `×` on a
-   zero base is a no-op and would feed the engine's unguarded `x/0` tooltip/progress math — `Boostable.progress`,
-   `COMPARATOR.progress`, `RESOURCE`/SPOILAGE, `GFORMAT.f0/f1`), and the [0.5,1.5] clamp means the factor can
-   never move a value across the zero boundary. All APIs verified against real v71.19 source at
-   `../../sos-scripting-template/.claude/game-source-v71.19/`. Full design + evidence:
-   `../../sos-scripting-template/.claude/SPEC_CLASS_KEYS.md`; expansion (SLAVE/NOBLE + more stats) is a
-   data-only table extension — **every added target must be a per-`Induvidual` boostable**; non-boostable
-   stats would need the reflection path (higher risk, see [[stat-system-seams]]).
+8. `CLASS_<CLASS>[_<ROOMTYPE>]` "Class Treatment" keys — **SHELVED 2026-07-04 (all CLASS_* code
+   `//`-commented in MainScript, per user; jar no longer contains it). Confirmed WORKING in-game first
+   (CLASS_CITIZEN 3 need-rates + CLASS_CITIZEN_MINE all-mine output), then shelved for a later update.**
+   To restore: uncomment the five CLASS_*-marked blocks (constants, initBeforeGameInited registration,
+   `registerClassKey`, `registerClassTreatment`, `ClassTreatmentBooster`); no save-format impact. Design
+   history below is retained for that re-enable. Added 2026-07-02 (CITIZEN test), expanded 2026-07-04 to
+   the room-typed family; built clean against v71.40. New `CLASS_` `BoostableCat`
+   (prefix applied by `BOOSTING.push`, so push `"CITIZEN"`→`CLASS_CITIZEN`, `"CITIZEN_MINE"`→`CLASS_CITIZEN_MINE`).
+   Multiplies **per-subject** boostables only for subjects of the matching `HCLASS`. **Design:** *every*
+   `CLASS_<CLASS>*` key scales the three need-growth rates **`RATES_HUNGER`/`RATES_THIRST`/`RATES_SHOPPING`**
+   (single underscore — confirmed via m2 `71.19/boost_dump.txt`; higher = needier, the intended trade-off
+   cost — see [[rates-need-semantics]]). A **room-typed** variant `CLASS_<CLASS>_<ROOMTYPE>` additionally
+   scales that class's output across **all** rooms of the type by ALSO targeting the mod's
+   `ROOM_<ROOMTYPE>_ALL` umbrella (base 1.0) — the umbrella's `UmbrellaBooster.pget→umbrella.get(o)` cascade
+   carries the per-class factor into each `ROOM_<TYPE>_*` child's per-employee read at `IndustryUtil.java:80`
+   `bonus.get(h.indu())`. Registered order matters: `registerRoomAllCascade(MINE_ALL…)` runs before the CLASS
+   block, so `ROOM_MINE_ALL` exists when `registerClassKey` looks it up. **Live now:** `CLASS_CITIZEN` (3 rates)
+   + `CLASS_CITIZEN_MINE` (3 rates + `ROOM_MINE_ALL`, which fans to 6 mine types). FARM/REFINER/WORKSHOP +
+   other classes are commented one-liner `registerClassKey(...)` calls, staged after MINE validation.
+   **Note replaced target:** the old CITIZEN ore-only `ROOM_MINE_ORE` target is gone — mine output now flows
+   through `ROOM_MINE_ALL` on `CLASS_CITIZEN_MINE` (covers all mines, not just ore). **Stacking:** rates are
+   shared across the family, so boosting both `CLASS_CITIZEN` and a room-typed variant multiplies the rates
+   by both factors (each clamped independently). Effect = nested `ClassTreatmentBooster extends Booster`
+   (multiplicative, `from()=to()=1`, `getValue(input)=input`, `pget(o)=o.boostableValue(value)`);
+   `vGet(Induvidual)` returns `CLAMP.d(classKey.get(player), 0.5, 1.5)` iff `indu.clas()==hclass`, neutral
+   `1.0` for the other five `vGet` overloads. New helper **`registerClassKey(cat, hclass, roomType,
+   roomAllKey, roomLabel)`** builds key/display/desc/targets and delegates to `registerClassTreatment`.
+   **Min/Max 0.5/1.5** via clamp. **Zero-multiply safety-net** (user-required): `registerClassTreatment`
+   skips any `baseValue==0` target; the clamp keeps the factor away from the zero boundary. Full design:
+   `../../sos-scripting-template/.claude/SPEC_CLASS_KEYS.md`. Expansion is data-only — **every added target
+   must be a per-`Induvidual` boostable** (or a `ROOM_*_ALL` umbrella that reaches one); non-boostable stats
+   need the reflection path (higher risk, see [[stat-system-seams]]).
 
 **Implementation rules (followed in MainScript):**
 - No Lombok. Explicit `public MainScript() {}`.

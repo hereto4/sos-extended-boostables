@@ -4,13 +4,19 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="7a96583c-c7b8-4ffb-8620-4d12c75a9672" name="Changes" comment="v1.2.3 - unversioned files">
-      <change beforePath="$PROJECT_DIR$/_Info.txt" beforeDir="false" afterPath="$PROJECT_DIR$/_Info.txt" afterDir="false" />
+    <list default="true" id="7a96583c-c7b8-4ffb-8620-4d12c75a9672" name="Changes" comment="+unversioned files">
+      <change beforePath="$PROJECT_DIR$/.idea/shelf/Uncommitted_changes_before_Update_at_6_29_2026_1_44_PM_[Changes]/shelved.patch" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/shelf/Uncommitted_changes_before_Update_at_6_29_2026_1_44_PM_[Changes]/sos-extended-boostables.jar" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/shelf/Uncommitted_changes_before_Update_at_6_29_2026_1_44_PM__Changes_.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
     <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="EmbeddingIndexingInfo">
+    <option name="cachedIndexableFilesCount" value="13362" />
   </component>
   <component name="Git.Settings">
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
@@ -65,7 +71,19 @@
       <recent name="C:\Users\Nate\AppData\Roaming\songsofsyx\mods\sos-extended-boostables\.idea" />
     </key>
   </component>
-  <component name="RunManager" selected="Application.DEBUG" />
+  <component name="RunManager" selected="Application.DEBUG">
+    <configuration default="true" type="JetRunConfigurationType">
+      <module name="sos-extended-boostables" />
+      <method v="2">
+        <option name="Make" enabled="true" />
+      </method>
+    </configuration>
+    <configuration default="true" type="KotlinStandaloneScriptRunConfigurationType">
+      <module name="sos-extended-boostables" />
+      <option name="filePath" />
+      <method v="2" />
+    </configuration>
+  </component>
   <component name="SharedIndexes">
     <attachedChunks>
       <set>
@@ -185,7 +203,31 @@
       <option name="project" value="LOCAL" />
       <updated>1782763068874</updated>
     </task>
-    <option name="localTasksCounter" value="14" />
+    <task id="LOCAL-00014" summary="v1.2.4">
+      <option name="closed" value="true" />
+      <created>1782943324185</created>
+      <option name="number" value="00014" />
+      <option name="presentableId" value="LOCAL-00014" />
+      <option name="project" value="LOCAL" />
+      <updated>1782943324185</updated>
+    </task>
+    <task id="LOCAL-00015" summary="v1.2.4 - fixed CIVIC_INDOCTRINATION, moved plunder to WORLD_PLUNDER">
+      <option name="closed" value="true" />
+      <created>1783277859414</created>
+      <option name="number" value="00015" />
+      <option name="presentableId" value="LOCAL-00015" />
+      <option name="project" value="LOCAL" />
+      <updated>1783277859414</updated>
+    </task>
+    <task id="LOCAL-00016" summary="+unversioned files">
+      <option name="closed" value="true" />
+      <created>1783278014329</created>
+      <option name="number" value="00016" />
+      <option name="presentableId" value="LOCAL-00016" />
+      <option name="project" value="LOCAL" />
+      <updated>1783278014329</updated>
+    </task>
+    <option name="localTasksCounter" value="17" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -212,6 +254,9 @@
     <MESSAGE value="added unversioned files" />
     <MESSAGE value="v1.2.3" />
     <MESSAGE value="v1.2.3 - unversioned files" />
-    <option name="LAST_COMMIT_MESSAGE" value="v1.2.3 - unversioned files" />
+    <MESSAGE value="v1.2.4" />
+    <MESSAGE value="v1.2.4 - fixed CIVIC_INDOCTRINATION, moved plunder to WORLD_PLUNDER" />
+    <MESSAGE value="+unversioned files" />
+    <option name="LAST_COMMIT_MESSAGE" value="+unversioned files" />
   </component>
 </project>

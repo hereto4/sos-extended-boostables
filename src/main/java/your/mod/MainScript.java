@@ -27,13 +27,14 @@ import init.type.HTYPES;
 import init.value.GVALUES;
 import util.data.DOUBLE_O;
 import script.SCRIPT;
-// CIVIC_INDOCTRINATION SHELVED (2026-06-29): ROOM_UNIVERSITY used only by that feature.
-// import settlement.room.knowledge.university.ROOM_UNIVERSITY;
+// CIVIC_INDOCTRINATION re-enabled 2026-07-05 (effect migrated to the v71.40 education-policy API).
+import settlement.room.knowledge.university.ROOM_UNIVERSITY;
 import settlement.entity.ENTITY;
 import settlement.entity.humanoid.Humanoid;
 import settlement.main.SETT;
 import settlement.stats.Induvidual;
 import settlement.stats.STATS;
+import settlement.stats.colls.StatsEducation;
 // STAT_WORK_RETIREMENT DISABLED (2026-06-27): STAT/STANDINGS/StatStanding used only by that feature.
 // import settlement.stats.stat.STAT;
 // import settlement.stats.standing.STANDINGS;
@@ -64,12 +65,11 @@ public final class MainScript implements SCRIPT {
 
     private static final String SLAVER_KEY = "ROOM__SLAVER";
     private static final String CANNIBAL_KEY = "ROOM__CANNIBAL";
-    private static final String PLUNDER_KEY = "CIVIC_PLUNDER";
-    // CIVIC_INDOCTRINATION SHELVED (2026-06-29): the v71.40 game removed StatsEducation.policyIndoctor
-    // (indoctrination policy is now StatsEducation.policy(HCLASS,Race)). Shelved for a later version;
-    // re-enable by uncommenting this constant plus the four other CIVIC_INDOCTRINATION-marked blocks
-    // and migrating the policy check in IndoctrinationBooster.factor to the v71.40 API.
-    // private static final String INDOCTRINATION_KEY = "CIVIC_INDOCTRINATION";
+    private static final String PLUNDER_KEY = "WORLD_PLUNDER"; // renamed from CIVIC_PLUNDER 2026-07-04
+    // CIVIC_INDOCTRINATION re-enabled 2026-07-05. The v70/v71.19 effect used the removed
+    // StatsEducation.policyIndoctor; the effect now uses the v71.40 API StatsEducation.policy(HCLASS,Race)
+    // == the INDOCTRINATION StatEducation (see IndoctrinationBooster.factor). CAC tech boosts this key.
+    private static final String INDOCTRINATION_KEY = "CIVIC_INDOCTRINATION";
 
     // Each ROOM_*_ALL umbrella key plus the child prefix it cascades to.
     private static final String MINE_ALL_KEY = "ROOM_MINE_ALL";
@@ -77,16 +77,24 @@ public final class MainScript implements SCRIPT {
     private static final String FARM_ALL_KEY = "ROOM_FARM_ALL";
     private static final String REFINER_ALL_KEY = "ROOM_REFINER_ALL";
 
-    // CLASS_<CLASS> "Class Treatment" keys (2026-07-02). A conditional multiplicative factor applied to
-    // selected per-subject boostables, but ONLY for subjects of the matching population class (HCLASS);
-    // every other subject/query gets the neutral 1.0 (same shape as the SLAVER/umbrella/indoctrination
-    // effects). The applied multiplier is clamped to [CLASS_MIN, CLASS_MAX] so it can never reach 0 — a
-    // multiply-by-0 both zeroes the value and feeds the engine's unguarded x/0 tooltip/progress math.
-    // Initial test: CLASS_CITIZEN only, on RATES_SHOPPING (market-access desire) and ROOM_MINE_ORE
-    // (ore-mine job skill). See ../../../sos-scripting-template/.claude/SPEC_CLASS_KEYS.md.
-    private static final String CLASS_CITIZEN_KEY = "CLASS_CITIZEN";
-    private static final double CLASS_MIN = 0.5;
-    private static final double CLASS_MAX = 1.5;
+    // ===== CLASS_<CLASS>[_<ROOMTYPE>] "Class Treatment" SHELVED (2026-07-04) =========================
+    // Confirmed working in-game (CLASS_CITIZEN need-rates + CLASS_CITIZEN_MINE all-mine output), then
+    // shelved for a later update per user request. To restore: uncomment all five CLASS_*-marked blocks —
+    // this constants block, the registration block in initBeforeGameInited() (BoostableCat classCat …
+    // registerClassKey …), registerClassKey(), registerClassTreatment(), and the ClassTreatmentBooster
+    // nested class. No save-format impact (nothing is serialized). Full design: SPEC_CLASS_KEYS.md; player
+    // doc: KEYS.md "Class keys"; project memory #8 + reference_rates_need_semantics.
+    //
+    // CLASS_<CLASS>[_<ROOMTYPE>] keys: a conditional multiplicative factor applied to selected per-subject
+    // boostables, but ONLY for subjects of the matching population class (HCLASS); every other
+    // subject/query gets the neutral 1.0 (same shape as the SLAVER/umbrella effects). The applied
+    // multiplier is clamped to [CLASS_MIN, CLASS_MAX] so it can never reach 0. Every CLASS_<CLASS>* key
+    // scales the three need-growth rates below; a room-typed CLASS_<CLASS>_<ROOMTYPE> also scales that
+    // class's output across every room of the type via the ROOM_<ROOMTYPE>_ALL umbrella.
+    // private static final double CLASS_MIN = 0.5;
+    // private static final double CLASS_MAX = 1.5;
+    // /** The three per-subject need-growth rates every CLASS_<CLASS>* key scales. */
+    // private static final String[] CLASS_RATE_TARGETS = { "RATES_HUNGER", "RATES_THIRST", "RATES_SHOPPING" };
 
     /** Vanilla raid loots once every this many seconds of raiding (WArmyState.raiding accumulator). */
     private static final double RAID_PERIOD = 120.0;
@@ -119,12 +127,11 @@ public final class MainScript implements SCRIPT {
 
     private double processedRatio = 0.0;
 
-    /** CIVIC_PLUNDER, resolved at init; null until then. */
-    private Boostable civicPlunder;
+    /** WORLD_PLUNDER, resolved at init; null until then. */
+    private Boostable worldPlunder;
 
-    // CIVIC_INDOCTRINATION SHELVED (2026-06-29) — see note on INDOCTRINATION_KEY.
-    // /** CIVIC_INDOCTRINATION, resolved at init; null until then. */
-    // private Boostable civicIndoctrination;
+    /** CIVIC_INDOCTRINATION, resolved at init; null until then. */
+    private Boostable civicIndoctrination;
 
     /** Per-army raid accumulators, mirroring WArmy.stateFloat for player raiders only. */
     private final IdentityHashMap<WArmy, Double> raidTimers = new IdentityHashMap<>();
@@ -175,25 +182,27 @@ public final class MainScript implements SCRIPT {
             registerCannibalEffect(roomCannibal);
         }
 
-        // CIVIC_PLUNDER: increases resources gained from raiding with your armies on enemy territory.
+        // WORLD_PLUNDER: increases resources gained from raiding with your armies on enemy territory.
         // (Distinct from vanilla CIVIC_RAIDING / "Raid Security", which lowers the chance of being raided.)
-        civicPlunder = ensureBoostable(PLUNDER_KEY, "PLUNDER", "Raid Plunder",
+        // Registered under the engine's world category (BoostableCat.ALL().WORLD — prefix "WORLD_",
+        // TYPE_WORLD) so it groups with the other WORLD_* boostables in the World boost panel rather than
+        // the city Civics panel. Renamed from CIVIC_PLUNDER 2026-07-04 (the effect is unchanged: read via
+        // the player faction, type-agnostic).
+        worldPlunder = ensureBoostable(PLUNDER_KEY, "PLUNDER", "Raid Plunder",
                 "Multiplies the resources your armies plunder while raiding enemy territory.",
-                UI.icons().s.sword, BOOSTABLES.CIVICS());
+                UI.icons().s.sword, BoostableCat.ALL().WORLD);
 
-        // CIVIC_INDOCTRINATION SHELVED (2026-06-29) — see note on INDOCTRINATION_KEY. Restore by
-        // uncommenting this block (and migrating the v71.40 policy API in IndoctrinationBooster.factor).
         // CIVIC_INDOCTRINATION: increases the effectiveness (gain rate) of indoctrinating subjects.
-        // Indoctrination is accumulated in the seam-less StatsEducation.educate(), but a university's
-        // learningSpeed = learningSpeed*(1-degrade)*quality*bonus().get(subject), so a conditional factor
-        // on each university room's bonus() boostable scales the gain — for exactly the races on the
-        // indoctrination policy (see registerIndoctrinationEffect).
-        // civicIndoctrination = ensureBoostable(INDOCTRINATION_KEY, "INDOCTRINATION", "Indoctrination",
-        //         "Multiplies how quickly subjects on the indoctrination policy are indoctrinated at universities.",
-        //         UI.icons().s.admin, BOOSTABLES.CIVICS());
-        // if (civicIndoctrination != null) {
-        //     registerIndoctrinationEffect(civicIndoctrination);
-        // }
+        // Indoctrination is accumulated in the seam-less StatsEducation educate path, but a university's
+        // learningSpeed = bonus().get(subject) * degrade * boosts (RoomEducationHelper.learningSpeed), so a
+        // conditional factor on each university room's bonus() boostable scales the gain — for exactly the
+        // subjects whose (class, race) education policy is INDOCTRINATION (see registerIndoctrinationEffect).
+        civicIndoctrination = ensureBoostable(INDOCTRINATION_KEY, "INDOCTRINATION", "Indoctrination",
+                "Multiplies how quickly subjects on the indoctrination policy are indoctrinated at universities.",
+                UI.icons().s.admin, BOOSTABLES.CIVICS());
+        if (civicIndoctrination != null) {
+            registerIndoctrinationEffect(civicIndoctrination);
+        }
 
         // ROOM_*_ALL umbrella keys: one tooltip line that cascades to every matching room boostable.
         registerRoomAllCascade(MINE_ALL_KEY, "MINE_ALL", "Mines (All)", "ROOM_MINE_",
@@ -228,21 +237,18 @@ public final class MainScript implements SCRIPT {
             registerFearAura(battleFear);
         }
 
-        // CLASS_<CLASS> "Class Treatment": multiply selected per-subject boostables for subjects of a
-        // given population class (HCLASS). New "CLASS_" category (prefix applied by BOOSTING.push, so
-        // push key "CITIZEN" -> "CLASS_CITIZEN"). Display name uses the vanilla HCLASS name -> "Class
-        // Treatment (Plebeian)". Initial test: CLASS_CITIZEN on RATES_SHOPPING (market-access desire)
-        // and ROOM_MINE_ORE (ore-mine job skill). Add classes/targets by extending the table below.
-        BoostableCat classCat = new BoostableCat("CLASS_", "Class Treatment", "",
-                BoostableCat.TYPE_SETT, UI.icons().s.human);
-        Boostable classCitizen = ensureBoostable(CLASS_CITIZEN_KEY, "CITIZEN",
-                "Class Treatment (" + HCLASSES.CITIZEN().name + ")",
-                "Multiplies selected stats for your " + HCLASSES.CITIZEN().name + "-class subjects.",
-                UI.icons().s.human, classCat);
-        if (classCitizen != null) {
-            registerClassTreatment(classCitizen, HCLASSES.CITIZEN(),
-                    new String[] { "RATES_SHOPPING", "ROOM_MINE_ORE" });
-        }
+        // ===== CLASS_* "Class Treatment" registration SHELVED (2026-07-04) — see the constants block =====
+        // New "CLASS_" BoostableCat (prefix applied by BOOSTING.push). In-game names follow
+        // "<ClassName-plural> (<aspect>)" -> "Plebeians (Needs)", "Plebeians (Mining)". registerClassKey
+        // wires each key to the three need-rates, plus — for a room-typed key — the ROOM_<ROOMTYPE>_ALL
+        // umbrella (registered just above, so it already exists).
+        // BoostableCat classCat = new BoostableCat("CLASS_", "Class Treatment", "",
+        //         BoostableCat.TYPE_SETT, UI.icons().s.human);
+        // registerClassKey(classCat, HCLASSES.CITIZEN(), null, null, null);                    // "Plebeians (Needs)"
+        // registerClassKey(classCat, HCLASSES.CITIZEN(), "MINE", MINE_ALL_KEY, "Mining");       // "Plebeians (Mining)"
+        // registerClassKey(classCat, HCLASSES.CITIZEN(), "FARM", FARM_ALL_KEY, "Farming");
+        // registerClassKey(classCat, HCLASSES.CITIZEN(), "REFINER", REFINER_ALL_KEY, "Refining");
+        // registerClassKey(classCat, HCLASSES.CITIZEN(), "WORKSHOP", WORKSHOP_ALL_KEY, "Crafting");
 
         // POPULATION_<RACE>_<CLASS>_OFCLASS_F GVALUEs: restore the v70 per-class race-fraction meaning
         // that v71 silently changed, so dependent tech REQUIRES (e.g. CaC monorace techs) resolve.
@@ -333,34 +339,51 @@ public final class MainScript implements SCRIPT {
         System.out.println("[sos-extended-boostables] Wrapped " + patched + " race RESOURCES entries with " + CANNIBAL_KEY + " multiplier.");
     }
 
-    // CIVIC_INDOCTRINATION SHELVED (2026-06-29) — see note on INDOCTRINATION_KEY.
-    // /**
-    //  * Installs the CIVIC_INDOCTRINATION effect. Indoctrination is accumulated in
-    //  * {@code StatsEducation.educate(indu, speed)}, which has no boostable seam, but a university's
-    //  * learning speed is {@code learningSpeed*(1-degrade)*quality*bonus().get(subject)} — so adding a
-    //  * conditional multiplicative {@link Booster} to each university room's {@code bonus()} boostable
-    //  * scales the learning speed, and therefore the indoctrination gain. The factor is {@code 1.0}
-    //  * (no-op) except for subjects whose race is on the indoctrination policy, where it equals
-    //  * {@code CIVIC_INDOCTRINATION.get(player)} — so education-only races are untouched and the boost
-    //  * only applies while a race is actually being indoctrinated. Same shape as the SLAVER/umbrella
-    //  * effects: a {@link Booster} added to an existing engine {@link Boostable}.
-    //  *
-    //  * <p>Schools ({@code ROOM_SCHOOL}) compute learning speed without a {@code bonus()} factor (they
-    //  * never register one — {@code bonus()} is null), so child indoctrination in schools is unaffected;
-    //  * universities are the covered venue.
-    //  */
-    // private void registerIndoctrinationEffect(Boostable civic) {
-    //     BSourceInfo info = new BSourceInfo("Indoctrination", UI.icons().s.admin);
-    //     int patched = 0;
-    //     for (ROOM_UNIVERSITY u : SETT.ROOMS().UNIVERSITIES) {
-    //         Boostable bonus = u.bonus();
-    //         if (bonus == null) continue;
-    //         new IndoctrinationBooster(civic, info).add(bonus);
-    //         patched++;
-    //     }
-    //     System.out.println("[sos-extended-boostables] " + INDOCTRINATION_KEY
-    //             + " scales learning speed on " + patched + " university room type(s).");
-    // }
+    /**
+     * Installs the CIVIC_INDOCTRINATION effect. Indoctrination is accumulated through the education path,
+     * and a university's learning speed is {@code bonus().get(subject) * degrade * boosts}
+     * ({@code RoomEducationHelper.learningSpeed(ins, subject.indu())}), so adding a conditional
+     * multiplicative {@link Booster} to each university room's {@code bonus()} boostable scales the
+     * learning speed, and therefore the indoctrination gain. The factor is {@code 1.0} (no-op) except for
+     * subjects whose (class, race) education policy is INDOCTRINATION, where it equals
+     * {@code CIVIC_INDOCTRINATION.get(player)} — so subjects on the plain EDUCATION policy are untouched
+     * and the boost only applies while a subject is actually being indoctrinated. Same shape as the
+     * SLAVER/umbrella effects: a {@link Booster} added to an existing engine {@link Boostable}.
+     *
+     * <p><b>v71.40 API.</b> The old {@code StatsEducation.policyIndoctor.is(race)} check was removed;
+     * policy is now per-{@code (HCLASS, Race)} via {@code StatsEducation.policy(HCLASS, Race)}, which
+     * returns a {@link StatsEducation.StatEducation}. We resolve the INDOCTRINATION policy instance once
+     * (by {@code total.key()}, falling back to the fixed engine order [EDUCATION, INDOCTRINATION]) and the
+     * booster compares each subject's policy against it by identity.
+     *
+     * <p>Schools compute learning speed without a {@code bonus()} factor, so child indoctrination there is
+     * unaffected; universities are the covered venue.
+     */
+    private void registerIndoctrinationEffect(Boostable civic) {
+        StatsEducation edu = STATS.EDUCATION();
+        StatsEducation.StatEducation indoctrination = null;
+        for (StatsEducation.StatEducation e : edu.all) {
+            if ("INDOCTRINATION".equals(e.total.key())) { indoctrination = e; break; }
+        }
+        if (indoctrination == null && edu.all.size() > 1) // engine order is [EDUCATION, INDOCTRINATION]
+            indoctrination = edu.all.get(1);
+        if (indoctrination == null) {
+            System.err.println("[sos-extended-boostables] " + INDOCTRINATION_KEY
+                    + ": INDOCTRINATION education policy not found; effect disabled (key still registered).");
+            return;
+        }
+
+        BSourceInfo info = new BSourceInfo("Indoctrination", UI.icons().s.admin);
+        int patched = 0;
+        for (ROOM_UNIVERSITY u : SETT.ROOMS().UNIVERSITIES) {
+            Boostable bonus = u.bonus();
+            if (bonus == null) continue;
+            new IndoctrinationBooster(civic, indoctrination, info).add(bonus);
+            patched++;
+        }
+        System.out.println("[sos-extended-boostables] " + INDOCTRINATION_KEY
+                + " scales learning speed on " + patched + " university room type(s).");
+    }
 
     /**
      * Installs the BATTLE_FEAR morale aura: a multiplicative factor on BATTLE_MORALE whose intensity,
@@ -442,39 +465,76 @@ public final class MainScript implements SCRIPT {
         System.out.println("[sos-extended-boostables] " + fullKey + " cascades to " + children.size() + " room boostables.");
     }
 
-    /**
-     * Installs a CLASS_&lt;CLASS&gt; "Class Treatment" effect: attaches a conditional multiplicative
-     * {@link ClassTreatmentBooster} to each named target boostable. The booster scales the target only
-     * for subjects whose {@link HCLASS} matches {@code hclass} (per the employee/subject {@code Induvidual}
-     * the engine passes at each read-point); every other subject and every non-Induvidual query returns
-     * the neutral {@code 1.0}. The multiplier is {@code classKey.get(player)} clamped to
-     * [{@link #CLASS_MIN}, {@link #CLASS_MAX}]. Same shape as the SLAVER/umbrella/(shelved)indoctrination
-     * effects — a {@link Booster} added to an existing engine {@link Boostable}.
-     *
-     * <p><b>Zero-multiply safety-net.</b> Targets whose {@code baseValue == 0} are skipped (a
-     * multiplicative booster there is a no-op and would add a tooltip line that can hit the engine's
-     * unguarded {@code x/0} progress/percentage math). And because the clamped factor is always in
-     * [0.5, 1.5], it can never turn a value into 0 nor a 0 into non-zero, so the booster never
-     * introduces a divide-by-zero of its own.
-     */
-    private void registerClassTreatment(Boostable classKey, HCLASS hclass, String[] targetKeys) {
-        BSourceInfo info = new BSourceInfo("Class Treatment (" + hclass.name + ")", classKey.nativeIcon);
-        int n = 0;
-        for (String key : targetKeys) {
-            Boostable target = BOOSTING.MAP().tryGet(key);
-            if (target == null) {
-                System.err.println("[sos-extended-boostables] " + classKey.key + " target not found: " + key);
-                continue;
-            }
-            if (target.baseValue == 0) { // zero-multiply safety-net: skip zero-base boostables
-                System.out.println("[sos-extended-boostables] " + classKey.key + " skips zero-base boostable: " + key);
-                continue;
-            }
-            new ClassTreatmentBooster(classKey, hclass, info).add(target);
-            n++;
-        }
-        System.out.println("[sos-extended-boostables] " + classKey.key + " attached to " + n + " boostable(s).");
-    }
+    // ===== CLASS_* "Class Treatment" helpers SHELVED (2026-07-04) — see the constants block ===========
+    // /**
+    //  * Registers one CLASS_<CLASS>[_<ROOMTYPE>] "Class Treatment" boostable and wires its effect. Every
+    //  * key scales the three need-growth rates (CLASS_RATE_TARGETS) for hclass; when roomAllKey != null it
+    //  * additionally scales that class's room output by also targeting the ROOM_<ROOMTYPE>_ALL umbrella,
+    //  * whose cascade carries the class factor into every matching room's per-employee read. roomType/
+    //  * roomAllKey/activity are null for the bare per-class key (need-rates only).
+    //  */
+    // private void registerClassKey(BoostableCat cat, HCLASS hclass, String roomType, String roomAllKey, String activity) {
+    //     String pushKey = (roomType == null) ? hclass.key : hclass.key + "_" + roomType;
+    //     String fullKey = "CLASS_" + pushKey;
+    //     // In-game name: "<ClassName-plural> (<aspect>)" — e.g. "Plebeians (Mining)". The bare per-class
+    //     // key (need-rates only) has no room activity, so it uses "(Needs)".
+    //     String aspect = (activity == null) ? "Needs" : activity;
+    //     String display = hclass.names + " (" + aspect + ")";
+    //
+    //     SPRITE icon = UI.icons().s.human;
+    //     String[] targets = CLASS_RATE_TARGETS;
+    //     String desc = "Multiplies the hunger/thirst/shopping need-growth rates of your " + hclass.names + ".";
+    //     if (roomAllKey != null) {
+    //         Boostable roomAll = BOOSTING.MAP().tryGet(roomAllKey);
+    //         if (roomAll == null) {
+    //             System.err.println("[sos-extended-boostables] " + fullKey + " room umbrella not found: " + roomAllKey);
+    //         } else {
+    //             if (roomAll.nativeIcon != null) icon = roomAll.nativeIcon;
+    //             targets = new String[CLASS_RATE_TARGETS.length + 1];
+    //             System.arraycopy(CLASS_RATE_TARGETS, 0, targets, 0, CLASS_RATE_TARGETS.length);
+    //             targets[CLASS_RATE_TARGETS.length] = roomAllKey;
+    //             desc = "Multiplies the hunger/thirst/shopping need-growth rates of your " + hclass.names
+    //                     + ", and their " + activity + " output.";
+    //         }
+    //     }
+    //
+    //     Boostable key = ensureBoostable(fullKey, pushKey, display, desc, icon, cat);
+    //     if (key != null) {
+    //         registerClassTreatment(key, hclass, targets, display);
+    //     }
+    // }
+    //
+    // /**
+    //  * Installs a CLASS_<CLASS> "Class Treatment" effect: attaches a conditional multiplicative
+    //  * ClassTreatmentBooster to each named target boostable. The booster scales the target only for
+    //  * subjects whose HCLASS matches hclass (per the employee/subject Induvidual the engine passes at each
+    //  * read-point); every other subject and every non-Induvidual query returns the neutral 1.0. The
+    //  * multiplier is classKey.get(player) clamped to [CLASS_MIN, CLASS_MAX]. Same shape as the
+    //  * SLAVER/umbrella/(shelved)indoctrination effects — a Booster added to an existing engine Boostable.
+    //  *
+    //  * Zero-multiply safety-net: targets whose baseValue == 0 are skipped (a multiplicative booster there
+    //  * is a no-op and would add a tooltip line that can hit the engine's unguarded x/0 progress math). And
+    //  * because the clamped factor is always in [0.5, 1.5], it can never turn a value into 0 nor a 0 into
+    //  * non-zero, so the booster never introduces a divide-by-zero of its own.
+    //  */
+    // private void registerClassTreatment(Boostable classKey, HCLASS hclass, String[] targetKeys, String sourceLabel) {
+    //     BSourceInfo info = new BSourceInfo(sourceLabel, classKey.nativeIcon);
+    //     int n = 0;
+    //     for (String key : targetKeys) {
+    //         Boostable target = BOOSTING.MAP().tryGet(key);
+    //         if (target == null) {
+    //             System.err.println("[sos-extended-boostables] " + classKey.key + " target not found: " + key);
+    //             continue;
+    //         }
+    //         if (target.baseValue == 0) { // zero-multiply safety-net: skip zero-base boostables
+    //             System.out.println("[sos-extended-boostables] " + classKey.key + " skips zero-base boostable: " + key);
+    //             continue;
+    //         }
+    //         new ClassTreatmentBooster(classKey, hclass, info).add(target);
+    //         n++;
+    //     }
+    //     System.out.println("[sos-extended-boostables] " + classKey.key + " attached to " + n + " boostable(s).");
+    // }
 
     @Override
     public SCRIPT_INSTANCE createInstance() {
@@ -526,20 +586,20 @@ public final class MainScript implements SCRIPT {
     }
 
     /**
-     * Delivers supplemental raid spoils for CIVIC_PLUNDER. Vanilla still loots its full 100% inside
+     * Delivers supplemental raid spoils for WORLD_PLUNDER. Vanilla still loots its full 100% inside
      * WArmyState.raiding; here we additionally ship {@code (plunder-1)} times the same per-tick loot for
      * each player army actually in the raiding state. This leaves all vanilla mechanics intact
      * (raiding(), UI, sprites, devastation, population loss) and touches only the resource spoils, which is
      * exactly "resources gained from raiding". Battle-victory and conquest spoils are untouched.
      */
     private void handleRaidPlunder(double ds) {
-        if (civicPlunder == null) return;
+        if (worldPlunder == null) return;
         Player p = FACTIONS.player();
         if (p == null || p.capitolRegion() == null) {
             if (!raidTimers.isEmpty()) raidTimers.clear();
             return;
         }
-        double plunder = civicPlunder.get(p);
+        double plunder = worldPlunder.get(p);
         if (plunder <= 1.0) {
             if (!raidTimers.isEmpty()) raidTimers.clear();
             return;
@@ -790,82 +850,26 @@ public final class MainScript implements SCRIPT {
         }
     }
 
-    /**
-     * A conditional multiplicative factor placed on a per-subject boostable (e.g. {@code RATES_SHOPPING},
-     * {@code ROOM_MINE_ORE}). Its value is {@code CLASS_<CLASS>.get(player)} clamped to
-     * [{@link #CLASS_MIN}, {@link #CLASS_MAX}] for a subject whose {@link HCLASS} matches {@code hclass},
-     * and {@code 1.0} (a no-op) for every other subject and every non-Induvidual query — so only the
-     * per-subject read of the targeted class is scaled. {@code getValue} is identity (like
-     * {@link UmbrellaBooster}), so the multiplier applies as-is rather than being clamped to [0,1] the
-     * way a {@code BoosterValue} would; {@code pget} routes the query object into the {@link BValue}.
-     */
-    private static final class ClassTreatmentBooster extends Booster {
-        private final Boostable classKey;   // the CLASS_<CLASS> boostable
-        private final HCLASS hclass;        // the population class this booster applies to
-        private final BValue value;
-
-        ClassTreatmentBooster(Boostable classKey, HCLASS hclass, BSourceInfo info) {
-            super(info, true); // multiplicative
-            this.classKey = classKey;
-            this.hclass = hclass;
-            this.value = new BValue() {
-                @Override public double vGet(Induvidual indu) { return factor(indu); }
-                @Override public double vGet(HCLASS_RACE reg) { return 1.0; }
-                @Override public double vGet(Player f) { return 1.0; }
-                @Override public double vGet(FactionNPC f) { return 1.0; }
-                @Override public double vGet(Region reg) { return 1.0; }
-                @Override public double vGet(Div div) { return 1.0; }
-            };
-        }
-
-        /** Clamped class multiplier for subjects in {@code hclass}; neutral 1.0 for everyone else. */
-        private double factor(Induvidual indu) {
-            if (indu == null || indu.clas() != hclass) return 1.0;
-            return CLAMP.d(classKey.get(FACTIONS.player()), CLASS_MIN, CLASS_MAX);
-        }
-
-        @Override
-        public double from() {
-            return 1.0;
-        }
-
-        @Override
-        public double to() {
-            return 1.0;
-        }
-
-        @Override
-        public double getValue(double input) {
-            return input;
-        }
-
-        @Override
-        protected double pget(BOOSTABLE_O o) {
-            return o.boostableValue(value);
-        }
-    }
-
-    // CIVIC_INDOCTRINATION SHELVED (2026-06-29) — see note on INDOCTRINATION_KEY. The factor() body
-    // references StatsEducation.policyIndoctor, removed in v71.40; migrate to policy(HCLASS,Race) on
-    // re-enable (compare the active StatEducation against the "INDOCTRINATION" one).
+    // ===== CLASS_* "Class Treatment" booster SHELVED (2026-07-04) — see the constants block ===========
     // /**
-    //  * A multiplicative factor placed on a university's learning-speed {@code bonus()} boostable. Its value
-    //  * is {@code CIVIC_INDOCTRINATION.get(player)} for a subject whose race is on the indoctrination policy
-    //  * and {@code 1.0} (a no-op) for everyone else — so learning speed (and hence indoctrination gain) is
-    //  * scaled exactly while a race is being indoctrinated, and education is never affected. getValue is
-    //  * identity (like {@link UmbrellaBooster}), so the multiplier is applied as-is rather than being clamped
-    //  * to [0,1] the way {@code BoosterValue} would. Only the per-Induvidual query (the one the educate path
-    //  * uses) carries the factor; faction/population-class queries return the neutral 1.0.
+    //  * A conditional multiplicative factor placed on a per-subject boostable (e.g. RATES_SHOPPING, or a
+    //  * ROOM_<TYPE>_ALL umbrella). Its value is CLASS_<CLASS>.get(player) clamped to [CLASS_MIN, CLASS_MAX]
+    //  * for a subject whose HCLASS matches hclass, and 1.0 (a no-op) for every other subject and every
+    //  * non-Induvidual query — so only the per-subject read of the targeted class is scaled. getValue is
+    //  * identity (like UmbrellaBooster), so the multiplier applies as-is; pget routes the query object into
+    //  * the BValue.
     //  */
-    // private static final class IndoctrinationBooster extends Booster {
-    //     private final Boostable civic;
+    // private static final class ClassTreatmentBooster extends Booster {
+    //     private final Boostable classKey;   // the CLASS_<CLASS> boostable
+    //     private final HCLASS hclass;        // the population class this booster applies to
     //     private final BValue value;
     //
-    //     IndoctrinationBooster(Boostable civic, BSourceInfo info) {
+    //     ClassTreatmentBooster(Boostable classKey, HCLASS hclass, BSourceInfo info) {
     //         super(info, true); // multiplicative
-    //         this.civic = civic;
+    //         this.classKey = classKey;
+    //         this.hclass = hclass;
     //         this.value = new BValue() {
-    //             @Override public double vGet(Induvidual indu) { return factor(indu.race()); }
+    //             @Override public double vGet(Induvidual indu) { return factor(indu); }
     //             @Override public double vGet(HCLASS_RACE reg) { return 1.0; }
     //             @Override public double vGet(Player f) { return 1.0; }
     //             @Override public double vGet(FactionNPC f) { return 1.0; }
@@ -874,11 +878,10 @@ public final class MainScript implements SCRIPT {
     //         };
     //     }
     //
-    //     /** The multiplier to apply: the boostable value if {@code r} is being indoctrinated, else 1.0. */
-    //     private double factor(Race r) {
-    //         if (r != null && STATS.EDUCATION().policyIndoctor.is(r))
-    //             return civic.get(FACTIONS.player());
-    //         return 1.0;
+    //     /** Clamped class multiplier for subjects in hclass; neutral 1.0 for everyone else. */
+    //     private double factor(Induvidual indu) {
+    //         if (indu == null || indu.clas() != hclass) return 1.0;
+    //         return CLAMP.d(classKey.get(FACTIONS.player()), CLASS_MIN, CLASS_MAX);
     //     }
     //
     //     @Override
@@ -901,4 +904,64 @@ public final class MainScript implements SCRIPT {
     //         return o.boostableValue(value);
     //     }
     // }
+
+    /**
+     * A multiplicative factor placed on a university's learning-speed {@code bonus()} boostable. Its value
+     * is {@code CIVIC_INDOCTRINATION.get(player)} for a subject whose {@code (class, race)} education
+     * policy is INDOCTRINATION, and {@code 1.0} (a no-op) for everyone else — so learning speed (and hence
+     * indoctrination gain) is scaled exactly while a subject is being indoctrinated, and plain education is
+     * never affected. {@code getValue} is identity (like {@link UmbrellaBooster}), so the multiplier is
+     * applied as-is rather than being clamped to [0,1] the way {@code BoosterValue} would. Only the
+     * per-Induvidual query (the one the educate path uses) carries the factor; faction/population-class
+     * queries return the neutral 1.0.
+     */
+    private static final class IndoctrinationBooster extends Booster {
+        private final Boostable civic;
+        private final StatsEducation.StatEducation indoctrination; // the INDOCTRINATION education policy
+        private final BValue value;
+
+        IndoctrinationBooster(Boostable civic, StatsEducation.StatEducation indoctrination, BSourceInfo info) {
+            super(info, true); // multiplicative
+            this.civic = civic;
+            this.indoctrination = indoctrination;
+            this.value = new BValue() {
+                @Override public double vGet(Induvidual indu) { return factor(indu); }
+                @Override public double vGet(HCLASS_RACE reg) { return 1.0; }
+                @Override public double vGet(Player f) { return 1.0; }
+                @Override public double vGet(FactionNPC f) { return 1.0; }
+                @Override public double vGet(Region reg) { return 1.0; }
+                @Override public double vGet(Div div) { return 1.0; }
+            };
+        }
+
+        /** The multiplier: the boostable value if the subject's policy is INDOCTRINATION, else 1.0. */
+        private double factor(Induvidual indu) {
+            if (indu == null) return 1.0;
+            Race r = indu.race();
+            if (r == null) return 1.0;
+            if (STATS.EDUCATION().policy(indu.clas(), r) == indoctrination)
+                return civic.get(FACTIONS.player());
+            return 1.0;
+        }
+
+        @Override
+        public double from() {
+            return 1.0;
+        }
+
+        @Override
+        public double to() {
+            return 1.0;
+        }
+
+        @Override
+        public double getValue(double input) {
+            return input;
+        }
+
+        @Override
+        protected double pget(BOOSTABLE_O o) {
+            return o.boostableValue(value);
+        }
+    }
 }
