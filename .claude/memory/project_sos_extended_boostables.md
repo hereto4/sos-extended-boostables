@@ -4,7 +4,7 @@ description: Current state and key decisions for the sos-extended-boostables mod
 type: project
 originSessionId: f4a7dc19-9fa3-4a12-9315-2717447ae117
 ---
-Adds new boostable keys to Songs of Syx (now v71.19, see [[v71-migration]]) that don't exist in vanilla. All effects ship in the same jar (`your.mod.MainScript`). Keys: `ROOM__SLAVER`, `ROOM__CANNIBAL`, `WORLD_PLUNDER` (renamed 2026-07-04 from `CIVIC_PLUNDER`), `ROOM_MINE_ALL`, `ROOM_WORKSHOP_ALL`, `ROOM_FARM_ALL`, `ROOM_REFINER_ALL`, ~~`STAT_WORK_RETIREMENT`~~ (DISABLED — see below), `BATTLE_FEAR` (2026-06-14), `CIVIC_INDOCTRINATION` (2026-06-15; SHELVED 2026-06-29, RE-ENABLED 2026-07-05 on the v71.40 policy API — see #7), ~~`CLASS_CITIZEN` + `CLASS_CITIZEN_MINE`~~ ("Class Treatment" family — confirmed working then SHELVED 2026-07-04, code `//`-commented; see #8 below), plus the Low-Positive tooltip recolor UI fix (2026-06-15).
+Adds new boostable keys to Songs of Syx (now v71.19, see [[v71-migration]]) that don't exist in vanilla. All effects ship in the same jar (`your.mod.MainScript`). Keys: `ROOM__SLAVER`, `ROOM__CANNIBAL`, `WORLD_PLUNDER` (renamed 2026-07-04 from `CIVIC_PLUNDER`), `ROOM_MINE_ALL`, `ROOM_WORKSHOP_ALL`, `ROOM_FARM_ALL`, `ROOM_REFINER_ALL`, `WORLD_PRODUCTION_SLAVE_ALL` (2026-07-09, umbrella over per-race slave production — see #4), ~~`STAT_WORK_RETIREMENT`~~ (DISABLED — see below), `BATTLE_FEAR` (2026-06-14), `CIVIC_INDOCTRINATION` (2026-06-15; SHELVED 2026-06-29, RE-ENABLED 2026-07-05 on the v71.40 policy API — see #7), ~~`CLASS_CITIZEN` + `CLASS_CITIZEN_MINE`~~ ("Class Treatment" family — confirmed working then SHELVED 2026-07-04, code `//`-commented; see #8 below), plus the Low-Positive tooltip recolor UI fix (2026-06-15).
 
 **⚠️ `STAT_WORK_RETIREMENT` DISABLED 2026-06-27** (commented out in `MainScript.java`, not deleted; 7 blocks + 6 imports tagged `STAT_WORK_RETIREMENT DISABLED (2026-06-27)`). It inflated player-city **happiness → runaway immigration** in v71, from a fresh start with no techs. Its `restoreDenominators()` pins `StandingCitizen.maxes/defs` every 2s; the "denominator stays static after init" assumption that makes this a no-op held in the v70.32 source but appears broken by the v71 standing rework. It also did nothing useful — no tech/data file boosts the key, so F was always 1.0. CAC was investigated and exonerated (its boosts are all tech-level-gated → neutral at game start). Re-enable only after re-validating the reflection against v71 `StandingCitizen`/`StandingData`. Full analysis: [[stat-system-seams]] and [[immigration-happiness-bug]]. **Rebuild required** to regenerate `V71/script/sos-extended-boostables.jar` (the `V70/` jar still has the old code; out of v71 scope).
 
@@ -53,7 +53,9 @@ Adds new boostable keys to Songs of Syx (now v71.19, see [[v71-migration]]) that
    single umbrella boostables in ROOMS category that cascade onto every matching room key, so a
    tech shows ONE tooltip line ("Mines (All) *1.5") instead of one per room. (The game's `ROOM_FARM*`
    wildcard already applies to all, but lists each room separately on the tech tooltip — the
-   umbrella collapses that to one line.) `registerRoomAllCascade` enumerates `BOOSTING.ALL()` for
+   umbrella collapses that to one line.) `registerUmbrellaCascade` (generalized 2026-07-09 from the old
+   room-only `registerRoomAllCascade` — now takes the umbrella's `BoostableCat` and a nullable
+   `excludeSuffix`) enumerates `BOOSTING.ALL()` for
    keys starting with `ROOM_MINE_`/`ROOM_WORKSHOP_`/`ROOM_FARM_` (excluding the `_ALL` key itself;
    catches modded rooms registered by initBeforeGameInited too), then adds one `UmbrellaBooster`
    (nested final class, `isMul=true`, `getValue(input)=input`, `pget(o)=umbrella.get(o)`) to each
@@ -65,6 +67,16 @@ Adds new boostable keys to Songs of Syx (now v71.19, see [[v71-migration]]) that
    per-room *production breakdown* (`IndustryUtil.hoverBoosts`) lists every MUL booster incl. ×1.0,
    so an unused umbrella shows a neutral "Mines (All) *1.0" line there (standard `BHoverer` hovers
    hide ×1.0). The tech tooltip — the thing we wanted decluttered — is unaffected.
+
+   **`WORLD_PRODUCTION_SLAVE_ALL` (added 2026-07-09)** reuses this same helper for a *world* umbrella:
+   `registerUmbrellaCascade("WORLD_PRODUCTION_SLAVE_ALL", "PRODUCTION_SLAVE_ALL", "Slave Production (All)",
+   "WORLD_PRODUCTION_SLAVE_", …, BoostableCat.ALL().WORLD_PRODUCTION, "_YEARLY")`. Cascades to the 8 vanilla
+   per-race `WORLD_PRODUCTION_SLAVE_<RACE>` region-output keys (base 0, `WORLD_PRODUCTION` cat), **excluding**
+   the hidden per-race `_YEARLY` display-derivatives (`WORLD_DUMP` cat) per user. Children are queried
+   per-`Region` (`RDOutput.getDelivery/loot` read `boost.get(reg)`); `umbrella.get(Region)` supplies the tech
+   factor. Timing verified against v71.40 `GAME.<init>`: `WORLD`→`RD`→`RDOutputs` construct at line 158,
+   before `initBeforeGameInited` (172), so the children already exist when the cascade enumerates (same
+   guarantee as `ROOM_*` from `SETT` at line 142). Built clean v71.40; in-game verification pending.
 
 5. `BATTLE_FEAR` ("Fear") — per-division morale aura, added 2026-06-14. Registered in the BATTLE
    category (`BOOSTING.push("FEAR", 0.0, ..., BOOSTABLES.BATTLE())` → base 0; races grant it via

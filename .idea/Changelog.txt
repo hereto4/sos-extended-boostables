@@ -1,3 +1,6 @@
+Changelog v1.3.0
+- added new key WORLD_PRODUCTION_SLAVE_ALL in the same vein as <ROOMTYPE>_ALL, merging per-race slave production keys into one for better in-game display
+
 Changelog v1.2.4
 - recategorized CIVIC_PLUNDER to WORLD_PLUNDER; no functional change
 - fixed CIVIC_INDOCTRINATION

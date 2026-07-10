@@ -39,6 +39,7 @@ whatever matching `ROOM_*` boostables exist at load — including rooms added by
 | Key | Display | Category | Effect |
 |---|---|---|---|
 | `WORLD_PLUNDER` | Raid Plunder | World | Multiplies the **resources your armies plunder while raiding** enemy territory. Vanilla still loots its full amount; this delivers the extra `(value − 1)×` as supplemental spoils. Scoped to the **raid action only** — battle-victory and conquest spoils are unaffected. Not to be confused with vanilla `CIVIC_RAIDING` ("Raid Security"), which lowers the chance of *being* raided. Renamed 2026-07-04 from `CIVIC_PLUNDER` (moved from the Civics group to the World group; now `TYPE_WORLD`). |
+| `WORLD_PRODUCTION_SLAVE_ALL` | Production: Slaves (All) | World: Production | **Umbrella** over the vanilla per-race `WORLD_PRODUCTION_SLAVE_<RACE>` region-output keys — one tooltip line that multiplies the production of slaves of **every race** at once. Children are discovered dynamically, so new races are auto-included. The hidden per-race `_YEARLY` display-derivative variants are **excluded**. Same cascade mechanism as the `ROOM_*_ALL` umbrellas. |
 
 ## Civic keys
 

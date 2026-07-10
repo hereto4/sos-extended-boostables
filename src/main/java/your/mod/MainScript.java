@@ -77,6 +77,11 @@ public final class MainScript implements SCRIPT {
     private static final String FARM_ALL_KEY = "ROOM_FARM_ALL";
     private static final String REFINER_ALL_KEY = "ROOM_REFINER_ALL";
 
+    // WORLD_PRODUCTION_SLAVE_ALL: an umbrella over the per-race WORLD_PRODUCTION_SLAVE_<RACE> region-output
+    // keys (same cascade pattern as ROOM_*_ALL). Excludes the hidden WORLD_PRODUCTION_SLAVE_<RACE>_YEARLY
+    // display-derivative variants (per user, 2026-07-05).
+    private static final String SLAVE_PRODUCTION_ALL_KEY = "WORLD_PRODUCTION_SLAVE_ALL";
+
     // ===== CLASS_<CLASS>[_<ROOMTYPE>] "Class Treatment" SHELVED (2026-07-04) =========================
     // Confirmed working in-game (CLASS_CITIZEN need-rates + CLASS_CITIZEN_MINE all-mine output), then
     // shelved for a later update per user request. To restore: uncomment all five CLASS_*-marked blocks —
@@ -205,14 +210,22 @@ public final class MainScript implements SCRIPT {
         }
 
         // ROOM_*_ALL umbrella keys: one tooltip line that cascades to every matching room boostable.
-        registerRoomAllCascade(MINE_ALL_KEY, "MINE_ALL", "Mines (All)", "ROOM_MINE_",
-                "Affects every Mine room type at once.");
-        registerRoomAllCascade(WORKSHOP_ALL_KEY, "WORKSHOP_ALL", "Workshops (All)", "ROOM_WORKSHOP_",
-                "Affects every Workshop room type at once.");
-        registerRoomAllCascade(FARM_ALL_KEY, "FARM_ALL", "Farms (All)", "ROOM_FARM_",
-                "Affects every Farm room type at once.");
-        registerRoomAllCascade(REFINER_ALL_KEY, "REFINER_ALL", "Refineries (All)", "ROOM_REFINER_",
-                "Affects every Refinery room type at once.");
+        registerUmbrellaCascade(MINE_ALL_KEY, "MINE_ALL", "Mines (All)", "ROOM_MINE_",
+                "Affects every Mine room type at once.", BOOSTABLES.ROOMS(), null);
+        registerUmbrellaCascade(WORKSHOP_ALL_KEY, "WORKSHOP_ALL", "Workshops (All)", "ROOM_WORKSHOP_",
+                "Affects every Workshop room type at once.", BOOSTABLES.ROOMS(), null);
+        registerUmbrellaCascade(FARM_ALL_KEY, "FARM_ALL", "Farms (All)", "ROOM_FARM_",
+                "Affects every Farm room type at once.", BOOSTABLES.ROOMS(), null);
+        registerUmbrellaCascade(REFINER_ALL_KEY, "REFINER_ALL", "Refineries (All)", "ROOM_REFINER_",
+                "Affects every Refinery room type at once.", BOOSTABLES.ROOMS(), null);
+
+        // WORLD_PRODUCTION_SLAVE_ALL umbrella: cascades to the per-race WORLD_PRODUCTION_SLAVE_<RACE>
+        // region-output keys (dynamically discovered, so new races are auto-included). Registered under the
+        // engine's World: Production category (prefix "WORLD_" -> key WORLD_PRODUCTION_SLAVE_ALL). The
+        // hidden per-race "_YEARLY" display-derivative variants are excluded (per user).
+        registerUmbrellaCascade(SLAVE_PRODUCTION_ALL_KEY, "PRODUCTION_SLAVE_ALL", "Production: Slaves (All)",
+                "WORLD_PRODUCTION_SLAVE_", "Affects the production of slaves (all races).",
+                BoostableCat.ALL().WORLD_PRODUCTION, "_YEARLY");
 
         // ===== STAT_WORK_RETIREMENT DISABLED (2026-06-27) — see note on the constants block =====
         // STAT_* prefix. New BoostableCat whose prefix is "STAT_"; push key "WORK_RETIREMENT"
@@ -438,31 +451,41 @@ public final class MainScript implements SCRIPT {
     }
 
     /**
-     * Registers a single ROOM_*_ALL umbrella boostable and makes its value cascade onto every existing
-     * boostable whose key starts with {@code childPrefix}. A tech that boosts the umbrella shows ONE line
-     * ("Mines (All) *1.5") yet every matching room is multiplied. The umbrella resolves tech boosts per
-     * target via the engine's BValueFaction, so the cascade is correct for any query target (the employee
-     * Induvidual that room production passes in).
+     * Registers a single umbrella boostable and makes its value cascade onto every existing boostable whose
+     * key starts with {@code childPrefix} (skipping any whose key ends with {@code excludeSuffix}, when
+     * non-null). A tech that boosts the umbrella shows ONE line ("Mines (All) *1.5") yet every matching
+     * child is multiplied. The umbrella resolves per query target via the engine's boosting, so the cascade
+     * is correct whatever the child is queried with — the employee {@code Induvidual} for room production,
+     * or the {@code Region} for world production.
+     *
+     * <p>Children must already be registered when this runs. That holds at {@code initBeforeGameInited} for
+     * both settlement boostables ({@code SETT}, GAME.&lt;init&gt; line 142) and world boostables
+     * ({@code WORLD}/{@code RD}, line 158) — both are constructed before this hook (line 172).
+     *
+     * @param cat           the umbrella's category; its {@code prefix} + {@code pushKey} forms the key
+     * @param excludeSuffix if non-null, child keys ending with this are NOT cascaded (e.g. "_YEARLY")
      */
-    private void registerRoomAllCascade(String fullKey, String pushKey, String name, String childPrefix, String desc) {
+    private void registerUmbrellaCascade(String fullKey, String pushKey, String name, String childPrefix,
+            String desc, BoostableCat cat, String excludeSuffix) {
         // Collect children BEFORE pushing the umbrella so the umbrella can never be its own child.
         snake2d.util.sets.ArrayListGrower<Boostable> children = new snake2d.util.sets.ArrayListGrower<>();
         SPRITE icon = UI.icons().s.house;
         for (Boostable b : BOOSTING.ALL()) {
-            if (b.key != null && b.key.startsWith(childPrefix) && !b.key.equals(fullKey)) {
+            if (b.key != null && b.key.startsWith(childPrefix) && !b.key.equals(fullKey)
+                    && (excludeSuffix == null || !b.key.endsWith(excludeSuffix))) {
                 if (children.size() == 0) icon = b.nativeIcon;
                 children.add(b);
             }
         }
 
-        Boostable umbrella = ensureBoostable(fullKey, pushKey, name, desc, icon, BOOSTABLES.ROOMS());
+        Boostable umbrella = ensureBoostable(fullKey, pushKey, name, desc, icon, cat);
         if (umbrella == null) return;
 
         BSourceInfo info = new BSourceInfo(name, icon);
         for (Boostable child : children) {
             new UmbrellaBooster(umbrella, info).add(child);
         }
-        System.out.println("[sos-extended-boostables] " + fullKey + " cascades to " + children.size() + " room boostables.");
+        System.out.println("[sos-extended-boostables] " + fullKey + " cascades to " + children.size() + " boostable(s).");
     }
 
     // ===== CLASS_* "Class Treatment" helpers SHELVED (2026-07-04) — see the constants block ===========
