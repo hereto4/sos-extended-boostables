@@ -77,6 +77,29 @@ classes (Child/Citizen/Slave/Noble).
 > zero value on retirement stays at zero (0 × value = 0) — it amplifies existing desire rather than
 > creating it.
 
+## Need-rate keys (`RATES_*` prefix)
+
+| Key | Display | Category | Effect |
+|---|---|---|---|
+| `RATES_NATURE` | Piety (Nature) | Service Needs | The rate at which the **Worship (Nature)** need increases daily. Subjects fulfill it by worshipping at **Nature Monuments or natural trees**, which grants **Piety (Shrine)** fulfillment. Centered at `1.0` (a per-subject multiplier of that desire). **Water is not nature.** |
+
+> **Semantics — centered at 1.0, not 0.** Unlike the other keys here, `RATES_NATURE` is a *multiplier of desire*, read per-subject as `affinity = value − 1`:
+> - **`>1` — loves nature.** Being near nature raises shrine piety ∝ `affinity × proximity`. Any nature-lover also builds a **desire** to seek nature while away from it (faster the higher the value); when that desire crosses a threshold, an idle citizen will **walk to nearby nature and linger** there (a "pilgrimage"), which sates the desire — so they self-pace rather than constantly wandering off. A **population-scaled cap** (a small % of the city, not a fixed number) bounds how many pilgrimage at once.
+> - **`<1` — shuns nature.** Gains no piety from nature (v1 makes aversion a non-gain, not an active penalty).
+> - **`=1` — neutral (default).** Inert; nothing happens.
+>
+> **Author it on a race (or tech) with `>MUL`**, since the base is `1.0`:
+> ```
+> RATES_NATURE>MUL: 2.0,   // this race loves nature
+> RATES_NATURE>MUL: 0.5,   // this race is averse
+> ```
+> The computed value is **floored just above 0** (min `0.01`), so `RATES_NATURE>MUL: 0` can never drive it to 0 (avoids the engine's unguarded divide-by-zero tooltip math).
+>
+> **It is NOT an engine "need".** The game's need/service/AI-plan system is sealed to mods, so nothing in the engine reads this key. All behaviour — the proximity reward and the pilgrimage — is a **mod-owned per-tick routine** (the `WORLD_PLUNDER` pattern) in `MainScript`. Consequences:
+> - Nature is **`MONUMENT_NATURE`** (its harmony spread, read O(1)) **+ wild forest trees** (a mod-maintained proximity map, rebuilt periodically).
+> - The reward is written to each subject's **shrine** religious-service satisfaction. The vanilla shrine AI re-clears that for subjects who actively seek a shrine and find none, so the nature-piety is **durably sticky only for subjects without shrine access** (a known interplay; a dedicated "nature religion" is the clean long-term fix).
+> - **Pilgrimage (Stage 2) is gated** by a master switch (`NATURE_PILGRIMAGE_ENABLED` in `MainScript`) plus a concurrency cap and a per-episode watchdog; it commandeers only genuinely idle citizens and always releases them, so real needs are never starved. Flip the switch off to run the passive proximity reward alone.
+
 ## Class keys (`CLASS_*` prefix) — ⚠️ SHELVED 2026-07-04 (not in current build)
 
 > **These keys are not registered in the current jar.** The feature was confirmed working in-game

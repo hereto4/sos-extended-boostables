@@ -24,6 +24,7 @@ import init.type.HCLASS;
 import init.type.HCLASSES;
 import init.type.HCLASS_RACE;
 import init.type.HTYPES;
+import init.type.NEEDS;
 import init.value.GVALUES;
 import util.data.DOUBLE_O;
 import script.SCRIPT;
@@ -31,6 +32,9 @@ import script.SCRIPT;
 import settlement.room.knowledge.university.ROOM_UNIVERSITY;
 import settlement.entity.ENTITY;
 import settlement.entity.humanoid.Humanoid;
+import settlement.entity.humanoid.ai.main.AI;
+import settlement.entity.humanoid.ai.main.AIManager;
+import settlement.entity.humanoid.ai.main.AISUB;
 import settlement.main.SETT;
 import settlement.stats.Induvidual;
 import settlement.stats.STATS;
@@ -39,6 +43,7 @@ import settlement.stats.colls.StatsEducation;
 // import settlement.stats.stat.STAT;
 // import settlement.stats.standing.STANDINGS;
 // import settlement.stats.standing.StatStanding;
+import snake2d.util.datatypes.COORDINATE;
 import snake2d.util.file.FileGetter;
 import snake2d.util.file.FilePutter;
 import snake2d.util.misc.CLAMP;
@@ -114,6 +119,102 @@ public final class MainScript implements SCRIPT {
     private static final int FEAR_MAX_ENEMIES = 8;        // cap on nearby enemies considered
 
     private Boostable battleFear;
+
+    // RATES_NATURE ("Piety (Nature)"): a per-subject multiplier centered at 1.0 meaning DESIRE for nature
+    // (>1 seeks, <1 shuns, =1 neutral). NOT an engine need — the engine reads nothing; our per-tick loop
+    // (Stage 1 passive reward + Stage 2 pilgrimage) is the only consumer. Registered under the vanilla
+    // RATES_ "Service Needs" cat (NEEDS.bCat()) so it groups with the other need-rates. See
+    // SPEC_NATURE_PIETY.md / reference_songsofsyx_behaviour_env_seams.md.
+    private static final String NATURE_KEY = "RATES_NATURE";
+    /** Hard floor on the computed value so >MUL:0 authoring never reaches 0 (engine x/0 guard). */
+    private static final double NATURE_MIN = 0.01;
+    private Boostable ratesNature;
+
+    // --- Stage 1 nature-piety tuning knobs ---
+    /** Seconds between reward passes (mirrors the engine's 16-tick StatsAccess cadence, in wall time). */
+    private static final double NATURE_PERIOD = 1.0;
+    /** Seconds between full rebuilds of the wild-tree proximity map (forests change slowly). */
+    private static final double NATURE_TREE_REFRESH = 30.0;
+    /** Tiles a wild tree spreads "nature" (linear Chebyshev falloff); matches the monument min radius. */
+    private static final int NATURE_TREE_RADIUS = 5;
+    /** Minimum natureValue (0..1) that counts as "near nature". */
+    private static final double NATURE_THRESHOLD = 0.05;
+    /** affinity × natureValue → shrine quality (0..1), pre-clamp. */
+    private static final double NATURE_REWARD_SCALE = 1.0;
+
+    // --- Stage 2 pilgrimage tuning knobs ---
+    /**
+     * Master switch for Stage 2 (active pilgrimage). Stage 1 (passive reward) is always on. Stage 2
+     * commandeers idle citizens' AI to walk them to nature; it is the one fragile part (SPEC §7). Flip to
+     * {@code false} to ship/run the proven passive core alone (recompile).
+     */
+    private static final boolean NATURE_PILGRIMAGE_ENABLED = true;
+    /**
+     * Minimum affinity to be eligible for a pilgrimage. {@code 0} means ANY nature-lover (RATES_NATURE > 1)
+     * can pilgrimage — same gate as the Stage-1 passive reward, per the feature's intent. This only widens
+     * the eligible pool; how many actually pilgrimage at once is bounded by {@link #NATURE_MAX_PILGRIMS}.
+     * Raise it (e.g. 0.5 = value ≥ 1.5) if you want only strong lovers to leave their work to seek nature.
+     */
+    private static final double NATURE_PILGRIM_MIN_AFFINITY = 0.0;
+    /**
+     * Concurrent-pilgrim cap as a FRACTION of settlement population, so it scales with city growth instead
+     * of a fixed number. Effective cap = clamp(pop × pct, MIN, ABS). Raise the ABS ceiling (or remove the
+     * clamp) if you want it to keep scaling without bound.
+     */
+    private static final double NATURE_MAX_PILGRIMS_PCT = 0.02; // 2% of population
+    /** Floor so small settlements still allow at least this many pilgrims. */
+    private static final int NATURE_MAX_PILGRIMS_MIN = 1;
+    /** Safety ceiling so we never commandeer an unreasonable number of citizens' AI at once. */
+    private static final int NATURE_MAX_PILGRIMS_ABS = 30;
+    /** Seconds a pilgrim lingers at the destination (int — STAND.activateTime takes int seconds). */
+    private static final int NATURE_PILGRIM_STAND_SECS = 6;
+    /** Watchdog: force-release a pilgrim after this many seconds no matter what (never pin a citizen). */
+    private static final double NATURE_PILGRIM_MAX_EPISODE = 45.0;
+    /** How far (tiles) to search outward for a nature destination when a pilgrimage triggers. */
+    private static final int NATURE_PILGRIM_SEARCH_RADIUS = 40;
+    /** A destination tile must have at least this natureValue (so the pilgrim arrives actually at nature). */
+    private static final double NATURE_PILGRIM_PICK = 0.5;
+    /** Chebyshev tiles from the destination that count as "arrived". */
+    private static final int NATURE_PILGRIM_ARRIVE = 2;
+    /**
+     * Desire accrued per reward pass per unit affinity while a lover is away from nature. Reaching nature
+     * resets desire to 0 (sated), so this + {@link #NATURE_DESIRE_TRIGGER} sets how often a citizen seeks
+     * nature — the mod-side stand-in for the need-reset cadence a native engine need gets for free.
+     */
+    private static final double NATURE_DESIRE_GROWTH = 1.0;
+    /** Accrued desire at which an idle lover sets out on a pilgrimage (affinity-1 lover: ~this many passes). */
+    private static final double NATURE_DESIRE_TRIGGER = 60.0;
+
+    /** Active pilgrimages, keyed by the commandeered citizen. Transient; never serialized. */
+    private final IdentityHashMap<Humanoid, Pilgrim> pilgrims = new IdentityHashMap<>();
+
+    /** Per-lover accumulated desire to seek nature (grows away from nature, resets on reaching it). Transient. */
+    private final IdentityHashMap<Induvidual, Double> natureDesire = new IdentityHashMap<>();
+    /** Scratch set of lovers seen in the current reward pass, used to prune dead entries from natureDesire. */
+    private final Set<Induvidual> natureSeen = Collections.newSetFromMap(new IdentityHashMap<Induvidual, Boolean>());
+    /** Settlement humanoid population counted on the last reward pass (drives the % pilgrim cap). */
+    private int naturePop = 0;
+    /** Effective concurrent-pilgrim cap for the current pass, derived from {@link #naturePop}. */
+    private int maxPilgrims = NATURE_MAX_PILGRIMS_MIN;
+
+    /** Per-pilgrim episode state (mod-owned; the engine AI is driven via overwrite/interrupt). */
+    private static final class Pilgrim {
+        final int tx, ty;      // destination tile
+        boolean standing;      // false = walking to the destination, true = lingering there
+        double episodeTime;    // seconds since this pilgrimage began (watchdog)
+        double standLeft;      // seconds left to linger once standing
+        Pilgrim(int tx, int ty) { this.tx = tx; this.ty = ty; }
+    }
+
+    // --- Stage 1 nature-piety runtime state (all transient; nothing serialized, rebuilt at runtime) ---
+    /** MONUMENT_NATURE blueprint, resolved lazily once the settlement exists; null if none registered. */
+    private settlement.room.infra.monument.ROOM_MONUMENT natureMon;
+    /** True once we have scanned MONUMENTS.all for the blueprint (so we scan only once). */
+    private boolean natureMonResolved = false;
+    /** Per-tile wild-tree proximity, 0..255; length SETT.TAREA. Null until first refresh. */
+    private byte[] treeProx;
+    private double natureTimer = 0;
+    private double treeProxTimer = 0;
 
     // ===== STAT_WORK_RETIREMENT DISABLED (2026-06-27) =====================================
     // Temporarily removed because its reflective standing/denominator manipulation inflated
@@ -250,6 +351,18 @@ public final class MainScript implements SCRIPT {
             registerFearAura(battleFear);
         }
 
+        // RATES_NATURE "Piety (Nature)": a per-subject nature-desire multiplier (>1 seeks nature, <1 shuns,
+        // 1 neutral), registered in the vanilla RATES_ "Service Needs" category (NEEDS.bCat() — public
+        // static, confirmed v71.40) so it groups with the other need-rates in the boostable UI. The 8-arg
+        // ensureBoostable floors get() at NATURE_MIN (0.01) so a race authoring RATES_NATURE>MUL:0 can never
+        // drive the value to 0. Base 1.0. It is NOT an engine need — nothing in the engine reads it; the
+        // per-tick nature-piety routine in createInstance().update() is the sole consumer (SPEC §1/§4).
+        ratesNature = ensureBoostable(NATURE_KEY, "NATURE", "Piety (Nature)",
+                "The rate at which the need of Worship (Nature) increases daily. Subjects worship at Nature "
+              + "monuments or natural trees to fulfill this service. Fulfilling this service grants "
+              + "Piety (Shrine) fulfillment.",
+                UI.icons().s.sprout, NEEDS.bCat(), 1.0, NATURE_MIN);
+
         // ===== CLASS_* "Class Treatment" registration SHELVED (2026-07-04) — see the constants block =====
         // New "CLASS_" BoostableCat (prefix applied by BOOSTING.push). In-game names follow
         // "<ClassName-plural> (<aspect>)" -> "Plebeians (Needs)", "Plebeians (Mining)". registerClassKey
@@ -294,6 +407,24 @@ public final class MainScript implements SCRIPT {
     private static Boostable ensureBoostable(String fullKey, String pushKey, String name, String desc, SPRITE icon, BoostableCat cat, double baseValue) {
         if (BOOSTING.MAP().tryGet(fullKey) == null) {
             BOOSTING.push(pushKey, baseValue, name, desc, icon, cat);
+        }
+        Boostable b = BOOSTING.MAP().tryGet(fullKey);
+        if (b == null) {
+            System.err.println("[sos-extended-boostables] Could not register boostable: " + fullKey);
+        }
+        return b;
+    }
+
+    /**
+     * 8-arg overload: like the 7-arg form but forwards a {@code minValue} to the 7-arg
+     * {@link BOOSTING#push(String, double, CharSequence, CharSequence, SPRITE, BoostableCat, double)}
+     * ({@code BOOSTING.java:109}), which floors the computed {@code get()} so multiplicative authoring
+     * (e.g. {@code RATES_NATURE>MUL: 0}) can never drive the value to 0 and feed the engine's unguarded
+     * x/0 tooltip math (see SPEC_CLASS_KEYS.md §6). Keeps the idempotent {@code tryGet(fullKey)} guard.
+     */
+    private static Boostable ensureBoostable(String fullKey, String pushKey, String name, String desc, SPRITE icon, BoostableCat cat, double baseValue, double minValue) {
+        if (BOOSTING.MAP().tryGet(fullKey) == null) {
+            BOOSTING.push(pushKey, baseValue, name, desc, icon, cat, minValue);
         }
         Boostable b = BOOSTING.MAP().tryGet(fullKey);
         if (b == null) {
@@ -572,6 +703,7 @@ public final class MainScript implements SCRIPT {
                     recomputeRatio();
                 }
                 handleRaidPlunder(ds);
+                handleNaturePiety(ds);
 
                 // ===== STAT_WORK_RETIREMENT DISABLED (2026-06-27) — see note on the constants block =====
                 // statTimer -= ds;
@@ -588,6 +720,16 @@ public final class MainScript implements SCRIPT {
             public void load(FileGetter file) throws IOException {
                 recomputeRatio();
                 raidTimers.clear();
+                // Nature-piety state is transient — force a fresh monument resolve + tree-map rebuild
+                // against the just-loaded settlement on the next tick.
+                natureMon = null;
+                natureMonResolved = false;
+                treeProx = null;
+                natureTimer = 0;
+                treeProxTimer = 0;
+                pilgrims.clear(); // any in-flight pilgrimages are transient; the engine resumes normal AI
+                natureDesire.clear();
+                natureSeen.clear();
                 // ===== STAT_WORK_RETIREMENT DISABLED (2026-06-27) =====
                 // statTimer = 0; // reassert STAT scaling promptly after load (engine setAll ran during load)
             }
@@ -724,6 +866,228 @@ public final class MainScript implements SCRIPT {
                 s.loadAndReserve(TR.get(res), am);
             }
         }
+    }
+
+    // ===== RATES_NATURE "Piety (Nature)" — Stage 1 passive core ==========================
+    // Mod-owned per-tick routine (the WORLD_PLUNDER precedent), because the engine's need/service/AI-plan
+    // system is sealed to mods (SPEC §2). Each pass: read each citizen's affinity = RATES_NATURE.get(indu)
+    // − base(1.0); nature-lovers (affinity > 0) standing near nature gain shrine (private-devotion) piety
+    // ∝ affinity × natureValue. "Near nature" = the MONUMENT_NATURE spread env (O(1)) OR a mod-maintained
+    // wild-tree proximity map (O(1) read, rebuilt every NATURE_TREE_REFRESH s). Water is never read.
+    //
+    // Aversion polarity (SPEC §6/§12): for v1, averse citizens (affinity < 0) simply gain nothing near
+    // nature (no write) — the safe minimal choice; symmetric piety loss is a later balance decision.
+    // Reward interplay (SPEC §8): the vanilla shrine AI re-clears ACCESS/QUALITY for citizens who actively
+    // seek a shrine and find none, so our write is durably sticky only for citizens without shrine access.
+
+    private void handleNaturePiety(double ds) {
+        if (ratesNature == null) return;
+
+        treeProxTimer -= ds;
+        if (treeProxTimer <= 0) {
+            treeProxTimer = NATURE_TREE_REFRESH;
+            refreshTreeProximity();
+        }
+
+        // Stage 2: advance any in-flight pilgrimages every tick (cheap — bounded by the % pilgrim cap).
+        if (NATURE_PILGRIMAGE_ENABLED && !pilgrims.isEmpty()) updatePilgrims(ds);
+
+        natureTimer -= ds;
+        if (natureTimer > 0) return;
+        natureTimer = NATURE_PERIOD;
+
+        if (!natureMonResolved) resolveNatureMon();
+        // Nothing to reward against if neither nature source exists yet.
+        if (natureMon == null && treeProx == null) return;
+
+        var rel = STATS.RELIGION();
+        double base = ratesNature.baseValue; // 1.0
+        // Population-scaled pilgrim cap, from the count observed last pass (population changes slowly).
+        maxPilgrims = (int) CLAMP.d(naturePop * NATURE_MAX_PILGRIMS_PCT,
+                NATURE_MAX_PILGRIMS_MIN, NATURE_MAX_PILGRIMS_ABS);
+        int popCount = 0;
+        if (NATURE_PILGRIMAGE_ENABLED) natureSeen.clear();
+        for (ENTITY e : SETT.ENTITIES().getAllEnts()) {
+            if (!(e instanceof Humanoid)) continue;
+            Humanoid h = (Humanoid) e;
+            Induvidual indu = h.indu();
+            if (indu == null) continue;
+            popCount++;
+            double affinity = ratesNature.get(indu) - base;
+            if (affinity <= 0) continue; // Stage 1: only nature-lovers are rewarded
+            if (NATURE_PILGRIMAGE_ENABLED) natureSeen.add(indu);
+            COORDINATE c = h.tc();
+            if (c == null) continue;
+            double nv = natureValue(c.x(), c.y());
+            if (nv > NATURE_THRESHOLD) {
+                // Near nature: gain shrine (private-devotion) piety ∝ affinity × proximity, and the
+                // desire to seek nature is fully sated (reset) — like a satisfied engine need.
+                double q = CLAMP.d(affinity * nv * NATURE_REWARD_SCALE, 0.0, 1.0);
+                if (q > 0) rel.SHRINE.cheatSetTotal(indu, q);
+                if (NATURE_PILGRIMAGE_ENABLED) natureDesire.remove(indu);
+            } else if (NATURE_PILGRIMAGE_ENABLED) {
+                // Away from nature: desire builds ∝ affinity (stronger lovers build it faster). When it
+                // crosses the trigger, an idle lover sets out on a pilgrimage; desire is held at the
+                // trigger until they actually reach nature (above branch), so a blocked launch (cap/busy/
+                // unreachable) simply retries next pass rather than losing progress. This self-paces how
+                // often citizens pilgrimage — the accumulator substitutes for the need-reset cadence a
+                // native engine need (e.g. skinny-dip) would get for free.
+                double desire = natureDesire.getOrDefault(indu, 0.0) + affinity * NATURE_DESIRE_GROWTH;
+                if (desire >= NATURE_DESIRE_TRIGGER) {
+                    maybeStartPilgrimage(h, affinity, c);
+                    desire = NATURE_DESIRE_TRIGGER;
+                }
+                natureDesire.put(indu, desire);
+            }
+        }
+        // Prune desire entries for lovers who died / left this pass (mirrors the raidTimers retainAll).
+        if (NATURE_PILGRIMAGE_ENABLED) natureDesire.keySet().retainAll(natureSeen);
+        naturePop = popCount; // feeds next pass's population-scaled pilgrim cap
+    }
+
+    // ===== RATES_NATURE — Stage 2 active pilgrimage (the fragile part; SPEC §7) =========
+    // Commandeer only genuinely idle nature-lovers whose accumulated desire has crossed the trigger, via
+    // the PUBLIC AIManager surface: walk them to the nearest actual nature tile, let them linger, then
+    // RELEASE (interrupt) so their real needs are never starved. Frequency is self-paced by the desire
+    // accumulator (grows away from nature ∝ affinity, resets on arrival); a population-scaled cap (% of
+    // pop) + a per-episode watchdog bound how many run at once. Uses overwrite(sub)+poll (re-issuing if idle
+    // knocks it off) rather than a PLANRES plan, to stay within verified primitives. Master-switchable.
+
+    /** Try to launch a pilgrimage for an idle nature-lover (desire-gated by the caller) away from nature. */
+    private void maybeStartPilgrimage(Humanoid h, double affinity, COORDINATE c) {
+        if (affinity < NATURE_PILGRIM_MIN_AFFINITY) return;
+        if (pilgrims.size() >= maxPilgrims) return;
+        if (pilgrims.containsKey(h) || h.isRemoved()) return;
+        AIManager d = (AIManager) h.ai();
+        if (!AI.modules().idle.is(h, d)) return; // only genuinely idle citizens
+        int dest = findNearestNature(c.x(), c.y());
+        if (dest < 0) return;
+        int w = SETT.TWIDTH, tx = dest % w, ty = dest / w;
+        AISUB.AISubActivation walk = AI.SUBS().walkTo.coo(h, d, tx, ty);
+        if (walk == null) return; // unreachable — skip this citizen this round
+        d.overwrite(h, walk);
+        pilgrims.put(h, new Pilgrim(tx, ty));
+    }
+
+    /** Advance/finish every active pilgrimage. Runs every tick; releases on arrival-timeout or watchdog. */
+    private void updatePilgrims(double ds) {
+        java.util.Iterator<java.util.Map.Entry<Humanoid, Pilgrim>> it = pilgrims.entrySet().iterator();
+        while (it.hasNext()) {
+            java.util.Map.Entry<Humanoid, Pilgrim> en = it.next();
+            Humanoid h = en.getKey();
+            Pilgrim p = en.getValue();
+            if (h.isRemoved() || h.indu() == null) { it.remove(); continue; }
+            AIManager d = (AIManager) h.ai();
+            p.episodeTime += ds;
+            if (p.episodeTime > NATURE_PILGRIM_MAX_EPISODE) { // watchdog: never pin a citizen
+                h.interrupt();
+                it.remove();
+                continue;
+            }
+            if (!p.standing) {
+                COORDINATE c = h.tc();
+                boolean near = c != null
+                        && Math.max(Math.abs(c.x() - p.tx), Math.abs(c.y() - p.ty)) <= NATURE_PILGRIM_ARRIVE;
+                if (near) {
+                    d.overwrite(h, AI.SUBS().STAND.activateTime(h, d, NATURE_PILGRIM_STAND_SECS));
+                    p.standing = true;
+                    p.standLeft = NATURE_PILGRIM_STAND_SECS;
+                } else if (!AI.SUBS().walkTo.isWalking(d)) {
+                    // The idle module dropped our walk before arrival — re-issue to keep the pilgrim pinned.
+                    AISUB.AISubActivation walk = AI.SUBS().walkTo.coo(h, d, p.tx, p.ty);
+                    if (walk == null) { h.interrupt(); it.remove(); continue; }
+                    d.overwrite(h, walk);
+                }
+                // else: still walking — let the engine run the sub to completion.
+            } else {
+                p.standLeft -= ds;
+                if (p.standLeft <= 0) { h.interrupt(); it.remove(); }
+            }
+        }
+    }
+
+    /**
+     * Nearest tile (as a {@code ty*TWIDTH+tx} index) with {@code natureValue > NATURE_PILGRIM_PICK} within
+     * {@link #NATURE_PILGRIM_SEARCH_RADIUS}, searched ring by ring so the closest strong nature tile wins;
+     * −1 if none. Only called on a pilgrimage trigger (≤ NATURE_MAX_PILGRIMS/period), so O(R²) is fine.
+     */
+    private int findNearestNature(int cx, int cy) {
+        int w = SETT.TWIDTH, hgt = SETT.THEIGHT;
+        for (int r = 1; r <= NATURE_PILGRIM_SEARCH_RADIUS; r++) {
+            int best = -1;
+            double bestv = NATURE_PILGRIM_PICK;
+            for (int dx = -r; dx <= r; dx++) {
+                for (int dy = -r; dy <= r; dy++) {
+                    if (Math.max(Math.abs(dx), Math.abs(dy)) != r) continue; // perimeter of this ring only
+                    int x = cx + dx, y = cy + dy;
+                    if (x < 0 || y < 0 || x >= w || y >= hgt) continue;
+                    double v = natureValue(x, y);
+                    if (v > bestv) { bestv = v; best = y * w + x; }
+                }
+            }
+            if (best >= 0) return best;
+        }
+        return -1;
+    }
+
+    /** Resolve (once) the MONUMENT_NATURE blueprint from the settlement's monument list; null if absent. */
+    private void resolveNatureMon() {
+        natureMonResolved = true;
+        for (settlement.room.infra.monument.ROOM_MONUMENT m : SETT.ROOMS().MONUMENTS.all) {
+            if ("MONUMENT_NATURE".equals(m.key())) {
+                natureMon = m;
+                return;
+            }
+        }
+    }
+
+    /**
+     * Rebuild the wild-tree proximity map: mark every {@code TREES.isTree(x,y)} tile and stamp a
+     * linear-falloff "nature" strength (0..255) out to {@link #NATURE_TREE_RADIUS} tiles, keeping the max.
+     * Run infrequently ({@link #NATURE_TREE_REFRESH}); the per-citizen read ({@link #treeProximity}) is O(1).
+     */
+    private void refreshTreeProximity() {
+        int w = SETT.TWIDTH, h = SETT.THEIGHT, area = SETT.TAREA;
+        if (w <= 0 || h <= 0 || area <= 0) return; // settlement not ready
+        if (treeProx == null || treeProx.length != area) treeProx = new byte[area];
+        else java.util.Arrays.fill(treeProx, (byte) 0);
+
+        var trees = SETT.TERRAIN().TREES;
+        final int R = NATURE_TREE_RADIUS;
+        for (int ty = 0; ty < h; ty++) {
+            for (int tx = 0; tx < w; tx++) {
+                if (!trees.isTree(tx, ty)) continue;
+                int x0 = Math.max(0, tx - R), x1 = Math.min(w - 1, tx + R);
+                int y0 = Math.max(0, ty - R), y1 = Math.min(h - 1, ty + R);
+                for (int yy = y0; yy <= y1; yy++) {
+                    for (int xx = x0; xx <= x1; xx++) {
+                        int cheb = Math.max(Math.abs(xx - tx), Math.abs(yy - ty));
+                        int strength = 255 - (cheb * 255) / (R + 1);
+                        int idx = yy * w + xx;
+                        if (strength > (treeProx[idx] & 0xFF)) treeProx[idx] = (byte) strength;
+                    }
+                }
+            }
+        }
+    }
+
+    /** Wild-tree proximity at a tile, 0..1 (0 if no map / out of bounds). */
+    private double treeProximity(int x, int y) {
+        if (treeProx == null) return 0;
+        int w = SETT.TWIDTH, h = SETT.THEIGHT;
+        if (x < 0 || y < 0 || x >= w || y >= h) return 0;
+        return (treeProx[y * w + x] & 0xFF) / 255.0;
+    }
+
+    /** Max nature strength (0..1) at a tile: player-placed Nature Monument spread OR wild-tree proximity. */
+    private double natureValue(int x, int y) {
+        if (x < 0 || y < 0 || x >= SETT.TWIDTH || y >= SETT.THEIGHT) return 0;
+        double v = treeProximity(x, y);
+        if (natureMon != null) {
+            double m = natureMon.envValue.get(x, y);
+            if (m > v) v = m;
+        }
+        return v;
     }
 
     // ===== STAT_WORK_RETIREMENT DISABLED (2026-06-27) ====================================
