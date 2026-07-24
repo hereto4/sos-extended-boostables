@@ -14,7 +14,7 @@
 [quote]
 [h2][b]🆕 Army Effect: "Plunder"[/b][/h2]
 [hr][b]Key:[/b] WORLD_PLUNDER | [b]Category:[/b] World | [b]Scope:[/b] per Race, per Army[/hr]
-[b]Description:[/b] Multiplies the amount of loot gained when plundering a region on the world map. An army averages the Plunder value of each race that belongs to it.
+[b]Description:[/b] Multiplies the amount of loot+slaves gained when plundering a region on the world map. An army averages the Plunder value of each race in that army.
 [/quote]
 [quote]
 [h2][b]🆕 Subject Effect: "Piety (Nature)"[/b][/h2]
@@ -23,8 +23,18 @@
 [/quote]
 [quote]
 [h2][b]🆕 Job Skill: "Cannibalism"[/b][/h2]
-[hr][b]Key:[/b] ROOM__CANNIBAL | [b]Category:[/b] Buildings | [b]Scope:[/b] per Subject[/hr]
+[hr][b]Key:[/b] ROOM_CANNIBAL | [b]Category:[/b] Buildings | [b]Scope:[/b] per Subject[/hr]
 [b]Description:[/b] Multiplies the amount of resources gained when a corpse is butchered at a Cannibal Room by a subject with this skill.
+[/quote]
+[quote]
+[h2][b]🆕 Job Skill: "Indoctrination"[/b][/h2]
+[hr][b]Key:[/b] CIVIC_INDOCTRINATION | [b]Category:[/b] Civic | [b]Scope:[/b] per Subject[/hr]
+[b]Description:[/b] Multiplies the rate of indoctrination contributed at Schools and Universities by a subject with this skill.
+[/quote]
+[quote]
+[h2][b]🆕 Aggregated Boosts: "BoostName (All)"[/b][/h2]
+[hr][b]Keys:[/b] ROOM_<ROOMTYPE>_ALL, WORLD_SLAVE_PRODUCTION_ALL | [b]Key Example:[/b] ROOM_MINE_ALL | [b]In-Game Example:[/b] Mines (All)[/hr]
+[b]Description:[/b] Grouped keys for all room types and per-race slave production. Functions the same as using _* in a key instead of specifying room type or slave race, however _* will list [i]every[/i] applicable effect on the in-game tooltip, which clutters the menu. Therefore, use an aggregated key so only a single effect displays in-game, while retaining the same backend effect.
 [/quote]
 
 [hr][h1][b]🚀 NEW BACKEND FUNCTIONS[/b][/h1][/hr]
