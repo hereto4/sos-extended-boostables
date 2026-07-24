@@ -1,4 +1,5 @@
 your\mod\MainScript$3.class
+your\mod\update\UpdateNotifier$Config.class
 your\mod\MainScript$BoostedResAmount.class
 your\mod\boostcolor\ColorAgent$Transformer.class
 your\mod\MainScript$2.class
@@ -10,6 +11,7 @@ your\mod\boostcolor\LowPositiveColors$1.class
 your\mod\boostcolor\ColorAgent$1.class
 your\mod\MainScript$Pilgrim.class
 your\mod\boostcolor\ColorAgent.class
+your\mod\update\UpdateNotifier.class
 your\mod\MainScript$IndoctrinationBooster.class
 your\mod\MainScript$IndoctrinationBooster$1.class
 your\mod\boostcolor\LowPositiveColors.class
