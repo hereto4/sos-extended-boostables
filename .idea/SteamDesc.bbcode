@@ -1,59 +1,50 @@
 [b][i]Adds new effects, boosts, and functions to the game via custom keys.[/i][/b] Formerly known as [b]Extended Boostables[/b]. This is a master repository used as a single dependency for all my mods; but other modders are encouraged to take advantage of this repository as well!
 
+[quote]
 [b]⭐ FOR PLAYERS:[/b] This is a mod dependency required by certain other mods; it doesn't do anything on its own. Sub to it if a mod lists it as a requirement.
+
 [b]⭐ FOR MODDERS:[/b] You can use these functions in your own mod by setting this mod as a requirement and using the keys listed below. I'm happy to answer questions and field requests.
+[/quote]
 
 [hr][h1][b]🚀 NEW EFFECTS / BOOSTS[/b][/h1][/hr]
-[i]*All info below can be found in-game in the same place as vanilla boosters: by going to the Technology page and clicking the [b]+++[/b] icon in the top right.[/i]
+[quote][i]*All info below can be found in-game in the same place as vanilla boosters: by going to the Technology page and clicking the [b]+++[/b] icon in the top right.[/i][/quote]
 
-[quote]
 [h2][b]🆕 Soldier Effect: "Fear"[/b][/h2]
-[hr][b]Key:[/b] BATTLE_FEAR | [b]Category:[/b] Battle | [b]Scope:[/b] per Soldier, per Formation[/hr]
+[b]Key:[/b] BATTLE_FEAR | [b]Category:[/b] Battle | [b]Scope:[/b] per Soldier, per Formation
 [b]Description:[/b] Gives a soldier a Fear attribute that lowers the morale of nearby enemies. The Fear values of all soldiers in a formation are averaged into a single Fear aura for that formation.
-[/quote]
-[quote]
+
 [h2][b]🆕 Army Effect: "Plunder"[/b][/h2]
-[hr][b]Key:[/b] WORLD_PLUNDER | [b]Category:[/b] World | [b]Scope:[/b] per Race, per Army[/hr]
+[b]Key:[/b] WORLD_PLUNDER | [b]Category:[/b] World | [b]Scope:[/b] per Race, per Army
 [b]Description:[/b] Multiplies the amount of loot+slaves gained when plundering a region on the world map. An army averages the Plunder value of each race in that army.
-[/quote]
-[quote]
+
 [h2][b]🆕 Subject Effect: "Piety (Nature)"[/b][/h2]
-[hr][b]Key:[/b] RATES_NATURE | [b]Category:[/b] Service Needs | [b]Scope:[/b] per Subject[/hr]
+[b]Key:[/b] RATES_NATURE | [b]Category:[/b] Service Needs | [b]Scope:[/b] per Subject
 [b]Description:[/b] An alternative to Shrines and Temples; functions like skinnydipping, but for nature. Gain Piety fulfillment from the worship of wild trees and nature monuments. Worship need accumulates slower when a subject is surrounded by nature; at high need, subject will pilgrimage to a high-concentration of nature objects and worship there.
-[/quote]
-[quote]
+
 [h2][b]🆕 Job Skill: "Cannibalism"[/b][/h2]
-[hr][b]Key:[/b] ROOM_CANNIBAL | [b]Category:[/b] Buildings | [b]Scope:[/b] per Subject[/hr]
+[b]Key:[/b] ROOM_CANNIBAL | [b]Category:[/b] Buildings | [b]Scope:[/b] per Subject
 [b]Description:[/b] Multiplies the amount of resources gained when a corpse is butchered at a Cannibal Room by a subject with this skill.
-[/quote]
-[quote]
+
 [h2][b]🆕 Job Skill: "Indoctrination"[/b][/h2]
-[hr][b]Key:[/b] CIVIC_INDOCTRINATION | [b]Category:[/b] Civic | [b]Scope:[/b] per Subject[/hr]
+[b]Key:[/b] CIVIC_INDOCTRINATION | [b]Category:[/b] Civic | [b]Scope:[/b] per Subject
 [b]Description:[/b] Multiplies the rate of indoctrination contributed at Schools and Universities by a subject with this skill.
-[/quote]
-[quote]
+
 [h2][b]🆕 Aggregated Boosts: "BoostName (All)"[/b][/h2]
-[hr][b]Keys:[/b] ROOM_<ROOMTYPE>_ALL, WORLD_SLAVE_PRODUCTION_ALL | [b]Key Example:[/b] ROOM_MINE_ALL | [b]In-Game Example:[/b] Mines (All)[/hr]
+[b]Keys:[/b] ROOM_<ROOMTYPE>_ALL, WORLD_SLAVE_PRODUCTION_ALL | [b]Key Example:[/b] ROOM_MINE_ALL | [b]In-Game Example:[/b] Mines (All)
 [b]Description:[/b] Grouped keys for all room types and per-race slave production. Functions the same as using _* in a key instead of specifying room type or slave race, however _* will list [i]every[/i] applicable effect on the in-game tooltip, which clutters the menu. Therefore, use an aggregated key so only a single effect displays in-game, while retaining the same backend effect.
-[/quote]
 
 [hr][h1][b]🚀 NEW BACKEND FUNCTIONS[/b][/h1][/hr]
-
-[quote]
 [h2][b]🆕 Effect Scope: "Target Race"[/b][/h2]
-[hr][b]Key:[/b] TARGET_RACE | [b]Accepted Values:[/b] <RaceName> (multiple); ex. Cretonian, Human, Tilapi
+[b]Key:[/b] TARGET_RACE | [b]Accepted Values:[/b] <RaceName> (multiple); ex. Cretonian, Human, Tilapi
 [b]Description:[/b] Allows filtering of an object's effect by a subject's race, making the effect (such as a tech) only apply to the listed race(s).
-[/quote]
-[quote]
+
 [h2][b]🆕 Effect Scope: "Target Class"[/b][/h2]
-[hr][b]Key:[/b] TARGET_CLASS | [b]Accepted Values:[/b] <ClassName> (multiple); ex. Slave, Plebeian, Noble
+[b]Key:[/b] TARGET_CLASS | [b]Accepted Values:[/b] <ClassName> (multiple); ex. Slave, Plebeian, Noble
 [b]Description:[/b] Allows filtering of an object's effect by a subject's class, making the effect (such as a tech) only apply to the listed class(es).
-[/quote]
-[quote]
+
 [h2][b]🆕 Comparator: "Population of Class"[/b][/h2]
-[hr][b]Key:[/b] POPULATION_<RACE>_<CLASS>_OFCLASS_F | [b]Example:[/b] POPULATION_HUMAN_CITIZEN_OFCLASS_F
+[b]Key:[/b] POPULATION_<RACE>_<CLASS>_OFCLASS_F | [b]Example:[/b] POPULATION_HUMAN_CITIZEN_OFCLASS_F
 [b]Description:[/b] v71 changed how POPULATION_*_CLASS_F works, making it look at the % of the specified race+class against ALL subjects, instead of just the class against subjects of that race. This broke certain mod functions (such as Create-A-Culture pop requirements), so this OFCLASS variant was made to return that pre-v71 functionality.
-[/quote]
 
 [hr][h1][b]⚙️ INSTALLATION[/b][/h1][/hr]
 ⭐ This is a forced-init script mod. It will always run as long as you enable the mod in your launcher. 
