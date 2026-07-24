@@ -4,8 +4,22 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="7a96583c-c7b8-4ffb-8620-4d12c75a9672" name="Changes" comment="wip">
+    <list default="true" id="7a96583c-c7b8-4ffb-8620-4d12c75a9672" name="Changes" comment="RATES_HUNGER (and other?)">
+      <change beforePath="$PROJECT_DIR$/.idea/SteamDesc.bbcode" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/SteamDesc.bbcode" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/V71/script/sos-extended-boostables.jar" beforeDir="false" afterPath="$PROJECT_DIR$/V71/script/sos-extended-boostables.jar" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/your/mod/MainScript.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/your/mod/MainScript.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/classes/your/mod/MainScript$3.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/your/mod/MainScript$3.class" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/classes/your/mod/MainScript$4.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/your/mod/MainScript$4.class" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/classes/your/mod/MainScript$BoostedResAmount.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/your/mod/MainScript$BoostedResAmount.class" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/classes/your/mod/MainScript$IndoctrinationBooster$1.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/your/mod/MainScript$IndoctrinationBooster$1.class" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/classes/your/mod/MainScript$IndoctrinationBooster.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/your/mod/MainScript$IndoctrinationBooster.class" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/classes/your/mod/MainScript$UmbrellaBooster.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/your/mod/MainScript$UmbrellaBooster.class" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/classes/your/mod/MainScript.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/your/mod/MainScript.class" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/original-sos-extended-boostables.jar" beforeDir="false" afterPath="$PROJECT_DIR$/target/original-sos-extended-boostables.jar" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/sos-extended-boostables-sources.jar" beforeDir="false" afterPath="$PROJECT_DIR$/target/sos-extended-boostables-sources.jar" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/sos-extended-boostables.jar" beforeDir="false" afterPath="$PROJECT_DIR$/target/sos-extended-boostables.jar" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/sos-scripting-template-1.2.4-shaded.jar" beforeDir="false" afterPath="$PROJECT_DIR$/target/sos-scripting-template-1.2.4-shaded.jar" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -248,7 +262,15 @@
       <option name="project" value="LOCAL" />
       <updated>1784388336201</updated>
     </task>
-    <option name="localTasksCounter" value="20" />
+    <task id="LOCAL-00020" summary="RATES_HUNGER (and other?)">
+      <option name="closed" value="true" />
+      <created>1784693657513</created>
+      <option name="number" value="00020" />
+      <option name="presentableId" value="LOCAL-00020" />
+      <option name="project" value="LOCAL" />
+      <updated>1784693657513</updated>
+    </task>
+    <option name="localTasksCounter" value="21" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -279,6 +301,7 @@
     <MESSAGE value="+unversioned files" />
     <MESSAGE value="deployed WORLD_PRODUCTION_SLAVE_ALL" />
     <MESSAGE value="wip" />
-    <option name="LAST_COMMIT_MESSAGE" value="wip" />
+    <MESSAGE value="RATES_HUNGER (and other?)" />
+    <option name="LAST_COMMIT_MESSAGE" value="RATES_HUNGER (and other?)" />
   </component>
 </project>

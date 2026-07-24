@@ -694,9 +694,17 @@ public final class MainScript implements SCRIPT {
     public SCRIPT_INSTANCE createInstance() {
         return new SCRIPT_INSTANCE() {
             private double timer = 0;
+            /** One-shot guard for the "mod updated" event window; keeps retrying until VIEW is ready. */
+            private boolean updateChecked = false;
 
             @Override
             public void update(double ds) {
+                // Show the one-time "mod updated" changelog window on the first in-game tick after an
+                // _Info VERSION change (see your.mod.update.UpdateNotifier). showIfUpdated() returns
+                // false until the in-game VIEW exists, so keep trying until it finalizes the decision.
+                if (!updateChecked && your.mod.update.UpdateNotifier.showIfUpdated())
+                    updateChecked = true;
+
                 timer -= ds;
                 if (timer <= 0) {
                     timer = 4.0;
