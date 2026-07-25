@@ -192,6 +192,34 @@ Adds new boostable keys to Songs of Syx (now v71.19, see [[v71-migration]]) that
    must be a per-`Induvidual` boostable** (or a `ROOM_*_ALL` umbrella that reaches one); non-boostable stats
    need the reflection path (higher risk, see [[stat-system-seams]]).
 
+9. **`TARGET_RACE` / `TARGET_CLASS` tech-scoping keys** — **moved into this mod 2026-07-24 from the
+   former standalone `target-race-tech` mod, and generalized to add `TARGET_CLASS`.** These are NOT
+   boostables — they are extra keys placed on a **TECH node** (alongside its `BOOST:` block) that restrict
+   that tech's boosts to a subset of subjects. New self-contained package **`your.mod.targetfilter`**
+   (public entry `TargetFilters`; `MainScript.initBeforeGameCreated()` → `TargetFilters.scan()`,
+   end of `initBeforeGameInited()` → `TargetFilters.install()`). Accepted values: `TARGET_RACE` = any race
+   key under `assets/init/race/` (discovered dynamically); `TARGET_CLASS` = `CITIZEN`/`NOBLE`/`SLAVE`/`OTHER`
+   (→ `HCLASSES.*()`, matched via `Induvidual.clas()`) **plus synthetic `EXSLAVE`** = freed slave, matched
+   by `STATS.POP().COUNT.arrive.get(ind)==CAUSE_ARRIVES.EMANCIPATED()` ("Subjects that are freed slaves";
+   deliberately NOT `PAROLE`, which the engine documents as pardoned *prisoners*). A tech may declare both
+   keys → subject must match **all** (logical AND; `SubjectFilter`). **Architecture** (unchanged from the
+   original, see [[target-race-tech-project]] for the deep dive): `TargetFilterRegistry.scanTechFiles()` in
+   `initBeforeGameCreated` reads tech files (before `new TECHS()` parses them, so the custom keys never trip
+   the unknown-key warning — `ParseWarningSuppressor` flips `Json.untest` + scrubs the `Errors` buffer for
+   BOTH keys); `TargetFilterApplier.applyAll()` runs from a `BOOSTING.waiting` action (queued reflectively —
+   field is package-private in v71) after BoostSpecs resolve but before BoostCompound aggregates: for each
+   flagged tech it pulls the `BoostSpec`s out of `tech.boosters` and reinstalls each as a
+   `TargetFilteredBooster` on the same `Boostable` via `addFactor` (identity `×1`/`+0` for non-matching
+   subjects and non-`Induvidual` targets; vanilla per-level MUL "stretch" `(to-1)*levelMax+1` preserved);
+   a `BOOSTING.connecter` re-adds the originals to `tech.boosters` for the tech-tree UI after aggregation.
+   **Only per-subject (`Induvidual`) boost targets can actually be narrowed** — region/faction/division
+   targets have no subject to test and yield identity. **Retirement:** all three deployed
+   `target-race-tech.jar` copies were deleted (standalone `V71/script` + CAC `V70`/`V71`) so TARGET_RACE
+   isn't applied twice (the double-apply is mostly self-neutralizing since the 2nd applier sees an emptied
+   `tech.boosters`, but a tech with BOTH keys would lose its class constraint if the old race-only jar won
+   the race). Built clean v71.40, deployed; in-game verification pending. Player doc: `KEYS.md`
+   "Tech-scoping keys".
+
 **Implementation rules (followed in MainScript):**
 - No Lombok. Explicit `public MainScript() {}`.
 - `SCRIPT_INSTANCE` inlined as anonymous class in `createInstance()` — no separate `InstanceScript.java`.

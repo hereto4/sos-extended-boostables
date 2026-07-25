@@ -168,6 +168,52 @@ REQUIRES: {
 },
 ```
 
+## Tech-scoping keys (`TARGET_RACE`, `TARGET_CLASS`) — tech-node keys, not boostables
+
+These are **not boostables**. They are extra keys you put on a **TECH node** itself (alongside its
+`BOOST:` block) to **restrict that whole tech's boosts to a subset of subjects**. Without them, a tech's
+`BOOST:` applies to every subject in the city; with them, the same boosts affect only the subjects that
+match. (This machinery was moved into this mod from the former standalone *target-race-tech* mod and
+generalized — `TARGET_RACE` behaves exactly as before, and `TARGET_CLASS` is the new class analog.)
+
+| Key | Accepted values | Restricts the tech's boosts to… |
+|---|---|---|
+| `TARGET_RACE` | any race key present under `assets/init/race/` (e.g. `CRETONIAN`) — discovered dynamically, so race mods work | subjects of that **race** |
+| `TARGET_CLASS` | `CITIZEN`, `NOBLE`, `SLAVE`, `OTHER`, `EXSLAVE` | subjects of that **population class** |
+
+**`EXSLAVE` is synthetic.** The engine has no ex-slave class; a freed slave becomes a `CITIZEN`-class
+subject tagged with the arrival cause `EMANCIPATED` ("Subjects that are freed slaves"). `TARGET_CLASS:
+EXSLAVE` matches exactly those subjects (arrival cause `EMANCIPATED`), regardless of current class. Note
+this is **freed slaves**, not `PAROLE` (which the engine documents as pardoned *prisoners*).
+
+**Both may be combined on one tech** — the subject must match **all** constraints (logical AND). E.g.
+`TARGET_RACE: CRETONIAN` + `TARGET_CLASS: SLAVE` affects only Cretonian slaves.
+
+```
+TECHS: {
+    MY_TECH: {
+        ...
+        TARGET_CLASS: NOBLE,        // this tech's boosts apply to nobles only
+        BOOST: {
+            RATES_SHOPPING>MUL: 0.8,
+        },
+    },
+},
+```
+
+> **How it works.** At load the mod scans every tech file for these keys (before the engine parses them,
+> so the custom keys never trip the "unknown key" warning). For each flagged tech it pulls the tech's
+> `BOOST` specs out of the global tech aggregator and reinstalls each as a **filtered booster** on the
+> same boostable: the booster returns the vanilla per-level effect for matching subjects and a neutral
+> identity (`×1` / `+0`) for everyone else and for non-subject boost targets. The tech scales with the
+> player's tech level exactly as a normal tech would. The tech-tree tooltip still shows the full effect
+> list (the originals are re-added for display after aggregation). See `your.mod.targetfilter`.
+>
+> **Only subject-facing boostables are actually narrowed.** The filter can only distinguish per-subject
+> (`Induvidual`) boost targets. A boost aimed at a region/faction/division target has no subject to test,
+> so it yields the neutral identity under a target key — pair `TARGET_*` with per-subject boostables
+> (need-rates, room per-employee output, submission, etc.) for it to do something.
+
 ---
 
 ## Tooltip coloring for "Low-Positive" effects

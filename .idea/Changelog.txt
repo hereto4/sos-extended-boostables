@@ -1,4 +1,11 @@
+Changelog v1.4.0
+ADDITIONS
+- Added TARGET_CLASS key
+CHANGES
+- Moved TARGET_RACE from Create-A-Culture to instead live in this mod
+
 Changelog v1.3.0
+ADDITIONS
 - added new key WORLD_PRODUCTION_SLAVE_ALL in the same vein as <ROOMTYPE>_ALL, merging per-race slave production keys into one for better in-game display
 
 Changelog v1.2.4

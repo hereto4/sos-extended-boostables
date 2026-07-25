@@ -4,8 +4,33 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="7a96583c-c7b8-4ffb-8620-4d12c75a9672" name="Changes" comment="SteamDesc rewrite (final)">
-      <change beforePath="$PROJECT_DIR$/.idea/SteamDesc.bbcode" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/SteamDesc.bbcode" afterDir="false" />
+    <list default="true" id="7a96583c-c7b8-4ffb-8620-4d12c75a9672" name="Changes" comment="SteamDesc tweaks">
+      <change beforePath="$PROJECT_DIR$/.claude/memory/project_sos_extended_boostables.md" beforeDir="false" afterPath="$PROJECT_DIR$/.claude/memory/project_sos_extended_boostables.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/Changelog.txt" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/Changelog.txt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/KEYS.md" beforeDir="false" afterPath="$PROJECT_DIR$/KEYS.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/V71/script/sos-extended-boostables.jar" beforeDir="false" afterPath="$PROJECT_DIR$/V71/script/sos-extended-boostables.jar" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/_Info.txt" beforeDir="false" afterPath="$PROJECT_DIR$/_Info.txt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/pom.xml" beforeDir="false" afterPath="$PROJECT_DIR$/pom.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/your/mod/MainScript.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/your/mod/MainScript.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/classes/your/mod/MainScript$1.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/your/mod/MainScript$1.class" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/classes/your/mod/MainScript$2.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/your/mod/MainScript$2.class" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/classes/your/mod/MainScript$3.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/your/mod/MainScript$3.class" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/classes/your/mod/MainScript$4.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/your/mod/MainScript$4.class" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/classes/your/mod/MainScript$BoostedResAmount.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/your/mod/MainScript$BoostedResAmount.class" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/classes/your/mod/MainScript$IndoctrinationBooster$1.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/your/mod/MainScript$IndoctrinationBooster$1.class" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/classes/your/mod/MainScript$IndoctrinationBooster.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/your/mod/MainScript$IndoctrinationBooster.class" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/classes/your/mod/MainScript$UmbrellaBooster.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/your/mod/MainScript$UmbrellaBooster.class" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/classes/your/mod/MainScript.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/your/mod/MainScript.class" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/maven-status/maven-compiler-plugin/compile/default-compile/createdFiles.lst" beforeDir="false" afterPath="$PROJECT_DIR$/target/maven-status/maven-compiler-plugin/compile/default-compile/createdFiles.lst" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/maven-status/maven-compiler-plugin/compile/default-compile/inputFiles.lst" beforeDir="false" afterPath="$PROJECT_DIR$/target/maven-status/maven-compiler-plugin/compile/default-compile/inputFiles.lst" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/original-sos-extended-boostables.jar" beforeDir="false" afterPath="$PROJECT_DIR$/target/original-sos-extended-boostables.jar" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/out/Extended Boostables/V71/script/_src/sos-extended-boostables-sources.jar" beforeDir="false" afterPath="$PROJECT_DIR$/target/out/Extended Boostables/V71/script/_src/sos-extended-boostables-sources.jar" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/out/Extended Boostables/V71/script/sos-extended-boostables.jar" beforeDir="false" afterPath="$PROJECT_DIR$/target/out/Extended Boostables/V71/script/sos-extended-boostables.jar" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/out/Extended Boostables/_Info.txt" beforeDir="false" afterPath="$PROJECT_DIR$/target/out/Extended Boostables/_Info.txt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/sos-extended-boostables-sources.jar" beforeDir="false" afterPath="$PROJECT_DIR$/target/sos-extended-boostables-sources.jar" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/sos-extended-boostables.jar" beforeDir="false" afterPath="$PROJECT_DIR$/target/sos-extended-boostables.jar" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/sos-scripting-template-1.2.4-shaded.jar" beforeDir="false" afterPath="$PROJECT_DIR$/target/sos-scripting-template-1.2.4-shaded.jar" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -13,7 +38,7 @@
     <option name="LAST_RESOLUTION" value="IGNORE" />
   </component>
   <component name="EmbeddingIndexingInfo">
-    <option name="cachedIndexableFilesCount" value="13360" />
+    <option name="cachedIndexableFilesCount" value="13371" />
   </component>
   <component name="Git.Settings">
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
@@ -44,28 +69,28 @@
     <option name="sortByType" value="true" />
     <option name="sortKey" value="BY_TYPE" />
   </component>
-  <component name="PropertiesComponent"><![CDATA[{
-  "keyToString": {
-    "Application.DEBUG.executor": "Run",
-    "Maven.sos-scripting-template [clean].executor": "Run",
-    "ModuleVcsDetector.initialDetectionPerformed": "true",
-    "RunOnceActivity.MCP Project settings loaded": "true",
-    "RunOnceActivity.ShowReadmeOnStart": "true",
-    "RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252": "true",
-    "RunOnceActivity.git.unshallow": "true",
-    "git-widget-placeholder": "main",
-    "ignore.virus.scanning.warn.message": "true",
-    "kotlin-language-version-configured": "true",
-    "last_opened_file_path": "C:/Users/Nate/AppData/Roaming/songsofsyx/mods/sos-extended-boostables",
-    "node.js.detected.package.eslint": "true",
-    "node.js.detected.package.tslint": "true",
-    "node.js.selected.package.eslint": "(autodetect)",
-    "node.js.selected.package.tslint": "(autodetect)",
-    "project.structure.last.edited": "Libraries",
-    "project.structure.proportion": "0.0",
-    "project.structure.side.proportion": "0.41609195"
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;Application.DEBUG.executor&quot;: &quot;Run&quot;,
+    &quot;Maven.sos-scripting-template [clean].executor&quot;: &quot;Run&quot;,
+    &quot;ModuleVcsDetector.initialDetectionPerformed&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.MCP Project settings loaded&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;main&quot;,
+    &quot;ignore.virus.scanning.warn.message&quot;: &quot;true&quot;,
+    &quot;kotlin-language-version-configured&quot;: &quot;true&quot;,
+    &quot;last_opened_file_path&quot;: &quot;C:/Users/Nate/AppData/Roaming/songsofsyx/mods/sos-extended-boostables&quot;,
+    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
+    &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
+    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
+    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
+    &quot;project.structure.last.edited&quot;: &quot;Libraries&quot;,
+    &quot;project.structure.proportion&quot;: &quot;0.0&quot;,
+    &quot;project.structure.side.proportion&quot;: &quot;0.41609195&quot;
   }
-}]]></component>
+}</component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
       <recent name="C:\Users\Nate\AppData\Roaming\songsofsyx\mods\sos-extended-boostables" />
@@ -268,7 +293,15 @@
       <option name="project" value="LOCAL" />
       <updated>1784922841138</updated>
     </task>
-    <option name="localTasksCounter" value="22" />
+    <task id="LOCAL-00022" summary="SteamDesc tweaks">
+      <option name="closed" value="true" />
+      <created>1784931187962</created>
+      <option name="number" value="00022" />
+      <option name="presentableId" value="LOCAL-00022" />
+      <option name="project" value="LOCAL" />
+      <updated>1784931187962</updated>
+    </task>
+    <option name="localTasksCounter" value="23" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -301,6 +334,7 @@
     <MESSAGE value="wip" />
     <MESSAGE value="RATES_HUNGER (and other?)" />
     <MESSAGE value="SteamDesc rewrite (final)" />
-    <option name="LAST_COMMIT_MESSAGE" value="SteamDesc rewrite (final)" />
+    <MESSAGE value="SteamDesc tweaks" />
+    <option name="LAST_COMMIT_MESSAGE" value="SteamDesc tweaks" />
   </component>
 </project>

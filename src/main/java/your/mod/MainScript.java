@@ -273,6 +273,15 @@ public final class MainScript implements SCRIPT {
     }
 
     @Override
+    public void initBeforeGameCreated() {
+        // TARGET_RACE / TARGET_CLASS tech-filter feature (moved here from the
+        // standalone target-race-tech mod, generalized to also cover TARGET_CLASS).
+        // Pre-scan tech files now — runs before new TECHS() parses them, so custom
+        // keys never trip the engine's unknown-key warning. See your.mod.targetfilter.
+        your.mod.targetfilter.TargetFilters.scan();
+    }
+
+    @Override
     public void initBeforeGameInited() {
         Boostable roomSlaver = ensureBoostable(SLAVER_KEY, "__SLAVER", "Slaver",
                 "The effectiveness of your Slaver room. Higher values increase the submission of slaves processed through it.",
@@ -389,6 +398,12 @@ public final class MainScript implements SCRIPT {
         // if the JVM blocks self-attach it logs the -javaagent fallback and leaves tooltips as vanilla.
         // See your.mod.boostcolor.LowPositiveColors / ColorAgent.
         your.mod.boostcolor.ColorAgent.install();
+
+        // TARGET_RACE / TARGET_CLASS: queue the tech-boost rewriter on
+        // BOOSTING.waiting and register the UI re-add connecter. Must run at this
+        // hook (BoostSpecs resolve at the start of BOOSTING.finishSetup, which
+        // INIT.finish() calls after this method returns). See your.mod.targetfilter.
+        your.mod.targetfilter.TargetFilters.install();
     }
 
     // ===== STAT_WORK_RETIREMENT DISABLED (2026-06-27) — helper used only by that feature =====
