@@ -19,8 +19,10 @@ your\mod\MainScript$2.class
 your\mod\MainScript.class
 your\mod\targetfilter\SubjectFilter.class
 your\mod\MainScript$4.class
+your\mod\update\UpdateNoticeWindow.class
 your\mod\targetfilter\TargetFilters.class
 your\mod\MainScript$Pilgrim.class
+your\mod\update\UpdateNoticeWindow$1.class
 your\mod\targetfilter\TargetFilterRegistry$Spec.class
 your\mod\targetfilter\TargetFilterApplier$Saved.class
 your\mod\MainScript$IndoctrinationBooster$1.class

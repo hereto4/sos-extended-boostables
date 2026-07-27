@@ -1,8 +1,9 @@
 Changelog v1.4.0
 ADDITIONS
-- Added TARGET_CLASS key
+- Added RATES_NATURE key, that lets subjects worship at nature objects for piety gain (see mod description for details)
+- Added TARGET_CLASS key, allowing effect-scoping to subject class (Noble, Plebeian, Slave, Ex-Slave)
 CHANGES
-- Moved TARGET_RACE from Create-A-Culture to instead live in this mod
+- Moved TARGET_RACE from Create-A-Culture to instead live in this mod (allows effect-scoping to subject race)
 
 Changelog v1.3.0
 ADDITIONS

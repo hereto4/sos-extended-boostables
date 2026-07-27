@@ -711,14 +711,24 @@ public final class MainScript implements SCRIPT {
             private double timer = 0;
             /** One-shot guard for the "mod updated" event window; keeps retrying until VIEW is ready. */
             private boolean updateChecked = false;
+            /** Let the view settle for a few in-game frames before showing the update window. */
+            private int updateSettle = 0;
 
             @Override
             public void update(double ds) {
-                // Show the one-time "mod updated" changelog window on the first in-game tick after an
-                // _Info VERSION change (see your.mod.update.UpdateNotifier). showIfUpdated() returns
-                // false until the in-game VIEW exists, so keep trying until it finalizes the decision.
-                if (!updateChecked && your.mod.update.UpdateNotifier.showIfUpdated())
-                    updateChecked = true;
+                // Show the one-time "mod updated" changelog window shortly after entering a game, if the
+                // _Info VERSION changed (see your.mod.update.UpdateNotifier). We wait a few update ticks
+                // so the load->gameplay transition is finished, then keep retrying until showIfUpdated()
+                // finalizes the decision (it returns false only while the in-game VIEW isn't ready yet).
+                if (!updateChecked) {
+                    if (updateSettle < 10) {
+                        if (updateSettle == 0)
+                            System.out.println("[sos-extended-boostables] update notice: instance update() ticking; settling before check.");
+                        updateSettle++;
+                    } else if (your.mod.update.UpdateNotifier.showIfUpdated()) {
+                        updateChecked = true;
+                    }
+                }
 
                 timer -= ds;
                 if (timer <= 0) {

@@ -4,11 +4,21 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 
+import init.constant.C;
 import init.paths.ModInfo;
 import init.paths.PATHS;
+import snake2d.MButt;
+import snake2d.Renderer;
+import snake2d.util.datatypes.COORDINATE;
 import snake2d.util.file.Json;
 import snake2d.util.file.JsonE;
+import snake2d.util.gui.renderable.RENDEROBJ;
+import snake2d.util.misc.ACTION;
 import util.gui.misc.GBox;
+import util.gui.panel.GPanel;
+import view.interrupter.InterManager;
+import view.interrupter.Interrupter;
+import view.keyboard.KEYS;
 import view.main.VIEW;
 
 /**
@@ -39,6 +49,9 @@ public final class UpdateNotifier {
     private static final String STATE_FILE = "sos-extended-boostables-update";
     private static final String LOG = "[sos-extended-boostables] update notice: ";
 
+    /** One-shot flag so the diagnostic log on the repeated "waiting" path doesn't spam. */
+    private static boolean waitLogged = false;
+
     private UpdateNotifier() {}
 
     /**
@@ -49,10 +62,16 @@ public final class UpdateNotifier {
      *         {@link VIEW} is not ready yet (so the caller keeps calling until it returns true).
      */
     public static boolean showIfUpdated() {
-        if (!ENABLED) return true;
+        if (!ENABLED) {
+            System.out.println(LOG + "master switch ENABLED=false; feature off.");
+            return true;
+        }
 
         ModInfo self = findSelf();
-        if (self == null) return true; // not loaded as an installed mod (e.g. IDE run) — nothing to do
+        if (self == null) {
+            System.out.println(LOG + "this mod not found in PATHS.currentMods(); skipping.");
+            return true; // not loaded as an installed mod (e.g. IDE run) — nothing to do
+        }
 
         String current = self.version;
         if (current == null || current.isEmpty() || "???".equals(current)) {
@@ -62,14 +81,30 @@ public final class UpdateNotifier {
 
         Config cfg = readConfig(self);
         if (cfg == null) return true;   // missing / malformed file — already logged, no-op
-        if (!cfg.enabled) return true;  // per-release toggle off — do NOT record (can be enabled later)
+        if (!cfg.enabled) {
+            System.out.println(LOG + "config ENABLED=false; not showing (version " + current + ").");
+            return true;  // per-release toggle off — do NOT record (can be enabled later)
+        }
 
-        if (current.equals(readLastShown())) return true; // already shown for this version
+        String last = readLastShown();
+        if (current.equals(last)) {
+            System.out.println(LOG + "version " + current + " already shown; not showing.");
+            return true;
+        }
 
         // The popup needs the in-game view; if it isn't up yet, retry on the next tick.
-        if (!VIEW.existTemp()) return false;
+        if (!VIEW.existTemp()) {
+            if (!waitLogged) {
+                System.out.println(LOG + "version " + current + " is new (last=\"" + last
+                        + "\"); waiting for in-game VIEW before showing...");
+                waitLogged = true;
+            }
+            return false;
+        }
 
-        show(cfg.title, cfg.lines);
+        System.out.println(LOG + "VIEW ready; showing update window for version " + current
+                + " (" + (cfg.lines == null ? 0 : cfg.lines.length) + " line(s)).");
+        new UpdateNoticeWindow(cfg.title, cfg.lines).open(VIEW.inters().manager);
         writeLastShown(current);
         System.out.println(LOG + "showed update notice for version " + current + ".");
         return true;
@@ -143,26 +178,97 @@ public final class UpdateNotifier {
             System.err.println(LOG + "failed to write state file: " + t);
         }
     }
+}
 
-    /**
-     * Builds the changelog {@link GBox} (title + one line per change; GBox auto-frames, titles and
-     * scrolls) and shows it via the shared {@link view.interrupter.IPopup} — a centered framed panel
-     * with a close (X) button that also dismisses on right-click / click-away.
-     */
-    private static void show(String title, String[] lines) {
-        GBox box = new GBox();
-        box.clear();
-        box.maxWidth = 600;
-        box.title(title);
+/**
+ * The changelog window: a centered {@link GPanel} frame (with a close X via {@code clickActionSet})
+ * wrapping a scrollable {@link GBox} of the title + change lines.
+ *
+ * <p><b>Rendering:</b> {@link #render} returns {@code false}. In {@code VIEW.render} the interrupter
+ * manager is drawn after the terrain background but before the UI/foreground passes; returning
+ * {@code false} makes {@code VIEW} stop there, so this window is the top-most thing drawn (this is
+ * exactly what the engine's own {@code IPromtScreen} does — an earlier version returned {@code true}
+ * and got painted over by the UI/foreground, hence "showed in the log but invisible").
+ *
+ * <p>Constructed {@code persistent + pinned} so it survives the interrupter churn during the
+ * load→gameplay transition. It closes only on the X, ESC, or a right-click — deliberately NOT on a
+ * left-click, so a stray click buffered during loading can't dismiss it before the player sees it.
+ */
+final class UpdateNoticeWindow extends Interrupter {
+
+    private final GBox content = new GBox();
+    private final GPanel frame = new GPanel();
+    private final RENDEROBJ ren;
+    private final ACTION exit = new ACTION() {
+        @Override public void exe() { hide(); }
+    };
+
+    UpdateNoticeWindow(String title, String[] lines) {
+        super(true, true); // persistent + pinned — survive load-time interrupter churn; stay until closed
+        frame.setBig();
+        content.clear();
+        content.maxWidth = 600;
+        content.title(title);
         if (lines == null || lines.length == 0) {
-            box.textLL("(no changes listed)");
-            box.NL();
+            content.textLL("(no changes listed)");
+            content.NL();
         } else {
             for (String line : lines) {
-                box.textLL(line);
-                box.NL();
+                content.textLL(line);
+                content.NL();
             }
         }
-        VIEW.inters().popup.show(box.asRenObj(), null);
+        ren = content.asRenObj();
+    }
+
+    /** Public entry so {@link UpdateNotifier} can add us to the manager (show() is protected). */
+    void open(InterManager m) {
+        show(m);
+    }
+
+    private void centre() {
+        ren.body().moveX1(C.WIDTH() / 2 - ren.body().width() / 2);
+        ren.body().moveY1(C.HEIGHT() / 2 - ren.body().height() / 2);
+    }
+
+    @Override
+    protected boolean hover(COORDINATE mCoo, boolean mouseHasMoved) {
+        // frame.hover consumes the X close click; keep hover within the window so inside-clicks don't fall through.
+        return frame.hover(mCoo) || mCoo.isWithinRec(frame.body()) || mCoo.isWithinRec(ren.body());
+    }
+
+    @Override
+    protected void mouseClick(MButt button) {
+        if (button == MButt.RIGHT) hide();
+        // left-clicks inside the window do nothing (the X is handled in hover()).
+    }
+
+    @Override
+    protected boolean otherClick(MButt button) {
+        // Only a right-click outside closes it; ignore stray left-clicks (e.g. buffered during loading).
+        if (button == MButt.RIGHT) {
+            hide();
+            return true;
+        }
+        return false;
+    }
+
+    @Override
+    protected void hoverTimer(GBox text) {}
+
+    @Override
+    protected boolean render(Renderer r, float ds) {
+        centre();
+        frame.inner().set(ren.body());
+        frame.clickActionSet(exit); // draws the close (X) button and wires its click
+        frame.render(r, ds);
+        ren.render(r, ds);
+        return false; // top-most: stop VIEW from drawing the UI/foreground over us
+    }
+
+    @Override
+    protected boolean update(float ds) {
+        if (KEYS.MAIN().ESCAPE.consumeClick()) hide();
+        return false;
     }
 }
