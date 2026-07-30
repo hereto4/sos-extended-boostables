@@ -4,29 +4,7 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="7a96583c-c7b8-4ffb-8620-4d12c75a9672" name="Changes" comment="TARGET_CLASS v1, TARGET_RACE port">
-      <change beforePath="$PROJECT_DIR$/.idea/Changelog.txt" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/Changelog.txt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/V71/script/sos-extended-boostables.jar" beforeDir="false" afterPath="$PROJECT_DIR$/V71/script/sos-extended-boostables.jar" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/your/mod/MainScript.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/your/mod/MainScript.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/your/mod/update/UpdateNotifier.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/your/mod/update/UpdateNotifier.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/your/mod/MainScript$3.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/your/mod/MainScript$3.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/your/mod/MainScript$4.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/your/mod/MainScript$4.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/your/mod/MainScript$BoostedResAmount.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/your/mod/MainScript$BoostedResAmount.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/your/mod/MainScript$IndoctrinationBooster$1.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/your/mod/MainScript$IndoctrinationBooster$1.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/your/mod/MainScript$IndoctrinationBooster.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/your/mod/MainScript$IndoctrinationBooster.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/your/mod/MainScript$UmbrellaBooster.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/your/mod/MainScript$UmbrellaBooster.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/your/mod/MainScript.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/your/mod/MainScript.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/your/mod/update/UpdateNotifier$Config.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/your/mod/update/UpdateNotifier$Config.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/your/mod/update/UpdateNotifier.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/your/mod/update/UpdateNotifier.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/maven-status/maven-compiler-plugin/compile/default-compile/createdFiles.lst" beforeDir="false" afterPath="$PROJECT_DIR$/target/maven-status/maven-compiler-plugin/compile/default-compile/createdFiles.lst" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/original-sos-extended-boostables.jar" beforeDir="false" afterPath="$PROJECT_DIR$/target/original-sos-extended-boostables.jar" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/out/Extended Boostables/V71/script/_src/sos-extended-boostables-sources.jar" beforeDir="false" afterPath="$PROJECT_DIR$/target/out/Extended Boostables/V71/script/_src/sos-extended-boostables-sources.jar" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/out/Extended Boostables/V71/script/sos-extended-boostables.jar" beforeDir="false" afterPath="$PROJECT_DIR$/target/out/Extended Boostables/V71/script/sos-extended-boostables.jar" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/sos-extended-boostables-sources.jar" beforeDir="false" afterPath="$PROJECT_DIR$/target/sos-extended-boostables-sources.jar" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/sos-extended-boostables.jar" beforeDir="false" afterPath="$PROJECT_DIR$/target/sos-extended-boostables.jar" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/sos-scripting-template-1.2.4-shaded.jar" beforeDir="false" afterPath="$PROJECT_DIR$/target/sos-scripting-template-1.2.4-shaded.jar" afterDir="false" />
-    </list>
+    <list default="true" id="7a96583c-c7b8-4ffb-8620-4d12c75a9672" name="Changes" comment="UpdateWindow FINAL" />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -304,7 +282,15 @@
       <option name="project" value="LOCAL" />
       <updated>1784945680503</updated>
     </task>
-    <option name="localTasksCounter" value="24" />
+    <task id="LOCAL-00024" summary="UpdateWindow FINAL">
+      <option name="closed" value="true" />
+      <created>1785135902381</created>
+      <option name="number" value="00024" />
+      <option name="presentableId" value="LOCAL-00024" />
+      <option name="project" value="LOCAL" />
+      <updated>1785135902381</updated>
+    </task>
+    <option name="localTasksCounter" value="25" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -339,6 +325,7 @@
     <MESSAGE value="SteamDesc rewrite (final)" />
     <MESSAGE value="SteamDesc tweaks" />
     <MESSAGE value="TARGET_CLASS v1, TARGET_RACE port" />
-    <option name="LAST_COMMIT_MESSAGE" value="TARGET_CLASS v1, TARGET_RACE port" />
+    <MESSAGE value="UpdateWindow FINAL" />
+    <option name="LAST_COMMIT_MESSAGE" value="UpdateWindow FINAL" />
   </component>
 </project>

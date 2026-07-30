@@ -77,6 +77,31 @@ classes (Child/Citizen/Slave/Noble).
 > zero value on retirement stays at zero (0 × value = 0) — it amplifies existing desire rather than
 > creating it.
 
+## Physics keys (`PHYSICS_*` prefix)
+
+| Key | Display | Category | Effect |
+|---|---|---|---|
+| `PHYSICS_CLEANLINESS` | Cleanliness | Physics | How clean subjects stay. **Divides** the vanilla `PHYSICS_SOILING` ("Soiling" — the rate at which a subject becomes dirty), so `Cleanliness ×2` means subjects get dirty **half** as fast. Base `1.0` = vanilla soiling. |
+
+> **Why this key exists.** Vanilla `PHYSICS_SOILING` is a *Low-Positive* effect — a **lower** value is
+> the good outcome — but the engine colors any boost that lowers a value **red**. So a tech that
+> genuinely helps the player reads as a penalty. `PHYSICS_CLEANLINESS` is the **high-positive front**
+> for it: raising it is genuinely "up", so vanilla's green/red is already correct.
+>
+> **Boost this instead of `PHYSICS_SOILING`:**
+> ```
+> PHYSICS_CLEANLINESS>MUL: 1.333,   // green ×1.333 on the tooltip; soiling actually drops to ×0.75
+> ```
+> Equivalent to `PHYSICS_SOILING>MUL: 0.75` in effect, but it displays correctly.
+>
+> The applied factor is `1 / cleanliness`, clamped to a cleanliness of `[0.1, 10]` — so the divisor can
+> never reach 0, and the strongest possible effects are `×10` soiling (filthiest) and `×0.1` (cleanest).
+> The two keys stack multiplicatively if content boosts both.
+>
+> **Known cosmetic limit:** the *Soiling* boostable's own detailed tooltip still lists "Cleanliness" as
+> one of its sources, and because that factor is below 1 it renders **red** there. The tech node — where
+> players actually read the effect — shows green.
+
 ## Need-rate keys (`RATES_*` prefix)
 
 | Key | Display | Category | Effect |
@@ -100,47 +125,164 @@ classes (Child/Citizen/Slave/Noble).
 > - The reward is written to each subject's **shrine** religious-service satisfaction. The vanilla shrine AI re-clears that for subjects who actively seek a shrine and find none, so the nature-piety is **durably sticky only for subjects without shrine access** (a known interplay; a dedicated "nature religion" is the clean long-term fix).
 > - **Pilgrimage (Stage 2) is gated** by a master switch (`NATURE_PILGRIMAGE_ENABLED` in `MainScript`) plus a concurrency cap and a per-episode watchdog; it commandeers only genuinely idle citizens and always releases them, so real needs are never starved. Flip the switch off to run the passive proximity reward alone.
 
-## Class keys (`CLASS_*` prefix) — ⚠️ SHELVED 2026-07-04 (not in current build)
+## Need-rate front keys (`RATES_*`, added 2026-07-30)
 
-> **These keys are not registered in the current jar.** The feature was confirmed working in-game
-> (CLASS_CITIZEN need-rates + CLASS_CITIZEN_MINE all-mine output), then shelved for a later update — all
-> `CLASS_*` code is commented out in `MainScript.java`. The section below documents the design for when it
-> is re-enabled (uncomment the five `CLASS_*`-marked blocks).
+Every **vanilla** `RATES_*` key is a need-**growth** rate — higher means subjects develop that craving
+*faster*, demanding more service throughput and leaving the need unmet more often. Lower is better, so
+the game's tooltip coloring reads backwards on all of them (it colors from the number alone).
+
+Each one now has a **high-positive front key** that **divides** the vanilla rate. Boost the front key
+instead of the vanilla one and the effect is identical while the tooltip reads correctly:
+
+```
+RATES_SATIETY>MUL: 2.0     // green x2   — hunger need grows half as fast
+RATES_HUNGER>MUL: 0.5      // red   x0.5 — same effect, reads as a penalty
+```
+
+| Front key | Display | Fronts | (vanilla display) |
+|---|---|---|---|
+| `RATES_SATIETY` | Satiety | `RATES_HUNGER` | Hunger |
+| `RATES_HYDRATION` | Hydration | `RATES_THIRST` | Thirst |
+| `RATES_FRUGALITY` | Frugality | `RATES_SHOPPING` | Shopping |
+| `RATES_FRESHNESS` | Freshness | `RATES_WELL` | Dirtiness |
+| `RATES_CONTINENCE` | Continence | `RATES_CONSTIPATION` | Constipation |
+| `RATES_RUGGEDNESS` | Ruggedness | `RATES_BATH` | Bathing |
+| `RATES_INDEPENDENCE` | Independence | `RATES_HEARTH` | Loneliness |
+| `RATES_PLACIDITY` | Placidity | `RATES_ARENA` | Blood lust |
+| `RATES_AUSTERITY` | Austerity | `RATES_ARENAG` | Spectacle |
+| `RATES_STOICISM` | Stoicism | `RATES_STAGE` | Drama |
+| `RATES_DETACHMENT` | Detachment | `RATES_SPEAKER` | News Craving |
+| `RATES_HUMILITY` | Humility | `RATES_GROOMING` | Vanity |
+| `RATES_VIGOUR` | Vigour | `RATES_MASSAGE` | 'Back Pain' |
+| `RATES_HARDINESS` | Hardiness | `RATES_DOCTOR` | Health Care |
+| `RATES_RESERVE` | Reserve | `RATES_SKINNYDIP` | Skinny dip |
+| `RATES_CLEMENCY` | Clemency | `RATES_STOCKS` | Punishment |
+| `RATES_FORBEARANCE` | Forbearance | `RATES_COURT` | Justice |
+| `RATES_SECULARITY_SHRINE` | Secularity (Shrine) | `RATES_SHRINE` | Piety (Shrine) |
+| `RATES_SECULARITY_TEMPLE` | Secularity (Temple) | `RATES_TEMPLE` | Piety (Temple) |
+
+> Base `1.0`. The front key's own value is clamped to `[0.1, 10]` before inversion, so the factor applied
+> to the vanilla rate always lands in `[0.1, 10]` and the divisor can never reach `0`. Each front key is
+> registered into the **same category** as the key it fronts (Basic Needs for Satiety/Hydration/Frugality,
+> Service Needs for the rest), so it sits next to it in the boost browser.
+>
+> **`RATES_NATURE` is deliberately not fronted** — it is this mod's own key and is already high-positive
+> (`>1` = loves nature). See the Need-rate keys section.
+>
+> Both keys still work and **stack multiplicatively**, so mixed content is safe. The `CLASS_<CLASS>`
+> contentment keys also divide three of these rates; those factors stack with these independently.
+
+## Class keys (`CLASS_*` prefix)
 
 `CLASS_<CLASS>[_<ROOMTYPE>]` keys ("Class Treatment") multiply a curated set of per-subject stats
 **only for player-city subjects belonging to that population class** (`HCLASS`). Default `1.0`, and the
 applied multiplier is **clamped to [0.5, 1.5]** (so `>MUL: 1.5` is the max useful boost; the engine has
 no value cap, so the clamp is what enforces the range). The in-game name follows `<ClassName-plural>
-(<aspect>)` — the bare per-class key is `(Needs)`, a room-typed key is the room's gerund (e.g. `(Mining)`).
+(<aspect>)` — the bare per-class key is `(Contentment)`, a room-typed key is the room's gerund (e.g. `(Mining)`).
 
-**Every** `CLASS_<CLASS>*` key multiplies that class's three **need-growth rates** — `RATES_HUNGER`,
-`RATES_THIRST`, `RATES_SHOPPING` (higher = the class gets hungry/thirsty/shopping-hungry *faster*;
-this rising neediness is the intended trade-off "cost" of better treatment). A **room-typed** variant
-`CLASS_<CLASS>_<ROOMTYPE>` *additionally* multiplies that class's **output across every room of the
-type**, via the matching `ROOM_<ROOMTYPE>_ALL` umbrella.
+> **⚠️ Polarity flipped 2026-07-30 — re-check any content using a bare `CLASS_<CLASS>` key.** The bare
+> per-class key used to **multiply** the need rates, so `>MUL: 1.1` made that class 10% *needier* — a pure
+> cost that the game nonetheless colored green (it picks the color from the number alone). It now
+> **divides** them: `>MUL: 1.1` makes that class 10% *calmer*. Higher is now better, matching the color.
+> **Key strings are unchanged**, so nothing breaks by reference — only the direction of the effect. To
+> author the old "spoiled" cost, use a value **below 1** (`CLASS_CITIZEN>MUL: 0.9`). Room-typed keys are
+> unaffected (they were always high-positive). The only content affected was
+> `sos-cac_addon-aruan` (`RACE_ARUAN.txt:82,191`, `CLASS_NOBLE>MUL: 1.1`/`1.15`), which sat among that
+> tech's other buffs and now finally does what it looks like — **no edit needed there**.
+
+> **Exception — `CLASS_NOBLE` (contentment) is uncapped on the high end** (2026-07-29): its multiplier keeps
+> the `0.5` floor but has **no upper cap**, so `CLASS_NOBLE>MUL` scales without limit — and since the key now
+> *divides* the need rates, an unbounded value drives noble needs arbitrarily close to zero. Every other Class key
+> (all other need keys, the room-output keys, and the noble-office keys below) keeps the `[0.5, 1.5]` band.
+
+> **`TARGET_RACE` / `TARGET_CLASS` are respected.** These keys read their value with the affected
+> **subject's** `Induvidual`, so a filtered grant (e.g. a tech with `TARGET_RACE: HUMAN` granting
+> `CLASS_CITIZEN_MINE>MUL:1.5`) only lifts subjects that pass the filter — here, only Human citizen miners.
+> For the noble-office keys the filter is matched against the **office-holding noble** (see that section).
+
+There are two kinds of key, with **disjoint** effects:
+- A **bare per-class** key `CLASS_<CLASS>` ("(Contentment)") **divides** that class's three **need-growth
+  rates** — `RATES_HUNGER`, `RATES_THIRST`, `RATES_SHOPPING` (higher = the class gets
+  hungry/thirsty/shopping-hungry *slower*). Author a value **below 1** to impose the "spoiled class"
+  neediness cost instead.
+- A **room-typed** key `CLASS_<CLASS>_<ROOMTYPE>` multiplies **only** that class's **output across every
+  room of the type**, via the matching `ROOM_<ROOMTYPE>_ALL` umbrella. It does **not** touch the need
+  rates — room-typed keys are a pure skill/output boost.
 
 | Key | Display | Applies to | Multiplies |
 |---|---|---|---|
-| `CLASS_CITIZEN` | Plebeians (Needs) | Citizen-class subjects | `RATES_HUNGER`, `RATES_THIRST`, `RATES_SHOPPING` |
-| `CLASS_CITIZEN_MINE` | Plebeians (Mining) | Citizen-class subjects | the three rates above **+** all Mine output (`ROOM_MINE_ALL` → every `ROOM_MINE_*`) |
+| `CLASS_CITIZEN` | Plebeians (Contentment) | Citizen-class subjects | **divides** `RATES_HUNGER`, `RATES_THIRST`, `RATES_SHOPPING` |
+| `CLASS_CITIZEN_MINE` | Plebeians (Mining) | Citizen-class subjects | all Mine output only (`ROOM_MINE_ALL` → every `ROOM_MINE_*`) |
+| `CLASS_SLAVE` | Slaves (Contentment) | Slave-class subjects | **divides** `RATES_HUNGER`, `RATES_THIRST`, `RATES_SHOPPING` |
+| `CLASS_SLAVE_MINE` | Slaves (Mining) | Slave-class subjects | all Mine output only (`ROOM_MINE_ALL` → every `ROOM_MINE_*`) |
+| `CLASS_NOBLE` | Nobles (Contentment) | Noble-class subjects | **divides** `RATES_HUNGER`, `RATES_THIRST`, `RATES_SHOPPING` |
 
-> **Roadmap.** `CLASS_CITIZEN` + `CLASS_CITIZEN_MINE` are live. `CLASS_CITIZEN_FARM` / `_REFINER` /
-> `_WORKSHOP` (each = the three rates + its `ROOM_<TYPE>_ALL`) and then the other classes
-> (`CLASS_SLAVE*`, `CLASS_NOBLE*`) are one-liners in `registerClassKey`, staged after in-game validation.
+> **Roadmap.** Live: `CLASS_CITIZEN` + `CLASS_CITIZEN_MINE`, `CLASS_SLAVE` + `CLASS_SLAVE_MINE`
+> (un-shelved 2026-07-11), `CLASS_NOBLE` (2026-07-29). **Nobles have no per-*room* variants** (they don't
+> work rooms) — instead they get per-**office** keys (`CLASS_NOBLE_<OFFICE>` + `CLASS_NOBLE_ALL`, see the
+> Noble office keys section below). Staged as one-liner `registerClassKey` calls: the other room types
+> (`_FARM` / `_REFINER` / `_WORKSHOP`, each = that room's `ROOM_<TYPE>_ALL` output only) for CITIZEN and SLAVE.
 >
 > **How it works.** A conditional multiplicative `Booster` is attached to each target boostable; it
 > returns the clamped key value only for subjects whose class matches (via the subject's `Induvidual` at
 > the engine's per-subject read-point) and a neutral `1.0` for everyone else — same shape as
-> `ROOM__SLAVER`. For the room target the booster sits on the `ROOM_<TYPE>_ALL` umbrella, whose cascade
+> `ROOM__SLAVER`. For a room-typed key the booster sits on the `ROOM_<TYPE>_ALL` umbrella, whose cascade
 > carries the per-class factor into each room's per-employee bonus read.
 >
-> **Stacking.** The three rate targets are shared, so if you boost both `CLASS_CITIZEN` and a room-typed
-> `CLASS_CITIZEN_<ROOMTYPE>`, a Citizen's need-rates are multiplied by *both* factors (each still clamped
-> to [0.5, 1.5] individually).
+> **Needs vs. output are separate keys.** The bare `CLASS_<CLASS>` (needs) and the room-typed
+> `CLASS_<CLASS>_<ROOMTYPE>` (output) target disjoint boostables, so boosting the room key raises skill
+> **without** raising neediness. To apply the neediness trade-off, boost the bare key as well.
 >
 > **Zero-multiply safety-net.** Any target boostable whose base value is `0` is skipped (a `×` on a
 > zero base is a no-op and would feed the game's known unguarded divide-by-zero tooltip/progress math),
 > and the [0.5, 1.5] clamp means the factor can never turn a value into `0` (or a `0` into non-zero).
+
+### Noble office keys (`CLASS_NOBLE_<OFFICE>` / `CLASS_NOBLE_ALL`)
+
+Nobles don't work rooms — they hold **offices** (Governor, or "Master of \<building\>"). Each office adds
+a contribution to a target boostable (a room's worker-skill `bonus()`, or `CIVIC_GOV` for the Governor).
+These keys **scale that office's own contribution** by the usual [0.5, 1.5] clamp — they do **not** touch
+base worker skill, tech, or race stats, only the noble's office effect.
+
+- **`CLASS_NOBLE_<OFFICE-CATEGORY>`** — scales the effect of that category's offices. Display "Nobles (\<aspect\>)".
+- **`CLASS_NOBLE_ALL`** — "Nobles (All Offices)", scales the effect of **every** office a noble holds.
+
+Both stack multiplicatively (each clamped), so `CLASS_NOBLE_MINE × CLASS_NOBLE_ALL` both apply to a
+Master-of-Mines office. Categories are discovered dynamically from the game's office list, so modded
+offices are covered (an unrecognized office target falls into a generic `CLASS_NOBLE_OFFICE`).
+
+| Key | Display | Scales |
+|---|---|---|
+| `CLASS_NOBLE_MINE` | Nobles (Mining) | Master-of-Mines offices |
+| `CLASS_NOBLE_FARM` | Nobles (Farming) | Master-of-Farms offices |
+| `CLASS_NOBLE_REFINER` | Nobles (Refining) | Master-of-Refiner offices |
+| `CLASS_NOBLE_WORKSHOP` | Nobles (Crafting) | Master-of-Workshop offices |
+| `CLASS_NOBLE_ORCHARD` | Nobles (Orchards) | Master-of-Orchard offices |
+| `CLASS_NOBLE_PASTURE` | Nobles (Pastures) | Master-of-Pasture offices |
+| `CLASS_NOBLE_FISHERY` | Nobles (Fishing) | Master-of-Fishery offices |
+| `CLASS_NOBLE_WOOD` | Nobles (Woodcutting) | Master-of-Wood-Cutter office |
+| `CLASS_NOBLE_EMBASSY` | Nobles (Diplomacy) | Master-of-Embassy office |
+| `CLASS_NOBLE_LIBRARY` | Nobles (Libraries) | Master-of-Library office |
+| `CLASS_NOBLE_LABORATORY` | Nobles (Laboratories) | Master-of-Laboratory office |
+| `CLASS_NOBLE_ADMIN` | Nobles (Administration) | Master-of-Administration office |
+| `CLASS_NOBLE_GOVERNOR` | Nobles (Governing) | Governor office (`CIVIC_GOV` gov-points output) |
+| `CLASS_NOBLE_ALL` | Nobles (All Offices) | every office, all categories |
+
+> **How it works.** For each office an additive `NobleOfficeBooster` is attached to the office's target
+> boostable, adding `officeContribution × (factor − 1)` (player-faction only) so the net office
+> contribution becomes `officeContribution × factor`. `factor` is the allocation-weighted average, across
+> the office's holders, of `clamp(CLASS_NOBLE_<CAT>) × clamp(CLASS_NOBLE_ALL)` read **per holder**. Exact
+> for buffs (`>MUL ≥ 1`); a close approximation for deflation combined with a multiplier on the same room bonus.
+>
+> **`TARGET_RACE` / `TARGET_CLASS`.** Because the factor is read with each **office-holding noble's**
+> `Induvidual`, a filtered grant only lifts the office effect of nobles that pass the filter (e.g.
+> `TARGET_RACE: HUMAN` + `CLASS_NOBLE_MINE>MUL:1.5` → only Human nobles holding a mine office get the ×1.5;
+> a mixed-race set of holders is scaled proportionally by their allocation share). **Caveat:** a Governor
+> who has *left the map* can't be race-tested, so a race-filtered `CLASS_NOBLE_GOVERNOR` won't reach an
+> off-map Governor (it falls back to the unfiltered value).
+>
+> **`CLASS_NOBLE_GOVERNOR` touches `CIVIC_GOV`** — the shared region gov-points currency (see the CaC × PrRR
+> govbridge notes). Boosting it scales the gov-points a Governor noble generates.
 
 Grant via a tech `BOOST:` block, e.g. `CLASS_CITIZEN>MUL: 1.25` or `CLASS_CITIZEN_MINE>MUL: 1.4`.
 
@@ -218,20 +360,52 @@ TECHS: {
 
 ## Tooltip coloring for "Low-Positive" effects
 
-Not a key — a display fix. In tooltips the game colors a boost **green** when it raises a boostable
+Not a key — a display problem. In tooltips the game colors a boost **green** when it raises a boostable
 (`>ADD` positive / `>MUL` > 1) and **red** when it lowers it. That is backwards for effects where a
 **lower** value is the good outcome for the player (call these *Low-Positive* effects), e.g.
-`PHYSICS_SOILING` ("Soiling" — lower means less filth). For those, this mod **flips green ↔ red** so a
-booster that *lowers* the effect shows green and one that *raises* it shows red. The displayed number
-is never changed — only the color.
+`PHYSICS_SOILING` ("Soiling" — lower means less filth): a tech that genuinely helps reads as a penalty.
 
-- The list of inverted keys lives in `LowPositiveColors.KEYS` (in
-  `src/main/java/your/mod/boostcolor/LowPositiveColors.java`). It ships with `PHYSICS_SOILING`; add
-  more vanilla "lower is better" keys there.
-- The coloring is hardcoded in the engine with no modding seam, so this is done by a self-attaching
-  Java agent that rewrites the relevant tooltip methods at load (`your.mod.boostcolor.ColorAgent`).
-  It is fully guarded: if the JVM blocks self-attach, tooltips stay vanilla (the log prints a
-  `-javaagent:…` fallback) and the rest of the mod is unaffected.
+**The fix is a key, not a recolor** — boost the **front key** instead of the vanilla one. A front key is
+a high-positive key that *divides* the low-positive one it fronts: raising it is genuinely "up", so
+vanilla's own coloring is already correct. Nothing is patched and it works for every player with no setup.
+
+Fronted so far:
+- **[`PHYSICS_CLEANLINESS`](#physics-keys-physics_-prefix)** → `PHYSICS_SOILING`
+- **[19 need-rate fronts](#need-rate-front-keys-rates_-added-2026-07-30)** → every vanilla `RATES_*` key
+- the **[`CLASS_<CLASS>`](#class-keys-class_-prefix)** contentment keys were inverted in place instead
+  (we own them, so they needed no separate front key)
+
+Any other "lower is better" key can be fronted the same way — one `registerInverseFront(...)` call.
+
+**Not every backwards-looking key is one.** Verified high-positive despite the name: `ROOM_CONSUMPTION_*`
+(the engine *divides* by it — its own tooltip calls it "Consumption Bonus"), `WORLD_PROXIMITY`(`_TOLL`),
+`CIVIC_FURNITURE`, `WORLD_HEALTH`, and the vanilla `CIVIC_ACCIDENT`/`DEFLATION`/`MAINTENANCE`/`RAIDING`/
+`SPOILAGE` set — the last five are Jake using this same front-key trick in the base game.
+
+**Per-key colour override on the tech node.** The tech-node tooltip does **not** use the hardcoded
+`BoosterAbs.hover` colouring — it renders each effect with `bb.booster.format(b.text(), v)`, a *virtual*
+call on the booster. `format` delegates the number to `GFORMAT.f1`/`iIncr`, and those set the colour
+(`>1` green, `<1` red, `==1` neutral). Since `format` is public and non-final, this mod swaps in a
+display-only wrapper (`your.mod.boostformat`) for selected keys and re-colours the line — the number is
+untouched, and because a tech's `BoostSpecs` has `connect == false` the swap cannot affect gameplay.
+
+- **`ACTIVITY_JUDGE` / `_MOURN` / `_PUNISHMENT` / `_SOCIAL` now render neutral** (2026-07-30). They are
+  idle-activity desire weights — neither good nor bad — and the engine otherwise reserves its neutral
+  colour for a literal no-op value.
+- Any "lower is better" key can instead be set to `INVERTED` (green/red swapped) in `BoostFormats.RULES`,
+  as a lighter alternative to giving it a front key.
+
+**This only reaches the tech node.** The Boosts browser and boostable tooltips colour inline in
+`BoostSpecs.hover`/`BoosterAbs.hover`, which never call `format`; those need bytecode patching and stay
+vanilla. Front keys, by contrast, read correctly everywhere — which is why both mechanisms exist.
+
+> **Removed 2026-07-29 — the bytecode recolor agent.** Earlier versions shipped `your.mod.boostcolor`
+> (`ColorAgent` + `LowPositiveColors`), a Javassist Java agent that rewrote the engine's hardcoded
+> `IGOOD`/`IBAD` tooltip reads, since the coloring has no modding seam. It could never arm itself: the
+> game's bundled JRE has **no `jdk.attach` module**, so self-attach is impossible, and the only way to
+> load it was a per-user `-javaagent:` entry in `JVM_ARGS2` (`LauncherSettings.txt`) — a setting with no
+> launcher UI. It was removed along with the shaded Javassist dependency, which cut the mod jar from
+> ~880 KB to ~62 KB. Recoverable from git history if the engine ever gains a seam.
 
 ## Usage example (tech file `BOOST:` block)
 

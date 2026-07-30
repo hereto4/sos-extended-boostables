@@ -4,7 +4,7 @@ description: Current state and key decisions for the sos-extended-boostables mod
 type: project
 originSessionId: f4a7dc19-9fa3-4a12-9315-2717447ae117
 ---
-Adds new boostable keys to Songs of Syx (now v71.19, see [[v71-migration]]) that don't exist in vanilla. All effects ship in the same jar (`your.mod.MainScript`). Keys: `ROOM__SLAVER`, `ROOM__CANNIBAL`, `WORLD_PLUNDER` (renamed 2026-07-04 from `CIVIC_PLUNDER`), `ROOM_MINE_ALL`, `ROOM_WORKSHOP_ALL`, `ROOM_FARM_ALL`, `ROOM_REFINER_ALL`, `WORLD_PRODUCTION_SLAVE_ALL` (2026-07-09, umbrella over per-race slave production — see #4), ~~`STAT_WORK_RETIREMENT`~~ (DISABLED — see below), `BATTLE_FEAR` (2026-06-14), `CIVIC_INDOCTRINATION` (2026-06-15; SHELVED 2026-06-29, RE-ENABLED 2026-07-05 on the v71.40 policy API — see #7), ~~`CLASS_CITIZEN` + `CLASS_CITIZEN_MINE`~~ ("Class Treatment" family — confirmed working then SHELVED 2026-07-04, code `//`-commented; see #8 below), plus the Low-Positive tooltip recolor UI fix (2026-06-15).
+Adds new boostable keys to Songs of Syx (now v71.19, see [[v71-migration]]) that don't exist in vanilla. All effects ship in the same jar (`your.mod.MainScript`). Keys: `ROOM__SLAVER`, `ROOM__CANNIBAL`, `WORLD_PLUNDER` (renamed 2026-07-04 from `CIVIC_PLUNDER`), `ROOM_MINE_ALL`, `ROOM_WORKSHOP_ALL`, `ROOM_FARM_ALL`, `ROOM_REFINER_ALL`, `WORLD_PRODUCTION_SLAVE_ALL` (2026-07-09, umbrella over per-race slave production — see #4), ~~`STAT_WORK_RETIREMENT`~~ (DISABLED — see below), `BATTLE_FEAR` (2026-06-14), `CIVIC_INDOCTRINATION` (2026-06-15; SHELVED 2026-06-29, RE-ENABLED 2026-07-05 on the v71.40 policy API — see #7), `CLASS_CITIZEN`(+`_MINE`), `CLASS_SLAVE`(+`_MINE`), `CLASS_NOBLE`(+per-office `CLASS_NOBLE_<OFFICE>`/`CLASS_NOBLE_ALL`) ("Class Treatment" family — un-shelved & expanded to SLAVE 2026-07-11, NOBLE + noble-office keys 2026-07-29; see #8 below), plus the Low-Positive tooltip recolor UI fix (2026-06-15).
 
 **⚠️ `STAT_WORK_RETIREMENT` DISABLED 2026-06-27** (commented out in `MainScript.java`, not deleted; 7 blocks + 6 imports tagged `STAT_WORK_RETIREMENT DISABLED (2026-06-27)`). It inflated player-city **happiness → runaway immigration** in v71, from a fresh start with no techs. Its `restoreDenominators()` pins `StandingCitizen.maxes/defs` every 2s; the "denominator stays static after init" assumption that makes this a no-op held in the v70.32 source but appears broken by the v71 standing rework. It also did nothing useful — no tech/data file boosts the key, so F was always 1.0. CAC was investigated and exonerated (its boosts are all tech-level-gated → neutral at game start). Re-enable only after re-validating the reflection against v71 `StandingCitizen`/`StandingData`. Full analysis: [[stat-system-seams]] and [[immigration-happiness-bug]]. **Rebuild required** to regenerate `V71/script/sos-extended-boostables.jar` (the `V70/` jar still has the old code; out of v71 scope).
 
@@ -116,7 +116,85 @@ Adds new boostable keys to Songs of Syx (now v71.19, see [[v71-migration]]) that
    `javap` placement); in-game render + self-attach permission still to be confirmed by the user. Why
    self-attach over `-javaagent`: keeps install identical to a normal drop-in/Workshop mod (user's
    explicit choice). Main tech-NODE tooltip (`Node.hoverInfoGet`) is uncolored on 70.33 → not a target;
-   add `view.ui.tech.Node` if a future version colors it.
+   add `view.ui.tech.Node` if a future version colors it. **DORMANT / SUPERSEDED (2026-07-29):**
+   self-attach is impossible on the bundled JRE (no `jdk.attach` module, confirmed in-game 2026-06-29),
+   and the only way to arm it is a per-user launch arg — `JVM_ARGS2` in
+   `%APPDATA%\songsofsyx\settings\LauncherSettings.txt`, which the launcher forwards to the game JVM
+   (`init/Main.java:85` → `Proccesser.executeLwjgl(MainProcess…)`); the bundled JRE **does** ship
+   `java.instrument`, so the premain path works, but there is **no launcher UI** for that setting
+   (`jvmArguments` is referenced nowhere in `launcher/`), so it can never be the shipping answer.
+   **REMOVED ENTIRELY 2026-07-29 (user decision).** Deleted: `src/main/java/your/mod/boostcolor/`
+   (`ColorAgent`, `LowPositiveColors`), the `ColorAgent.install()` call in `initBeforeGameInited`, and in
+   `pom.xml` the `org.javassist:javassist` dependency + `javassist.version` property, the HotSwapper
+   shade filter, the `javassist`→`your.mod.shaded.javassist` relocation, and the
+   `ManifestResourceTransformer` agent manifest entries. **Jar dropped 882 KB → 62 KB**; manifest now has
+   no `Premain-Class`/`Agent-Class`, jar has zero javassist/boostcolor entries. Recover from git history
+   (both files were tracked) if a seam ever appears — and restore the HotSwapper filter with it. The
+   shipped fix is key #10.
+
+10. **`PHYSICS_CLEANLINESS`** ("Cleanliness", PHYSICS cat, base 1.0, added 2026-07-29; listed here
+   out of numeric order because it is the resolution of #6) — the **no-agent
+   answer to Low-Positive coloring**. Vanilla `PHYSICS_SOILING` (base 0.125, "rate at which a subject
+   becomes dirty") is low-positive, so helping the player renders red. This key is its **high-positive
+   front**: a `CleanlinessBooster extends Booster` (mul, identity `getValue`, factor from `pget` — same
+   shape as `UmbrellaBooster`) placed on `BOOSTABLES.PHYSICS().SOILING` returning
+   `1 / CLAMP.d(cleanliness.get(o), CLEAN_MIN=0.1, CLEAN_MAX=10)`. `pget(o)` resolves per query object,
+   which matches the engine's per-subject read (`StatsNeeds:180` `SOILING.get(indu)`). Registered via
+   the 8-arg `ensureBoostable` (min floor 0.1) so `>MUL: 0` can't zero the divisor. Content boosts
+   `PHYSICS_CLEANLINESS>MUL: 1.333` (green) instead of `PHYSICS_SOILING>MUL: 0.75` (red) — identical
+   effect, correct color, ships to everyone. **Residual cosmetic limit:** Soiling's own detailed tooltip
+   lists "Cleanliness" as a sub-1 source and renders that line red. **Built clean on v71.40 and IN-GAME
+   VERIFIED 2026-07-29 (user-confirmed): the key registers and the tooltip colors correctly.**
+   **Generalized 2026-07-30** into `registerInverseFront(targetKey, pushKey, display, desc[, icon], cat)` +
+   `InverseFrontBooster` (replaces the one-off `CleanlinessBooster`); shared clamp band `INV_MIN`=0.1 /
+   `INV_MAX`=10. Full key is formed as `cat.prefix + pushKey` (verified: `BOOSTING.push` strips one leading
+   `_` then prepends `cat.prefix`). Cleanliness is now just its first caller.
+
+11. **19 `RATES_*` front keys** ("Satiety", "Hydration", "Frugality", "Freshness", "Continence",
+   "Ruggedness", "Independence", "Placidity", "Austerity", "Stoicism", "Detachment", "Humility", "Vigour",
+   "Hardiness", "Reserve", "Clemency", "Forbearance", "Secularity (Shrine)/(Temple)"; added 2026-07-30).
+   Every vanilla `RATES_*` is a need-GROWTH rate (`NEED.java:59`), so lower is better on all of them — see
+   [[rates-need-semantics]]. One front key each, driven by the `RATE_FRONTS` table
+   (`{vanilla key, push key, display, cat}` where cat `E`=`NEEDS.bCatE()` Basic Needs, `S`=`NEEDS.bCat()`
+   Service Needs — both prefix `RATES_`), each registered into the same category as the key it fronts and
+   wired through `registerInverseFront`. Missing vanilla keys are logged + skipped (needs are partly
+   file-defined, so the set is content-driven). **`RATES_NATURE` is excluded** — our own key, already
+   high-positive. Names are bespoke per user choice (2026-07-30); least-settled: AUSTERITY (Spectacle),
+   DETACHMENT (News Craving), RESERVE (Skinny dip), CLEMENCY (Punishment — the underlying
+   `RATES_STOCKS` semantics are themselves unclear), RUGGEDNESS (Bathing). Built clean v71.40; **in-game
+   not yet verified.**
+
+13. **Tech-node colour override (`your.mod.boostformat`, 2026-07-30).** The tech-node effect list does NOT
+   use `BoosterAbs.hover`'s hardcoded colouring — `Node.hoverInfoGet` renders each line with
+   `bb.booster.format(b.text(), v)` (confirmed in the **installed v71.44 jar**, offsets 1201/1305).
+   `BoosterAbs.format` sets no colour itself but delegates to `GFORMAT.f1` (`<1`→IWORST, `>1`→IGREAT,
+   `==1`→WHITE85) / `GFORMAT.iIncr`/`f0` — **those colour it**. Since `format` is public + non-final and
+   the call is virtual on the booster, owning the `Booster` in `tech.boosters` = owning that line's colour.
+   `FormattedBooster` forwards `from`/`to`/`getValue`/`get` (overrides the public `get` rather than
+   `pget`, which is protected in `game.boosting` and so uncallable on another instance from our package)
+   and overrides only `format`: it lets the engine format the number, then re-sets the colour —
+   `GText.color(..)` stores ONE colour for the whole text object, bound at render, so last call wins.
+   `BoostFormats.install()` registers a `BOOSTING.connecter` that swaps matching specs per a `RULES`
+   table (`NEUTRAL` | `INVERTED`, exact key or `PREFIX_*`); ships `ACTIVITY_* → NEUTRAL`.
+   **Provably display-only:** `TECH`'s `BoostSpecs` has `connect == false` (`TECH.java:122`), so
+   `push`/`remove` there never touch the boostable's factor list (the live effect is the original booster
+   object stored by `Boostable.addFactor`). Order-preserving (remove+push in sequence) and idempotent.
+   **Install AFTER `TargetFilters.install()`** so this connecter is queued after the one re-adding
+   originals for the UI. **Reach: tech node only** — `BoostSpecs.hover:363`/`BoosterAbs.hover:67` colour
+   inline and never call `format`, so the Boosts browser + boostable tooltips still need the (deleted)
+   agent; that is why front keys (#10/#11) still earn their place. NB `GFORMAT.f1Inv`/`f0Inv` already
+   exist as colour-swapped formatters. Built clean v71.40; **in-game not yet verified.**
+
+12. **`CLASS_<CLASS>` polarity INVERTED IN PLACE 2026-07-30** (user decision; the bare per-class keys only).
+   They targeted only the three need-growth rates, so raising one was a pure cost that rendered green.
+   `ClassTreatmentBooster` took a new `invert` flag: `factor()` now returns `1/CLAMP.d(...)` for the
+   need-rate targets (floored at `CLASS_MIN`=0.5, so no /0); room-typed keys pass `invert=false` and are
+   untouched. Display aspect `(Needs)` → `(Contentment)`. **Key strings unchanged** → no cross-mod break,
+   but the DIRECTION of existing content flipped: author `<1` for the old "spoiled/needier" cost. Only
+   affected content was `sos-cac_addon-aruan/V71/assets/init/tech/RACE_ARUAN.txt:82,191`
+   (`CLASS_NOBLE>MUL: 1.1`/`1.15`) — those sat among that tech's other buffs (its downsides are all
+   written `<1`), so they were almost certainly authored expecting a benefit and now finally deliver one;
+   **left as-is deliberately.** NB the uncapped `CLASS_NOBLE` now drives noble needs toward 0 as it grows.
 
 7. `CIVIC_INDOCTRINATION` ("Indoctrination", CIVICS, base 1.0, added 2026-06-15) — **SHELVED 2026-06-29
    (v71.40 removed `StatsEducation.policyIndoctor`), then RE-ENABLED 2026-07-05 with the effect migrated
@@ -159,38 +237,79 @@ Adds new boostable keys to Songs of Syx (now v71.19, see [[v71-migration]]) that
    only needs to be in the map before `init.finish()` resolves REQUIRES promises (initBeforeGameInited window).
    Consumed by Create-A-Culture's monorace techs. Full analysis in [[v71-migration]].
 
-8. `CLASS_<CLASS>[_<ROOMTYPE>]` "Class Treatment" keys — **SHELVED 2026-07-04 (all CLASS_* code
-   `//`-commented in MainScript, per user; jar no longer contains it). Confirmed WORKING in-game first
-   (CLASS_CITIZEN 3 need-rates + CLASS_CITIZEN_MINE all-mine output), then shelved for a later update.**
-   To restore: uncomment the five CLASS_*-marked blocks (constants, initBeforeGameInited registration,
-   `registerClassKey`, `registerClassTreatment`, `ClassTreatmentBooster`); no save-format impact. Design
-   history below is retained for that re-enable. Added 2026-07-02 (CITIZEN test), expanded 2026-07-04 to
-   the room-typed family; built clean against v71.40. New `CLASS_` `BoostableCat`
+8. `CLASS_<CLASS>[_<ROOMTYPE>]` "Class Treatment" keys — **LIVE. Currently registered: `CLASS_CITIZEN` +
+   `CLASS_CITIZEN_MINE` ("Plebeians (Needs)/(Mining)"), `CLASS_SLAVE` + `CLASS_SLAVE_MINE` ("Slaves
+   (Needs)/(Mining)"), and `CLASS_NOBLE` ("Nobles (Needs)" — display overridden from the awkward vanilla plural "Nobilities" via the `classDisplayName` helper).** `CLASS_NOBLE` is **needs-only by design
+   — no per-room variants** (nobles don't work rooms; to be elaborated later). Staged as commented
+   one-liner `registerClassKey` calls: the other room types (`_FARM`/`_REFINER`/`_WORKSHOP`) for CITIZEN
+   and SLAVE. History: added 2026-07-02 (CITIZEN test), expanded 2026-07-04 to the room-typed family,
+   SHELVED 2026-07-04 after confirming CITIZEN worked in-game, un-shelved + expanded to SLAVE 2026-07-11,
+   NOBLE added 2026-07-29. Class accessors are all player classes: `HCLASSES.CITIZEN()`.names="Plebeians",
+   `.SLAVE()`.names="Slaves", `.NOBLE()`.names="Nobilities". Built clean v71.40; SLAVE + NOBLE gameplay
+   verification pending (CITIZEN confirmed pre-shelving). To shelve again: re-comment the five
+   CLASS_*-marked blocks; no save-format impact. New `CLASS_` `BoostableCat`
    (prefix applied by `BOOSTING.push`, so push `"CITIZEN"`→`CLASS_CITIZEN`, `"CITIZEN_MINE"`→`CLASS_CITIZEN_MINE`).
-   Multiplies **per-subject** boostables only for subjects of the matching `HCLASS`. **Design:** *every*
-   `CLASS_<CLASS>*` key scales the three need-growth rates **`RATES_HUNGER`/`RATES_THIRST`/`RATES_SHOPPING`**
-   (single underscore — confirmed via m2 `71.19/boost_dump.txt`; higher = needier, the intended trade-off
-   cost — see [[rates-need-semantics]]). A **room-typed** variant `CLASS_<CLASS>_<ROOMTYPE>` additionally
-   scales that class's output across **all** rooms of the type by ALSO targeting the mod's
-   `ROOM_<ROOMTYPE>_ALL` umbrella (base 1.0) — the umbrella's `UmbrellaBooster.pget→umbrella.get(o)` cascade
-   carries the per-class factor into each `ROOM_<TYPE>_*` child's per-employee read at `IndustryUtil.java:80`
-   `bonus.get(h.indu())`. Registered order matters: `registerRoomAllCascade(MINE_ALL…)` runs before the CLASS
-   block, so `ROOM_MINE_ALL` exists when `registerClassKey` looks it up. **Live now:** `CLASS_CITIZEN` (3 rates)
-   + `CLASS_CITIZEN_MINE` (3 rates + `ROOM_MINE_ALL`, which fans to 6 mine types). FARM/REFINER/WORKSHOP +
-   other classes are commented one-liner `registerClassKey(...)` calls, staged after MINE validation.
-   **Note replaced target:** the old CITIZEN ore-only `ROOM_MINE_ORE` target is gone — mine output now flows
-   through `ROOM_MINE_ALL` on `CLASS_CITIZEN_MINE` (covers all mines, not just ore). **Stacking:** rates are
-   shared across the family, so boosting both `CLASS_CITIZEN` and a room-typed variant multiplies the rates
-   by both factors (each clamped independently). Effect = nested `ClassTreatmentBooster extends Booster`
+   Multiplies **per-subject** boostables only for subjects of the matching `HCLASS`. **Design (two
+   disjoint key kinds — updated 2026-07-29):** a **bare per-class** key `CLASS_<CLASS>` scales the three
+   need-growth rates **`RATES_HUNGER`/`RATES_THIRST`/`RATES_SHOPPING`** (single underscore — confirmed via
+   m2 `71.19/boost_dump.txt`; higher = needier, the intended trade-off cost — see [[rates-need-semantics]]).
+   A **room-typed** key `CLASS_<CLASS>_<ROOMTYPE>` scales **ONLY** that class's output across all rooms of
+   the type via the mod's `ROOM_<ROOMTYPE>_ALL` umbrella (base 1.0) — **it no longer scales the need rates**
+   (removed 2026-07-29 per user; room-typed keys are a pure skill/output boost, the neediness trade-off
+   lives solely on the bare key). The umbrella's `UmbrellaBooster.pget→umbrella.get(o)` cascade carries the
+   per-class factor into each `ROOM_<TYPE>_*` child's per-employee read at `IndustryUtil.java:80`
+   `bonus.get(h.indu())`. Registered order matters: `registerUmbrellaCascade(MINE_ALL…)` runs before the
+   CLASS block, so `ROOM_MINE_ALL` exists when `registerClassKey` looks it up. In `registerClassKey`, the
+   room branch now sets `targets = { roomAllKey }` (was rates+umbrella). **Live now:** `CLASS_CITIZEN` /
+   `CLASS_SLAVE` / `CLASS_NOBLE` (3 rates each) + `CLASS_CITIZEN_MINE` / `CLASS_SLAVE_MINE` (ROOM_MINE_ALL
+   only → attach to 1 boostable, fans to 6 mine types). FARM/REFINER/WORKSHOP for CITIZEN/SLAVE are
+   commented one-liner `registerClassKey(...)` calls. **Note replaced target:** the old CITIZEN ore-only
+   `ROOM_MINE_ORE` target is gone — mine output flows through `ROOM_MINE_ALL` on the `_MINE` keys (all
+   mines, not just ore). Effect = nested `ClassTreatmentBooster extends Booster`
    (multiplicative, `from()=to()=1`, `getValue(input)=input`, `pget(o)=o.boostableValue(value)`);
-   `vGet(Induvidual)` returns `CLAMP.d(classKey.get(player), 0.5, 1.5)` iff `indu.clas()==hclass`, neutral
-   `1.0` for the other five `vGet` overloads. New helper **`registerClassKey(cat, hclass, roomType,
-   roomAllKey, roomLabel)`** builds key/display/desc/targets and delegates to `registerClassTreatment`.
-   **Min/Max 0.5/1.5** via clamp. **Zero-multiply safety-net** (user-required): `registerClassTreatment`
-   skips any `baseValue==0` target; the clamp keeps the factor away from the zero boundary. Full design:
+   `vGet(Induvidual)` returns `CLAMP.d(classKey.get(indu), CLASS_MIN, maxCap)` iff `indu.clas()==hclass`,
+   neutral `1.0` for the other five `vGet` overloads. **TARGET_RACE/TARGET_CLASS fix (2026-07-29):** the
+   factor is read with the **subject's Induvidual** (`classKey.get(indu)`), NOT `.get(player)` — earlier it
+   read `.get(player)`, which is BROKEN for filtered grants because [[target-race-tech]]'s
+   `TargetFilteredBooster.pget` returns identity for any non-Induvidual query (a `TARGET_RACE`-filtered
+   CLASS grant is removed from `tech.boosters` and only fires for matching Induviduals → `.get(player)`=1.0
+   = silently ignored). Reading `.get(indu)` makes the filter match the affected subject; identical to
+   `.get(player)` for unfiltered grants (per-Induvidual resolves via faction→player tech value). New helper
+   **`registerClassKey(cat, hclass, roomType, roomAllKey, activity)`** builds key/display/desc/targets and
+   delegates to `registerClassTreatment(..., maxCap)`. **Min floor 0.5 via clamp; max cap CLASS_MAX=1.5 for
+   all keys EXCEPT the bare `CLASS_NOBLE` needs key, which is UNCAPPED (`maxCap=Double.MAX_VALUE`, user
+   2026-07-29 — floor still 0.5).** **Zero-multiply safety-net** (user-required): `registerClassTreatment`
+   skips any `baseValue==0` target; the 0.5 floor keeps the factor away from the zero boundary. Full design:
    `../../sos-scripting-template/.claude/SPEC_CLASS_KEYS.md`. Expansion is data-only — **every added target
    must be a per-`Induvidual` boostable** (or a `ROOM_*_ALL` umbrella that reaches one); non-boostable stats
    need the reflection path (higher risk, see [[stat-system-seams]]).
+
+   **NOBLE office keys (added 2026-07-29) — a different mechanism from CITIZEN/SLAVE room-typed keys.**
+   Nobles don't work rooms; they hold **offices** (`game.nobility.NobleOffice`, list `GAME.NOBLE().OFFICES`,
+   built in `NobleOfficeUtil.make()`): a **Governor** (targets `CIVIC_GOV`, leaves map) + one **"Master of
+   <building>"** office per production/knowledge building type (targets that room's `bonus()` worker-skill).
+   Each office adds `C = office.add * CLAMP.d(office.value(GAME.NOBLE().allocations(office)),0,1)` to its
+   target (delivered by the engine's `BoostCompound.Boo`, additive, faction-scoped via `BValue.BValueFaction`).
+   `registerNobleOffices(classCat)` creates **one `CLASS_NOBLE_<CATEGORY>` key per office category** (grouped
+   by target key prefix in `nobleOfficeCategory()`: ROOM_MINE_→MINE/"Mining", …, CIVIC_GOV→GOVERNOR/"Governing";
+   unknown→OFFICE/"Offices") **plus `CLASS_NOBLE_ALL`**, then attaches a nested **`NobleOfficeBooster`**
+   (additive, `isMul=false`, `from()=to()=0`, `getValue`=identity, `BValueFaction` player-only) to each
+   office's `office.target`. Its supplement = `C * (avgFactor-1)` → net office contribution `C*avgFactor`,
+   scaling ONLY the office's own part (base/tech/race untouched). CAT + ALL stack. Display "Nobles
+   (<aspect>)" / "Nobles (All Offices)". **TARGET_RACE/TARGET_CLASS (2026-07-29):** `avgFactor` is the
+   **allocation-weighted average over the office's HOLDING NOBLES** of `clamp(catKey.get(nobleIndu),0.5,1.5)
+   * clamp(allKey.get(nobleIndu),0.5,1.5)`, read with each holder's `n.subject().indu()` so the filter
+   matches the NOBLE (not the room's workers). `supplement()` iterates `GAME.NOBLE().active()` for nobles
+   whose `office()==this`, weight `slots=1+NOBLES.RANK_INCREASE*rank`. **Off-map Governor caveat:**
+   `n.subject()==null` → fall back to `.get(player)` (unfiltered), so a race-filtered `CLASS_NOBLE_GOVERNOR`
+   won't reach an off-map governor. (Only Governor `leavesMap()`; Master-of-X nobles stay on map.)
+   **Timing OK:** NOBLES ctor at GAME.<init>:167 and `game=this` at :117, both before initBeforeGameInited(:173).
+   **Re-entrancy safe:** office.value reads employment (not boostables); CLASS_NOBLE_* are distinct boostables
+   from the target. **Accuracy:** additive supplement is exact for factor≥1 (buffs); slight under-scaling for
+   factor<1 combined with a MUL on the same room bonus (reduction lands in engine `sub` pool, unmultiplied) —
+   accepted, WORLD_PLUNDER-style. **GOVERNOR key scales `CIVIC_GOV`** (user opted in; see [[cac-prrr-govpoints-conflict]]).
+   Built clean v71.40. **In-game: `CLASS_NOBLE_ALL` CONFIRMED working 2026-07-29.** Per-category
+   `CLASS_NOBLE_<OFFICE>` keys and the TARGET_RACE per-holder filtering still unverified in-game.
 
 9. **`TARGET_RACE` / `TARGET_CLASS` tech-scoping keys** — **moved into this mod 2026-07-24 from the
    former standalone `target-race-tech` mod, and generalized to add `TARGET_CLASS`.** These are NOT

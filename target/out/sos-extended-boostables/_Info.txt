@@ -1,7 +1,0 @@
-VERSION: "1.0.0",
-GAME_VERSION_MAJOR: 70,
-GAME_VERSION_MINOR: 32,
-NAME: "sos-extended-boostables",
-DESC: "Adds extended boostable keys for room types not covered by vanilla.",
-AUTHOR: "Nate",
-INFO: "Adds ROOM__SLAVER and ROOM__CANNIBAL boostables.",

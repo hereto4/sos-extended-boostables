@@ -1,6 +1,10 @@
 package your.mod;
 
 import game.boosting.*;
+import game.GAME;
+import game.nobility.Noble;
+import game.nobility.NobleOffice;
+import game.nobility.NOBLES;
 import game.battle.div.Div;
 import game.battle.thread.status.DivStatus;
 import game.faction.FACTIONS;
@@ -63,6 +67,8 @@ import java.io.Serializable;
 // import java.lang.reflect.Field;
 import java.util.Collections;
 import java.util.IdentityHashMap;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.Set;
 
 @SuppressWarnings("unused")
@@ -87,24 +93,25 @@ public final class MainScript implements SCRIPT {
     // display-derivative variants (per user, 2026-07-05).
     private static final String SLAVE_PRODUCTION_ALL_KEY = "WORLD_PRODUCTION_SLAVE_ALL";
 
-    // ===== CLASS_<CLASS>[_<ROOMTYPE>] "Class Treatment" SHELVED (2026-07-04) =========================
-    // Confirmed working in-game (CLASS_CITIZEN need-rates + CLASS_CITIZEN_MINE all-mine output), then
-    // shelved for a later update per user request. To restore: uncomment all five CLASS_*-marked blocks —
-    // this constants block, the registration block in initBeforeGameInited() (BoostableCat classCat …
-    // registerClassKey …), registerClassKey(), registerClassTreatment(), and the ClassTreatmentBooster
-    // nested class. No save-format impact (nothing is serialized). Full design: SPEC_CLASS_KEYS.md; player
-    // doc: KEYS.md "Class keys"; project memory #8 + reference_rates_need_semantics.
-    //
-    // CLASS_<CLASS>[_<ROOMTYPE>] keys: a conditional multiplicative factor applied to selected per-subject
-    // boostables, but ONLY for subjects of the matching population class (HCLASS); every other
-    // subject/query gets the neutral 1.0 (same shape as the SLAVER/umbrella effects). The applied
-    // multiplier is clamped to [CLASS_MIN, CLASS_MAX] so it can never reach 0. Every CLASS_<CLASS>* key
-    // scales the three need-growth rates below; a room-typed CLASS_<CLASS>_<ROOMTYPE> also scales that
-    // class's output across every room of the type via the ROOM_<ROOMTYPE>_ALL umbrella.
-    // private static final double CLASS_MIN = 0.5;
-    // private static final double CLASS_MAX = 1.5;
-    // /** The three per-subject need-growth rates every CLASS_<CLASS>* key scales. */
-    // private static final String[] CLASS_RATE_TARGETS = { "RATES_HUNGER", "RATES_THIRST", "RATES_SHOPPING" };
+    // CLASS_<CLASS>[_<ROOMTYPE>] "Class Treatment" keys (un-shelved 2026-07-11; CITIZEN + SLAVE live).
+    // A conditional multiplicative factor applied to selected per-subject boostables, but ONLY for
+    // subjects of the matching population class (HCLASS); every other subject/query gets the neutral 1.0
+    // (same shape as the SLAVER/umbrella effects). The applied multiplier is clamped to
+    // [CLASS_MIN, CLASS_MAX] so it can never reach 0. Every CLASS_<CLASS>* key scales the three
+    // need-growth rates below; a room-typed CLASS_<CLASS>_<ROOMTYPE> also scales that class's output
+    // across every room of the type via the ROOM_<ROOMTYPE>_ALL umbrella. Full design: SPEC_CLASS_KEYS.md;
+    // player doc: KEYS.md "Class keys"; project memory #8 + reference_rates_need_semantics.
+    private static final double CLASS_MIN = 0.5;
+    private static final double CLASS_MAX = 1.5;
+    /** The three per-subject need-growth rates every CLASS_<CLASS>* key scales. */
+    private static final String[] CLASS_RATE_TARGETS = { "RATES_HUNGER", "RATES_THIRST", "RATES_SHOPPING" };
+
+    // CLASS_NOBLE_<CATEGORY> / CLASS_NOBLE_ALL "noble office" keys (2026-07-29). Nobles don't work rooms;
+    // they hold OFFICES (game.nobility.NobleOffice). Each office adds a contribution to a target boostable
+    // (a room's bonus() worker-skill, or CIVIC_GOV for the Governor). These keys scale that office's OWN
+    // contribution by [CLASS_MIN, CLASS_MAX]: CLASS_NOBLE_<CATEGORY> scales the offices of one category,
+    // CLASS_NOBLE_ALL scales every office (both stack multiplicatively, each clamped). See registerNobleOffices.
+    private static final String CLASS_NOBLE_ALL_KEY = "CLASS_NOBLE_ALL";
 
     /** Vanilla raid loots once every this many seconds of raiding (WArmyState.raiding accumulator). */
     private static final double RAID_PERIOD = 120.0;
@@ -119,6 +126,57 @@ public final class MainScript implements SCRIPT {
     private static final int FEAR_MAX_ENEMIES = 8;        // cap on nearby enemies considered
 
     private Boostable battleFear;
+
+    // PHYSICS_CLEANLINESS ("Cleanliness"): a HIGH-positive front for the vanilla LOW-positive
+    // PHYSICS_SOILING ("Soiling", base 0.125 — "the rate at which a subject becomes dirty", so LOWER is
+    // the good outcome). Content boosts this key instead of PHYSICS_SOILING: raising it is genuinely
+    // "up", so the engine's own green/red tooltip coloring is already correct and nothing has to be
+    // patched. This is the ONLY answer to the Low-Positive coloring problem in this mod: the bytecode
+    // recolor agent (your.mod.boostcolor) was removed 2026-07-29 — it could never arm itself, since the
+    // game's bundled JRE has no jdk.attach module. Front any other "lower is better" key the same way.
+    // Effect: a multiplicative 1/cleanliness factor on PHYSICS_SOILING, so >MUL: 2.0 halves soiling.
+    // The key's own value is floored at INV_MIN by BOOSTING (8-arg ensureBoostable) AND the applied
+    // factor re-clamps to [INV_MIN, INV_MAX], so the divisor can never reach 0.
+    private static final String CLEANLINESS_KEY = "PHYSICS_CLEANLINESS";
+    private Boostable physicsCleanliness;
+
+    // Shared clamp band for EVERY inverse "front" key (see registerInverseFront / InverseFrontBooster).
+    // The front key's own value is clamped here before being inverted, so the factor applied to the
+    // fronted low-positive target always lands in [1/INV_MAX, 1/INV_MIN] = [0.1, 10] and never hits 0.
+    private static final double INV_MIN = 0.1;
+    private static final double INV_MAX = 10.0;
+
+    // RATES_* front keys (2026-07-30). Every vanilla RATES_* boostable is a need-GROWTH rate — higher =
+    // the subject develops the craving faster = more service throughput demanded = worse for the player
+    // (init/type/NEED.java:59 "The rate at which the need of {0} increases daily"). Each row registers a
+    // high-positive front key that DIVIDES the vanilla rate, so content authors boost the front key and
+    // the tooltip colors correctly. Rows: { vanilla RATES_ key, front push key, front display name,
+    // cat } where cat "E" = vanilla "Basic Needs" (NEEDS.bCatE(), the three NEED_E rates) and "S" =
+    // "Service Needs" (NEEDS.bCat()) — each front key is registered into the same category as the key it
+    // fronts. Both categories use the "RATES_" prefix, so the full key is RATES_<push key>.
+    // NOT fronted: RATES_NATURE — that is this mod's own key and is already high-positive by design
+    // (>1 = loves nature). A row whose vanilla key is absent at runtime is logged and skipped.
+    private static final String[][] RATE_FRONTS = {
+        { "RATES_HUNGER",       "SATIETY",            "Satiety",             "E" },
+        { "RATES_THIRST",       "HYDRATION",          "Hydration",           "E" },
+        { "RATES_SHOPPING",     "FRUGALITY",          "Frugality",           "E" },
+        { "RATES_WELL",         "FRESHNESS",          "Freshness",           "S" },
+        { "RATES_CONSTIPATION", "CONTINENCE",         "Continence",          "S" },
+        { "RATES_BATH",         "RUGGEDNESS",         "Ruggedness",          "S" },
+        { "RATES_HEARTH",       "INDEPENDENCE",       "Independence",        "S" },
+        { "RATES_ARENA",        "PLACIDITY",          "Placidity",           "S" },
+        { "RATES_ARENAG",       "AUSTERITY",          "Austerity",           "S" },
+        { "RATES_STAGE",        "STOICISM",           "Stoicism",            "S" },
+        { "RATES_SPEAKER",      "DETACHMENT",         "Detachment",          "S" },
+        { "RATES_GROOMING",     "HUMILITY",           "Humility",            "S" },
+        { "RATES_MASSAGE",      "VIGOUR",             "Vigour",              "S" },
+        { "RATES_DOCTOR",       "HARDINESS",          "Hardiness",           "S" },
+        { "RATES_SKINNYDIP",    "RESERVE",            "Reserve",             "S" },
+        { "RATES_STOCKS",       "CLEMENCY",           "Clemency",            "S" },
+        { "RATES_COURT",        "FORBEARANCE",        "Forbearance",         "S" },
+        { "RATES_SHRINE",       "SECULARITY_SHRINE",  "Secularity (Shrine)", "S" },
+        { "RATES_TEMPLE",       "SECULARITY_TEMPLE",  "Secularity (Temple)", "S" },
+    };
 
     // RATES_NATURE ("Piety (Nature)"): a per-subject multiplier centered at 1.0 meaning DESIRE for nature
     // (>1 seeks, <1 shuns, =1 neutral). NOT an engine need — the engine reads nothing; our per-tick loop
@@ -372,18 +430,49 @@ public final class MainScript implements SCRIPT {
               + "Piety (Shrine) fulfillment.",
                 UI.icons().s.sprout, NEEDS.bCat(), 1.0, NATURE_MIN);
 
-        // ===== CLASS_* "Class Treatment" registration SHELVED (2026-07-04) — see the constants block =====
-        // New "CLASS_" BoostableCat (prefix applied by BOOSTING.push). In-game names follow
-        // "<ClassName-plural> (<aspect>)" -> "Plebeians (Needs)", "Plebeians (Mining)". registerClassKey
+        // PHYSICS_CLEANLINESS "Cleanliness": the high-positive counterpart of vanilla PHYSICS_SOILING
+        // (see the constants block). Registered into the vanilla PHYSICS category so it sits beside
+        // Soiling in the boostable browser, reusing Soiling's own icon. Base 1.0 == vanilla soiling rate.
+        physicsCleanliness = registerInverseFront("PHYSICS_SOILING", "CLEANLINESS", "Cleanliness",
+                "How clean subjects stay. Higher is better: it divides Soiling (the rate at which a "
+              + "subject becomes dirty), so Cleanliness x2 means subjects get dirty half as fast.",
+                BOOSTABLES.PHYSICS());
+
+        // RATES_* front keys: one high-positive key per vanilla need-growth rate (see RATE_FRONTS).
+        int rateFronts = 0;
+        for (String[] row : RATE_FRONTS) {
+            BoostableCat rateCat = "E".equals(row[3]) ? NEEDS.bCatE() : NEEDS.bCat();
+            if (registerInverseFront(row[0], row[1], row[2], null, rateCat) != null)
+                rateFronts++;
+        }
+        System.out.println("[sos-extended-boostables] registered " + rateFronts + "/" + RATE_FRONTS.length
+                + " RATES_* front keys.");
+
+        // CLASS_* "Class Treatment" registration (un-shelved 2026-07-11). New "CLASS_" BoostableCat
+        // (prefix applied by BOOSTING.push). In-game names follow "<ClassName-plural> (<aspect>)" ->
+        // "Plebeians (Needs)", "Plebeians (Mining)", "Slaves (Needs)", "Slaves (Mining)". registerClassKey
         // wires each key to the three need-rates, plus — for a room-typed key — the ROOM_<ROOMTYPE>_ALL
         // umbrella (registered just above, so it already exists).
-        // BoostableCat classCat = new BoostableCat("CLASS_", "Class Treatment", "",
-        //         BoostableCat.TYPE_SETT, UI.icons().s.human);
-        // registerClassKey(classCat, HCLASSES.CITIZEN(), null, null, null);                    // "Plebeians (Needs)"
-        // registerClassKey(classCat, HCLASSES.CITIZEN(), "MINE", MINE_ALL_KEY, "Mining");       // "Plebeians (Mining)"
+        BoostableCat classCat = new BoostableCat("CLASS_", "Class Treatment", "",
+                BoostableCat.TYPE_SETT, UI.icons().s.human);
+        // CITIZEN (Plebeians): needs + mining live; other room types staged after in-game validation.
+        registerClassKey(classCat, HCLASSES.CITIZEN(), null, null, null);                    // "Plebeians (Needs)"
+        registerClassKey(classCat, HCLASSES.CITIZEN(), "MINE", MINE_ALL_KEY, "Mining");       // "Plebeians (Mining)"
         // registerClassKey(classCat, HCLASSES.CITIZEN(), "FARM", FARM_ALL_KEY, "Farming");
         // registerClassKey(classCat, HCLASSES.CITIZEN(), "REFINER", REFINER_ALL_KEY, "Refining");
         // registerClassKey(classCat, HCLASSES.CITIZEN(), "WORKSHOP", WORKSHOP_ALL_KEY, "Crafting");
+        // SLAVE (Slaves): added 2026-07-11, mirroring the CITIZEN live set.
+        registerClassKey(classCat, HCLASSES.SLAVE(), null, null, null);                      // "Slaves (Needs)"
+        registerClassKey(classCat, HCLASSES.SLAVE(), "MINE", MINE_ALL_KEY, "Mining");         // "Slaves (Mining)"
+        // registerClassKey(classCat, HCLASSES.SLAVE(), "FARM", FARM_ALL_KEY, "Farming");
+        // registerClassKey(classCat, HCLASSES.SLAVE(), "REFINER", REFINER_ALL_KEY, "Refining");
+        // registerClassKey(classCat, HCLASSES.SLAVE(), "WORKSHOP", WORKSHOP_ALL_KEY, "Crafting");
+        // NOBLE (Nobles): the bare needs key (no per-room variants — nobles don't work rooms). Added
+        // 2026-07-29; display "Nobles (Needs)".
+        registerClassKey(classCat, HCLASSES.NOBLE(), null, null, null);
+        // NOBLE office keys: instead of per-room-type, nobles get per-OFFICE-category keys +
+        // CLASS_NOBLE_ALL, each scaling the noble office's own contribution (2026-07-29).
+        registerNobleOffices(classCat);
 
         // POPULATION_<RACE>_<CLASS>_OFCLASS_F GVALUEs: restore the v70 per-class race-fraction meaning
         // that v71 silently changed, so dependent tech REQUIRES (e.g. CaC monorace techs) resolve.
@@ -392,18 +481,23 @@ public final class MainScript implements SCRIPT {
         // per-tick handleRaidPlunder, which early-returns when plunder<=1.0, so it never ran.)
         registerCitizenRaceFractions();
 
-        // Low-Positive tooltip recolor: flip the engine's green/red for boostables where a LOWER value
-        // is the positive outcome (e.g. PHYSICS_SOILING). The color decision is hardcoded in the engine
-        // with no seam, so this self-attaches a Java agent that rewrites those methods. Fully guarded:
-        // if the JVM blocks self-attach it logs the -javaagent fallback and leaves tooltips as vanilla.
-        // See your.mod.boostcolor.LowPositiveColors / ColorAgent.
-        your.mod.boostcolor.ColorAgent.install();
+        // NOTE (2026-07-29): the your.mod.boostcolor recolor agent used to self-attach here. It was
+        // removed — self-attach is impossible on the game's bundled JRE (no jdk.attach module), and the
+        // Low-Positive coloring problem is solved instead by the PHYSICS_CLEANLINESS front key
+        // registered above. Recover the agent from git history if it is ever revived.
 
         // TARGET_RACE / TARGET_CLASS: queue the tech-boost rewriter on
         // BOOSTING.waiting and register the UI re-add connecter. Must run at this
         // hook (BoostSpecs resolve at the start of BOOSTING.finishSetup, which
         // INIT.finish() calls after this method returns). See your.mod.targetfilter.
         your.mod.targetfilter.TargetFilters.install();
+
+        // Tech-tooltip colour overrides (ACTIVITY_* -> neutral). The tech node renders each effect via
+        // booster.format(..) — a virtual call on the booster — so swapping in a display-only wrapper
+        // controls that line's colour. MUST be installed AFTER TargetFilters so our connecter is queued
+        // after the one that re-adds original specs for the UI (otherwise those arrive unwrapped).
+        // See your.mod.boostformat.BoostFormats.
+        your.mod.boostformat.BoostFormats.install();
     }
 
     // ===== STAT_WORK_RETIREMENT DISABLED (2026-06-27) — helper used only by that feature =====
@@ -597,6 +691,65 @@ public final class MainScript implements SCRIPT {
     }
 
     /**
+     * Registers a high-positive <b>front key</b> for a low-positive vanilla boostable, and wires it:
+     * the fronted target is multiplied by {@code 1 / frontKey}, so raising the front key lowers the
+     * target by exactly that factor.
+     *
+     * <p><b>Why fronts instead of recoloring.</b> The engine colors a boost line purely from its number
+     * ({@code BoosterAbs.hover}: {@code >1} green, {@code <1} red, {@code ==1} grey) with no per-key seam,
+     * so a key where LOWER is better always reads backwards. A front key inverts the polarity in the
+     * content layer instead: raising it is genuinely "up", so vanilla's coloring is already correct and
+     * no bytecode patching is needed. The bytecode agent that used to do this was removed 2026-07-29.
+     *
+     * <p>Shape matches {@link UmbrellaBooster} (identity {@code getValue}; the multiplier comes from
+     * {@code pget}), so it resolves against whatever object the engine queried with — which matters
+     * because these targets are read per subject (e.g. {@code StatsNeeds:171} for the need rates,
+     * {@code StatsNeeds:180} for soiling).
+     *
+     * @param targetKey the vanilla low-positive boostable to front (must already be registered)
+     * @param pushKey   the front key's push key; the category prefix makes the full key
+     * @param display   the front key's in-game name
+     * @param desc      the front key's description, or {@code null} to derive one from the target
+     * @param cat       the category to register the front key into (also supplies the key prefix)
+     * @return the registered front {@link Boostable}, or {@code null} if it could not be wired
+     */
+    private Boostable registerInverseFront(String targetKey, String pushKey, String display, String desc,
+            SPRITE icon, BoostableCat cat) {
+        Boostable target = BOOSTING.MAP().tryGet(targetKey);
+        if (target == null) {
+            System.err.println("[sos-extended-boostables] front key " + pushKey + ": target not found: " + targetKey);
+            return null;
+        }
+        // Zero-multiply safety-net (same rule as the CLASS_* targets): a multiplicative booster on a
+        // zero-base boostable is a no-op and only adds a tooltip line that can hit the engine's
+        // unguarded x/0 progress math.
+        if (target.baseValue == 0) {
+            System.out.println("[sos-extended-boostables] front key " + pushKey + " skips zero-base target: " + targetKey);
+            return null;
+        }
+        if (desc == null) {
+            desc = "How slowly your subjects develop the " + target.name + " need. Higher is better: it "
+                 + "divides " + target.name + ", so x2 means that need grows half as fast.";
+        }
+        if (icon == null)
+            icon = target.nativeIcon;
+
+        Boostable front = ensureBoostable(cat.prefix + pushKey, pushKey, display, desc, icon, cat, 1.0, INV_MIN);
+        if (front == null)
+            return null;
+
+        new InverseFrontBooster(front, new BSourceInfo(display, icon)).add(target);
+        System.out.println("[sos-extended-boostables] " + cat.prefix + pushKey + " divides " + target.key + ".");
+        return front;
+    }
+
+    /** Convenience overload: derive the front key's icon from the target it fronts. */
+    private Boostable registerInverseFront(String targetKey, String pushKey, String display, String desc,
+            BoostableCat cat) {
+        return registerInverseFront(targetKey, pushKey, display, desc, null, cat);
+    }
+
+    /**
      * Registers a single umbrella boostable and makes its value cascade onto every existing boostable whose
      * key starts with {@code childPrefix} (skipping any whose key ends with {@code excludeSuffix}, when
      * non-null). A tech that boosts the umbrella shows ONE line ("Mines (All) *1.5") yet every matching
@@ -634,76 +787,189 @@ public final class MainScript implements SCRIPT {
         System.out.println("[sos-extended-boostables] " + fullKey + " cascades to " + children.size() + " boostable(s).");
     }
 
-    // ===== CLASS_* "Class Treatment" helpers SHELVED (2026-07-04) — see the constants block ===========
-    // /**
-    //  * Registers one CLASS_<CLASS>[_<ROOMTYPE>] "Class Treatment" boostable and wires its effect. Every
-    //  * key scales the three need-growth rates (CLASS_RATE_TARGETS) for hclass; when roomAllKey != null it
-    //  * additionally scales that class's room output by also targeting the ROOM_<ROOMTYPE>_ALL umbrella,
-    //  * whose cascade carries the class factor into every matching room's per-employee read. roomType/
-    //  * roomAllKey/activity are null for the bare per-class key (need-rates only).
-    //  */
-    // private void registerClassKey(BoostableCat cat, HCLASS hclass, String roomType, String roomAllKey, String activity) {
-    //     String pushKey = (roomType == null) ? hclass.key : hclass.key + "_" + roomType;
-    //     String fullKey = "CLASS_" + pushKey;
-    //     // In-game name: "<ClassName-plural> (<aspect>)" — e.g. "Plebeians (Mining)". The bare per-class
-    //     // key (need-rates only) has no room activity, so it uses "(Needs)".
-    //     String aspect = (activity == null) ? "Needs" : activity;
-    //     String display = hclass.names + " (" + aspect + ")";
-    //
-    //     SPRITE icon = UI.icons().s.human;
-    //     String[] targets = CLASS_RATE_TARGETS;
-    //     String desc = "Multiplies the hunger/thirst/shopping need-growth rates of your " + hclass.names + ".";
-    //     if (roomAllKey != null) {
-    //         Boostable roomAll = BOOSTING.MAP().tryGet(roomAllKey);
-    //         if (roomAll == null) {
-    //             System.err.println("[sos-extended-boostables] " + fullKey + " room umbrella not found: " + roomAllKey);
-    //         } else {
-    //             if (roomAll.nativeIcon != null) icon = roomAll.nativeIcon;
-    //             targets = new String[CLASS_RATE_TARGETS.length + 1];
-    //             System.arraycopy(CLASS_RATE_TARGETS, 0, targets, 0, CLASS_RATE_TARGETS.length);
-    //             targets[CLASS_RATE_TARGETS.length] = roomAllKey;
-    //             desc = "Multiplies the hunger/thirst/shopping need-growth rates of your " + hclass.names
-    //                     + ", and their " + activity + " output.";
-    //         }
-    //     }
-    //
-    //     Boostable key = ensureBoostable(fullKey, pushKey, display, desc, icon, cat);
-    //     if (key != null) {
-    //         registerClassTreatment(key, hclass, targets, display);
-    //     }
-    // }
-    //
-    // /**
-    //  * Installs a CLASS_<CLASS> "Class Treatment" effect: attaches a conditional multiplicative
-    //  * ClassTreatmentBooster to each named target boostable. The booster scales the target only for
-    //  * subjects whose HCLASS matches hclass (per the employee/subject Induvidual the engine passes at each
-    //  * read-point); every other subject and every non-Induvidual query returns the neutral 1.0. The
-    //  * multiplier is classKey.get(player) clamped to [CLASS_MIN, CLASS_MAX]. Same shape as the
-    //  * SLAVER/umbrella/(shelved)indoctrination effects — a Booster added to an existing engine Boostable.
-    //  *
-    //  * Zero-multiply safety-net: targets whose baseValue == 0 are skipped (a multiplicative booster there
-    //  * is a no-op and would add a tooltip line that can hit the engine's unguarded x/0 progress math). And
-    //  * because the clamped factor is always in [0.5, 1.5], it can never turn a value into 0 nor a 0 into
-    //  * non-zero, so the booster never introduces a divide-by-zero of its own.
-    //  */
-    // private void registerClassTreatment(Boostable classKey, HCLASS hclass, String[] targetKeys, String sourceLabel) {
-    //     BSourceInfo info = new BSourceInfo(sourceLabel, classKey.nativeIcon);
-    //     int n = 0;
-    //     for (String key : targetKeys) {
-    //         Boostable target = BOOSTING.MAP().tryGet(key);
-    //         if (target == null) {
-    //             System.err.println("[sos-extended-boostables] " + classKey.key + " target not found: " + key);
-    //             continue;
-    //         }
-    //         if (target.baseValue == 0) { // zero-multiply safety-net: skip zero-base boostables
-    //             System.out.println("[sos-extended-boostables] " + classKey.key + " skips zero-base boostable: " + key);
-    //             continue;
-    //         }
-    //         new ClassTreatmentBooster(classKey, hclass, info).add(target);
-    //         n++;
-    //     }
-    //     System.out.println("[sos-extended-boostables] " + classKey.key + " attached to " + n + " boostable(s).");
-    // }
+    /**
+     * The display label for a class in CLASS_* key names/descriptions. Defaults to the vanilla plural
+     * {@code hclass.names}, overridden where that reads awkwardly — NOBLE's vanilla plural is "Nobilities",
+     * shown here as "Nobles".
+     */
+    private static String classDisplayName(HCLASS hclass) {
+        if (hclass == HCLASSES.NOBLE()) return "Nobles";
+        return "" + hclass.names;
+    }
+
+    /**
+     * Registers one CLASS_&lt;CLASS&gt;[_&lt;ROOMTYPE&gt;] "Class Treatment" boostable and wires its
+     * effect. Every key scales the three need-growth rates ({@link #CLASS_RATE_TARGETS}) for
+     * {@code hclass}; when {@code roomAllKey != null} it additionally scales that class's room output by
+     * also targeting the ROOM_&lt;ROOMTYPE&gt;_ALL umbrella, whose cascade carries the class factor into
+     * every matching room's per-employee read. {@code roomType}/{@code roomAllKey}/{@code activity} are
+     * {@code null} for the bare per-class key (need-rates only).
+     */
+    private void registerClassKey(BoostableCat cat, HCLASS hclass, String roomType, String roomAllKey, String activity) {
+        String pushKey = (roomType == null) ? hclass.key : hclass.key + "_" + roomType;
+        String fullKey = "CLASS_" + pushKey;
+        // In-game name: "<ClassName-plural> (<aspect>)" — e.g. "Plebeians (Mining)". The bare per-class
+        // key has no room activity, so it uses "(Contentment)" — see the polarity note below.
+        String aspect = (activity == null) ? "Contentment" : activity;
+        String label = classDisplayName(hclass);
+        String display = label + " (" + aspect + ")";
+
+        // Target set differs by key kind:
+        //  - bare per-class key (roomAllKey == null): the three need-growth rates only.
+        //  - room-typed key (roomAllKey != null): ONLY that class's room output (the ROOM_<TYPE>_ALL
+        //    umbrella) — NOT the need rates. Room-typed keys are a pure skill/output boost; the neediness
+        //    trade-off lives solely on the bare per-class key.
+        // POLARITY (inverted in place 2026-07-30, user decision). The bare per-class key targets ONLY the
+        // three need-growth rates, so before this change raising it made that class NEEDIER — a pure cost
+        // that the engine nonetheless colored green (it colors from the number alone). The key now
+        // DIVIDES those rates: higher = calmer = genuinely better, matching the color. Room-typed keys
+        // are untouched (they were already high-positive: more output). Key strings are unchanged, so no
+        // cross-mod reference breaks; only the direction of the effect flipped. See registerInverseFront
+        // for the same idea applied to vanilla keys we don't own.
+        SPRITE icon = UI.icons().s.human;
+        String[] targets = CLASS_RATE_TARGETS;
+        boolean invert = true; // bare per-class key: divide the need rates
+        String desc = "How content your " + label + " are. Higher is better: it divides their "
+                + "hunger/thirst/shopping need-growth rates, so x2 means those needs grow half as fast.";
+        if (roomAllKey != null) {
+            Boostable roomAll = BOOSTING.MAP().tryGet(roomAllKey);
+            if (roomAll == null) {
+                System.err.println("[sos-extended-boostables] " + fullKey + " room umbrella not found: " + roomAllKey);
+                targets = new String[0];
+            } else {
+                if (roomAll.nativeIcon != null) icon = roomAll.nativeIcon;
+                targets = new String[] { roomAllKey };
+                invert = false; // room-typed key: already high-positive (more output)
+                desc = "Multiplies your " + label + "' " + activity + " output.";
+            }
+        }
+
+        // Max-cap policy: the bare CLASS_NOBLE (needs) key is UNCAPPED on the high end (user, 2026-07-29);
+        // every other Class-Treatment key keeps the [CLASS_MIN, CLASS_MAX] band. Min floor is retained.
+        double maxCap = (roomType == null && hclass == HCLASSES.NOBLE()) ? Double.MAX_VALUE : CLASS_MAX;
+
+        Boostable key = ensureBoostable(fullKey, pushKey, display, desc, icon, cat);
+        if (key != null) {
+            registerClassTreatment(key, hclass, targets, display, maxCap, invert);
+        }
+    }
+
+    /**
+     * Installs a CLASS_&lt;CLASS&gt; "Class Treatment" effect: attaches a conditional multiplicative
+     * {@link ClassTreatmentBooster} to each named target boostable. The booster scales the target only for
+     * subjects whose {@link HCLASS} matches {@code hclass} (per the employee/subject {@code Induvidual} the
+     * engine passes at each read-point); every other subject and every non-Induvidual query returns the
+     * neutral {@code 1.0}. The multiplier is {@code classKey.get(subject)} clamped to
+     * [{@link #CLASS_MIN}, {@code maxCap}] — read with the subject's {@code Induvidual} so
+     * {@code TARGET_RACE}/{@code TARGET_CLASS}-filtered grants are respected (the filter matches the
+     * subject). Same shape as the SLAVER/umbrella effects — a {@link Booster} added to an existing engine
+     * {@link Boostable}. {@code maxCap} is {@link #CLASS_MAX} for every key except the bare
+     * {@code CLASS_NOBLE} needs key, which is uncapped ({@code Double.MAX_VALUE}) per user request.
+     *
+     * <p><b>Zero-multiply safety-net.</b> Targets whose {@code baseValue == 0} are skipped (a
+     * multiplicative booster there is a no-op and would add a tooltip line that can hit the engine's
+     * unguarded {@code x/0} progress math). And because the applied factor is floored at
+     * {@link #CLASS_MIN} (0.5), it can never turn a value into 0 nor a 0 into non-zero, so the booster
+     * never introduces a divide-by-zero of its own.
+     */
+    private void registerClassTreatment(Boostable classKey, HCLASS hclass, String[] targetKeys, String sourceLabel, double maxCap, boolean invert) {
+        BSourceInfo info = new BSourceInfo(sourceLabel, classKey.nativeIcon);
+        int n = 0;
+        for (String key : targetKeys) {
+            Boostable target = BOOSTING.MAP().tryGet(key);
+            if (target == null) {
+                System.err.println("[sos-extended-boostables] " + classKey.key + " target not found: " + key);
+                continue;
+            }
+            if (target.baseValue == 0) { // zero-multiply safety-net: skip zero-base boostables
+                System.out.println("[sos-extended-boostables] " + classKey.key + " skips zero-base boostable: " + key);
+                continue;
+            }
+            new ClassTreatmentBooster(classKey, hclass, maxCap, invert, info).add(target);
+            n++;
+        }
+        System.out.println("[sos-extended-boostables] " + classKey.key + " attached to " + n + " boostable(s)"
+                + (invert ? " (inverted: divides the target)" : "")
+                + (maxCap == Double.MAX_VALUE ? " (max cap removed)." : "."));
+    }
+
+    /**
+     * Registers the noble-office "Class Treatment" keys: one {@code CLASS_NOBLE_<CATEGORY>} per office
+     * category plus a global {@code CLASS_NOBLE_ALL}. Nobles hold {@link NobleOffice}s (not room jobs);
+     * each office adds a contribution to a target boostable (a room's {@code bonus()} worker-skill, or
+     * {@code CIVIC_GOV} for the Governor) equal to {@code office.add * clamp(office.value(allocations),0,1)}.
+     * For every office we attach a {@link NobleOfficeBooster} to that target that adds the <em>supplement</em>
+     * {@code contribution * (factor − 1)}, where {@code factor = clamp(CLASS_NOBLE_<CAT>) * clamp(CLASS_NOBLE_ALL)}
+     * — so the net office contribution becomes {@code contribution * factor}, scaling ONLY the office's own
+     * part (base skill, tech, and race stats are untouched). Both keys clamp to [{@link #CLASS_MIN},
+     * {@link #CLASS_MAX}] and stack multiplicatively.
+     *
+     * <p>Offices are grouped into categories by their target boostable key (see {@link #nobleOfficeCategory}).
+     * {@code GAME.NOBLE().OFFICES} already exists at this hook (NOBLES is constructed at GAME.&lt;init&gt;
+     * line 167, before {@code initBeforeGameInited} at 173).
+     *
+     * <p><b>Accuracy note.</b> The supplement is additive, so it is exact for the buff case (factor ≥ 1,
+     * the normal {@code >MUL} usage); for deflation (factor &lt; 1) combined with a multiplicative booster
+     * on the same room bonus it is a close approximation (the reduction lands in the engine's additive
+     * {@code sub} pool, which is not multiplied). Same replicate-and-scale trade-off as {@code WORLD_PLUNDER}.
+     */
+    private void registerNobleOffices(BoostableCat classCat) {
+        if (GAME.NOBLE() == null) {
+            System.err.println("[sos-extended-boostables] CLASS_NOBLE offices: GAME.NOBLE() unavailable; skipped.");
+            return;
+        }
+        String nobles = "" + classDisplayName(HCLASSES.NOBLE());
+        Boostable allKey = ensureBoostable(CLASS_NOBLE_ALL_KEY, "NOBLE_ALL", nobles + " (All Offices)",
+                "Multiplies the effect of every office your " + nobles + " hold.", UI.icons().s.noble, classCat);
+
+        Map<String, Boostable> catKeys = new LinkedHashMap<>();  // token -> CLASS_NOBLE_<token> boostable
+        int offices = 0, attached = 0;
+        for (NobleOffice office : GAME.NOBLE().OFFICES) {
+            offices++;
+            if (office == null || office.target == null) continue;
+            String[] cat = nobleOfficeCategory(office);   // { token, aspectLabel }
+            String token = cat[0];
+            Boostable catKey = catKeys.get(token);
+            if (catKey == null) {
+                SPRITE icon = office.target.nativeIcon != null ? office.target.nativeIcon : UI.icons().s.noble;
+                catKey = ensureBoostable("CLASS_NOBLE_" + token, "NOBLE_" + token, nobles + " (" + cat[1] + ")",
+                        "Multiplies the effect of your " + nobles + "' " + cat[1] + " offices.", icon, classCat);
+                catKeys.put(token, catKey);
+            }
+            if (catKey == null || allKey == null) continue;
+            new NobleOfficeBooster(office, catKey, allKey).add(office.target);
+            attached++;
+        }
+        System.out.println("[sos-extended-boostables] CLASS_NOBLE offices: " + catKeys.size()
+                + " category key(s) + CLASS_NOBLE_ALL, attached to " + attached + " of " + offices + " office(s).");
+    }
+
+    /**
+     * Maps a {@link NobleOffice} to a {@code { keyToken, aspectLabel }} pair by its target boostable key.
+     * The token becomes the {@code CLASS_NOBLE_<token>} suffix; the label is the in-game "(aspect)" text.
+     * Unknown targets fall back to a generic {@code OFFICE / "Offices"} bucket so nothing is silently
+     * dropped (they still get a category key and are covered by {@code CLASS_NOBLE_ALL}).
+     */
+    private static String[] nobleOfficeCategory(NobleOffice office) {
+        String k = office.target.key;
+        if (k == null) return new String[] { "OFFICE", "Offices" };
+        if (k.equals("CIVIC_GOV"))            return new String[] { "GOVERNOR",   "Governing" };
+        if (k.startsWith("ROOM_MINE_"))       return new String[] { "MINE",       "Mining" };
+        if (k.startsWith("ROOM_FARM_"))       return new String[] { "FARM",       "Farming" };
+        if (k.startsWith("ROOM_REFINER_"))    return new String[] { "REFINER",    "Refining" };
+        if (k.startsWith("ROOM_WORKSHOP_"))   return new String[] { "WORKSHOP",   "Crafting" };
+        if (k.startsWith("ROOM_ORCHARD"))     return new String[] { "ORCHARD",    "Orchards" };
+        if (k.startsWith("ROOM_PASTURE"))     return new String[] { "PASTURE",    "Pastures" };
+        if (k.startsWith("ROOM_FISHERY"))     return new String[] { "FISHERY",    "Fishing" };
+        if (k.startsWith("ROOM_WOODCUTTER"))  return new String[] { "WOOD",       "Woodcutting" };
+        if (k.startsWith("ROOM_EMBASSY"))     return new String[] { "EMBASSY",    "Diplomacy" };
+        if (k.startsWith("ROOM_LIBRARY"))     return new String[] { "LIBRARY",    "Libraries" };
+        if (k.startsWith("ROOM_LABORATORY"))  return new String[] { "LABORATORY", "Laboratories" };
+        if (k.startsWith("ROOM_ADMIN"))       return new String[] { "ADMIN",      "Administration" };
+        System.out.println("[sos-extended-boostables] CLASS_NOBLE: unmapped office target '" + k
+                + "' -> generic OFFICE category.");
+        return new String[] { "OFFICE", "Offices" };
+    }
 
     @Override
     public SCRIPT_INSTANCE createInstance() {
@@ -716,16 +982,17 @@ public final class MainScript implements SCRIPT {
 
             @Override
             public void update(double ds) {
-                // Show the one-time "mod updated" changelog window shortly after entering a game, if the
-                // _Info VERSION changed (see your.mod.update.UpdateNotifier). We wait a few update ticks
-                // so the load->gameplay transition is finished, then keep retrying until showIfUpdated()
-                // finalizes the decision (it returns false only while the in-game VIEW isn't ready yet).
+                // Show one-time "mod updated" changelog windows shortly after entering a game, for THIS mod
+                // and any other loaded mod that ships a V<major>/UpdateNotice.txt (see
+                // your.mod.update.UpdateNotifier — a generic, opt-in-by-data service). We wait a few update
+                // ticks so the load->gameplay transition is finished, then keep retrying until showPending()
+                // finalizes (it returns false only while the in-game VIEW isn't ready yet).
                 if (!updateChecked) {
                     if (updateSettle < 10) {
                         if (updateSettle == 0)
-                            System.out.println("[sos-extended-boostables] update notice: instance update() ticking; settling before check.");
+                            System.out.println("[sos-extended-boostables] update notice: instance update() ticking; settling before scan.");
                         updateSettle++;
-                    } else if (your.mod.update.UpdateNotifier.showIfUpdated()) {
+                    } else if (your.mod.update.UpdateNotifier.showPending()) {
                         updateChecked = true;
                     }
                 }
@@ -1270,60 +1537,208 @@ public final class MainScript implements SCRIPT {
         }
     }
 
-    // ===== CLASS_* "Class Treatment" booster SHELVED (2026-07-04) — see the constants block ===========
-    // /**
-    //  * A conditional multiplicative factor placed on a per-subject boostable (e.g. RATES_SHOPPING, or a
-    //  * ROOM_<TYPE>_ALL umbrella). Its value is CLASS_<CLASS>.get(player) clamped to [CLASS_MIN, CLASS_MAX]
-    //  * for a subject whose HCLASS matches hclass, and 1.0 (a no-op) for every other subject and every
-    //  * non-Induvidual query — so only the per-subject read of the targeted class is scaled. getValue is
-    //  * identity (like UmbrellaBooster), so the multiplier applies as-is; pget routes the query object into
-    //  * the BValue.
-    //  */
-    // private static final class ClassTreatmentBooster extends Booster {
-    //     private final Boostable classKey;   // the CLASS_<CLASS> boostable
-    //     private final HCLASS hclass;        // the population class this booster applies to
-    //     private final BValue value;
-    //
-    //     ClassTreatmentBooster(Boostable classKey, HCLASS hclass, BSourceInfo info) {
-    //         super(info, true); // multiplicative
-    //         this.classKey = classKey;
-    //         this.hclass = hclass;
-    //         this.value = new BValue() {
-    //             @Override public double vGet(Induvidual indu) { return factor(indu); }
-    //             @Override public double vGet(HCLASS_RACE reg) { return 1.0; }
-    //             @Override public double vGet(Player f) { return 1.0; }
-    //             @Override public double vGet(FactionNPC f) { return 1.0; }
-    //             @Override public double vGet(Region reg) { return 1.0; }
-    //             @Override public double vGet(Div div) { return 1.0; }
-    //         };
-    //     }
-    //
-    //     /** Clamped class multiplier for subjects in hclass; neutral 1.0 for everyone else. */
-    //     private double factor(Induvidual indu) {
-    //         if (indu == null || indu.clas() != hclass) return 1.0;
-    //         return CLAMP.d(classKey.get(FACTIONS.player()), CLASS_MIN, CLASS_MAX);
-    //     }
-    //
-    //     @Override
-    //     public double from() {
-    //         return 1.0;
-    //     }
-    //
-    //     @Override
-    //     public double to() {
-    //         return 1.0;
-    //     }
-    //
-    //     @Override
-    //     public double getValue(double input) {
-    //         return input;
-    //     }
-    //
-    //     @Override
-    //     protected double pget(BOOSTABLE_O o) {
-    //         return o.boostableValue(value);
-    //     }
-    // }
+    /**
+     * The multiplicative factor a high-positive <b>front key</b> applies to the low-positive boostable it
+     * fronts: {@code 1 / frontKey}, with the front key's value clamped to [{@link #INV_MIN},
+     * {@link #INV_MAX}] so the divisor can never be 0 (or absurd). Mirrors {@link UmbrellaBooster}:
+     * identity {@code getValue}, the factor produced by {@code pget} against the query object, so a
+     * per-subject read of the target gets that subject's front-key value (and any
+     * {@code TARGET_RACE}/{@code TARGET_CLASS} filter on the grant is respected).
+     *
+     * <p>Used by {@link #registerInverseFront}: PHYSICS_CLEANLINESS → PHYSICS_SOILING, and one per
+     * vanilla need rate (see {@link #RATE_FRONTS}).
+     */
+    private static final class InverseFrontBooster extends Booster {
+        private final Boostable front;
+
+        InverseFrontBooster(Boostable front, BSourceInfo info) {
+            super(info, true); // multiplicative
+            this.front = front;
+        }
+
+        @Override
+        public double from() {
+            return 1.0;
+        }
+
+        @Override
+        public double to() {
+            return 1.0;
+        }
+
+        @Override
+        public double getValue(double input) {
+            return input;
+        }
+
+        @Override
+        protected double pget(BOOSTABLE_O o) {
+            return 1.0 / CLAMP.d(front.get(o), INV_MIN, INV_MAX);
+        }
+    }
+
+    /**
+     * A conditional multiplicative factor placed on a per-subject boostable (e.g. {@code RATES_SHOPPING},
+     * or a {@code ROOM_<TYPE>_ALL} umbrella). Its value is {@code CLASS_<CLASS>.get(player)} clamped to
+     * [{@link #CLASS_MIN}, {@link #CLASS_MAX}] for a subject whose {@link HCLASS} matches {@code hclass},
+     * and {@code 1.0} (a no-op) for every other subject and every non-Induvidual query — so only the
+     * per-subject read of the targeted class is scaled. {@code getValue} is identity (like
+     * {@link UmbrellaBooster}), so the multiplier applies as-is; {@code pget} routes the query object into
+     * the {@link BValue}.
+     */
+    private static final class ClassTreatmentBooster extends Booster {
+        private final Boostable classKey;   // the CLASS_<CLASS> boostable
+        private final HCLASS hclass;        // the population class this booster applies to
+        private final double maxCap;        // upper clamp on the applied factor (Double.MAX_VALUE = uncapped)
+        private final boolean invert;       // true = apply 1/value (need-rate targets; see registerClassKey)
+        private final BValue value;
+
+        ClassTreatmentBooster(Boostable classKey, HCLASS hclass, double maxCap, boolean invert, BSourceInfo info) {
+            super(info, true); // multiplicative
+            this.classKey = classKey;
+            this.hclass = hclass;
+            this.maxCap = maxCap;
+            this.invert = invert;
+            this.value = new BValue() {
+                @Override public double vGet(Induvidual indu) { return factor(indu); }
+                @Override public double vGet(HCLASS_RACE reg) { return 1.0; }
+                @Override public double vGet(Player f) { return 1.0; }
+                @Override public double vGet(FactionNPC f) { return 1.0; }
+                @Override public double vGet(Region reg) { return 1.0; }
+                @Override public double vGet(Div div) { return 1.0; }
+            };
+        }
+
+        /**
+         * Clamped class multiplier for subjects in {@code hclass}; neutral 1.0 for everyone else. Reads the
+         * key with the SUBJECT'S {@code Induvidual} (not the player faction) so a {@code TARGET_RACE} /
+         * {@code TARGET_CLASS}-filtered grant is respected — the filter matches this very subject; for an
+         * unfiltered grant the per-Induvidual read resolves to the same faction/tech value as before.
+         */
+        private double factor(Induvidual indu) {
+            if (indu == null || indu.clas() != hclass) return 1.0;
+            double f = CLAMP.d(classKey.get(indu), CLASS_MIN, maxCap);
+            // Inverted targets (the need-growth rates): raising the key must LOWER the rate, so apply
+            // 1/f. f is floored at CLASS_MIN (0.5) so this can never divide by zero. Note the uncapped
+            // bare CLASS_NOBLE key means its inverted factor tends toward 0 as the key grows — i.e.
+            // noble needs can be driven arbitrarily close to nothing.
+            return invert ? 1.0 / f : f;
+        }
+
+        @Override
+        public double from() {
+            return 1.0;
+        }
+
+        @Override
+        public double to() {
+            return 1.0;
+        }
+
+        @Override
+        public double getValue(double input) {
+            return input;
+        }
+
+        @Override
+        protected double pget(BOOSTABLE_O o) {
+            return o.boostableValue(value);
+        }
+    }
+
+    /**
+     * An <b>additive</b> factor placed on a noble office's target boostable (a room's {@code bonus()}, or
+     * {@code CIVIC_GOV} for the Governor) that scales ONLY that office's own contribution. The office adds
+     * {@code C = office.add * clamp(office.value(allocations),0,1)} to the target; this booster adds the
+     * supplement {@code C * (factor − 1)} so the net office part becomes {@code C * factor}, where
+     * {@code factor = clamp(catKey,[MIN,MAX]) * clamp(allKey,[MIN,MAX])}. Player-faction only; neutral
+     * {@code 0} for NPC factions (so only the player's offices are scaled). Uses {@link BValue.BValueFaction}
+     * exactly like the engine's own office booster, so the supplement reaches the per-worker reads. The
+     * office's {@code value()}/{@code allocations} read employment/noble state (never boostables), and the
+     * two CLASS keys are distinct boostables from the target, so evaluating this inside the target's read is
+     * re-entrancy-safe. {@code from()/to()} are 0 so the booster stays out of the displayed min/max range.
+     *
+     * <p><b>TARGET_RACE / TARGET_CLASS.</b> The scaling factor is evaluated against the OFFICE-HOLDING
+     * NOBLE(S), not the room's workers — so a race/class-filtered grant only lifts the office effect of
+     * nobles who pass the filter. The two CLASS keys are read with each holder's {@code Induvidual}
+     * (so a {@code TargetFilteredBooster} matches that noble); the per-office factor is the
+     * allocation-weighted average across the office's holders. Off-map holders (a Governor who left the
+     * map, {@code subject()==null}) can't be race-tested, so they fall back to the unfiltered faction
+     * value — meaning a race-filtered grant does not reach an off-map Governor.
+     */
+    private static final class NobleOfficeBooster extends Booster {
+        private final NobleOffice office;
+        private final Boostable catKey;   // CLASS_NOBLE_<CATEGORY>
+        private final Boostable allKey;   // CLASS_NOBLE_ALL
+        private final BValue value;
+
+        NobleOfficeBooster(NobleOffice office, Boostable catKey, Boostable allKey) {
+            super(new BSourceInfo("" + office.name, office.target.nativeIcon), false); // additive
+            this.office = office;
+            this.catKey = catKey;
+            this.allKey = allKey;
+            this.value = new BValue.BValueFaction(office.target) {
+                @Override public double vGet(Player f) { return supplement(); }
+                @Override public double vGet(FactionNPC f) { return 0.0; }
+            };
+        }
+
+        /**
+         * {@code officeContribution * (avgFactor − 1)} for the player — the amount to ADD to the target,
+         * so the net office contribution becomes {@code officeContribution * avgFactor}. {@code avgFactor}
+         * is the allocation-weighted mean of each holding noble's {@link #nobleFactor}, so race/class
+         * filters that only pass some holders scale the office proportionally.
+         */
+        private double supplement() {
+            NOBLES nob = GAME.NOBLE();
+            if (nob == null) return 0.0;
+            int totalSlots = nob.allocations(office);
+            if (totalSlots <= 0) return 0.0;
+            double contribution = office.add * CLAMP.d(office.value(totalSlots), 0.0, 1.0);
+            if (contribution == 0.0) return 0.0;
+
+            double weighted = 0.0;   // Σ slots(n) * nobleFactor(n)
+            int counted = 0;         // Σ slots(n)  (== totalSlots barring cache lag)
+            for (Noble n : nob.active()) {
+                if (n.office() != office) continue;
+                int slots = 1 + NOBLES.RANK_INCREASE * n.rank();
+                weighted += slots * nobleFactor(n);
+                counted += slots;
+            }
+            if (counted <= 0) return 0.0;
+            double avgFactor = weighted / counted;
+            return contribution * (avgFactor - 1.0);
+        }
+
+        /** Clamped CLASS_NOBLE factor for one holder, read with that noble's Induvidual so race/class
+         *  filters apply; off-map holders fall back to the unfiltered player value. */
+        private double nobleFactor(Noble n) {
+            Humanoid h = n.subject();
+            BOOSTABLE_O ctx = (h != null) ? h.indu() : FACTIONS.player();
+            return CLAMP.d(catKey.get(ctx), CLASS_MIN, CLASS_MAX)
+                    * CLAMP.d(allKey.get(ctx), CLASS_MIN, CLASS_MAX);
+        }
+
+        @Override
+        public double from() {
+            return 0.0;
+        }
+
+        @Override
+        public double to() {
+            return 0.0;
+        }
+
+        @Override
+        public double getValue(double input) {
+            return input;
+        }
+
+        @Override
+        protected double pget(BOOSTABLE_O o) {
+            return o.boostableValue(value);
+        }
+    }
 
     /**
      * A multiplicative factor placed on a university's learning-speed {@code bonus()} boostable. Its value

@@ -31,4 +31,4 @@ Two non-obvious gotchas:
 
 NEVER run `mvn clean` in this project — see CLAUDE.md ("the maven-clean-plugin deletes the project root").
 
-**Deploy** is automatic: the `copy-mod-to-game` resources execution at the end of `install` copies the staged mod into `${mod.install.directory}`, which resolves to the project root itself. After a successful build, `V70/script/sos-extended-boostables.jar` plus `_Info.txt` are in place — the game loads from this directory directly.
+**Deploy** is automatic: the `copy-mod-to-game` resources execution at the end of `install` copies the staged mod into `${mod.install.directory}`, which resolves to the project root itself. After a successful build, `V71/script/sos-extended-boostables.jar` (`V${game.version.major}`, so V71 since the 2026-06-29 bump) plus `_Info.txt` are in place — **the game loads from this directory directly. There is no copy-to-Workshop step for dev builds** (see [[dev-mods-load-from-mods-folder]]).

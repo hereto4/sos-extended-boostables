@@ -1,2 +1,0 @@
-NAME: "Cannibal Rooms",
-DESC: "Multiplies the amount of resources gained when a corpse is butchered at a Cannibal Room. Resource yields per race are defined in each race's RESOURCES.",

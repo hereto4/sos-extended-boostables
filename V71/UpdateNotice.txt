@@ -19,13 +19,24 @@
 **  (your.mod.update.UpdateNotifier) - set it false to disable the feature
 **  entirely regardless of this file.
 **
+**  CHANGES markup (one entry per line):
+**    "# Heading"      large heading      "## Heading"  smaller heading
+**    "---"            horizontal divider  ""            blank spacer
+**    "[tag] text"     colored text; tags: good great bad worst warn error
+**                     label sub normal   (unknown tag = left as literal)
+**
 **  NOTE: lines beginning with ** are comments (the game's Json format).
 ** ==========================================================================
 
 ENABLED: true,
 TITLE: "Extended Boostables Updated!",
 CHANGES: [
-	"v1.2.4",
+	"# What's New in v1.2.4",
+	"[good] Added the BATTLE_FEAR aura.",
+	"[good] New RATES_NATURE piety mechanic.",
+	"",
+	"## Notes",
+	"[warn] Some tech tooltips recolored.",
+	"---",
 	"Thanks for playing Extended Boostables!",
-	"Edit V71/UpdateNotice.txt (CHANGES) to list what changed this release.",
 ],
