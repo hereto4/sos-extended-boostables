@@ -97,14 +97,34 @@ public final class FormattedBooster extends Booster {
         return r;
     }
 
+    /**
+     * The colour this line should carry, using <b>exactly the shades the engine would have used for this
+     * line</b> — only assigned to the opposite side when {@link Mode#INVERTED}.
+     *
+     * <p>This has to mirror {@code BoosterAbs.format}'s branch choice, because the engine's good/bad
+     * shades differ per formatter and getting it wrong is visible (a too-light red):
+     * <ul>
+     *   <li>{@code isMul} → {@code GFORMAT.f1} → {@code IGREAT} / {@code IWORST}</li>
+     *   <li>additive, non-integral → {@code GFORMAT.f0} → {@code IGREAT} / {@code IWORST}</li>
+     *   <li>additive, integral → {@code GFORMAT.iIncr} → {@code IGOOD} / {@code IBAD} (lighter pair)</li>
+     * </ul>
+     * All three use {@code COLOR.WHITE85} at the neutral point.
+     */
     private COLOR colorFor(double value) {
         if (mode == Mode.NEUTRAL)
             return COLOR.WHITE85; // the same neutral the engine uses for a no-op (x1.0 / +0) line
+
         double neutral = isMul ? 1.0 : 0.0;
-        if (value < neutral)
-            return GCOLOR.T().IGOOD; // lower is better -> green
-        if (value > neutral)
-            return GCOLOR.T().IBAD;  // higher is worse -> red
-        return COLOR.WHITE85;
+        if (value == neutral)
+            return COLOR.WHITE85;
+
+        // Same branch test as BoosterAbs.format: an integral additive value goes through iIncr, which
+        // uses the lighter IGOOD/IBAD pair; everything else goes through f1/f0 and uses IGREAT/IWORST.
+        boolean lighterPair = !isMul && value == (int) value;
+        boolean lower = value < neutral;
+
+        if (lighterPair)
+            return lower ? GCOLOR.T().IGOOD : GCOLOR.T().IBAD;
+        return lower ? GCOLOR.T().IGREAT : GCOLOR.T().IWORST;
     }
 }

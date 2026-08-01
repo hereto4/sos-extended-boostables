@@ -77,31 +77,6 @@ classes (Child/Citizen/Slave/Noble).
 > zero value on retirement stays at zero (0 × value = 0) — it amplifies existing desire rather than
 > creating it.
 
-## Physics keys (`PHYSICS_*` prefix)
-
-| Key | Display | Category | Effect |
-|---|---|---|---|
-| `PHYSICS_CLEANLINESS` | Cleanliness | Physics | How clean subjects stay. **Divides** the vanilla `PHYSICS_SOILING` ("Soiling" — the rate at which a subject becomes dirty), so `Cleanliness ×2` means subjects get dirty **half** as fast. Base `1.0` = vanilla soiling. |
-
-> **Why this key exists.** Vanilla `PHYSICS_SOILING` is a *Low-Positive* effect — a **lower** value is
-> the good outcome — but the engine colors any boost that lowers a value **red**. So a tech that
-> genuinely helps the player reads as a penalty. `PHYSICS_CLEANLINESS` is the **high-positive front**
-> for it: raising it is genuinely "up", so vanilla's green/red is already correct.
->
-> **Boost this instead of `PHYSICS_SOILING`:**
-> ```
-> PHYSICS_CLEANLINESS>MUL: 1.333,   // green ×1.333 on the tooltip; soiling actually drops to ×0.75
-> ```
-> Equivalent to `PHYSICS_SOILING>MUL: 0.75` in effect, but it displays correctly.
->
-> The applied factor is `1 / cleanliness`, clamped to a cleanliness of `[0.1, 10]` — so the divisor can
-> never reach 0, and the strongest possible effects are `×10` soiling (filthiest) and `×0.1` (cleanest).
-> The two keys stack multiplicatively if content boosts both.
->
-> **Known cosmetic limit:** the *Soiling* boostable's own detailed tooltip still lists "Cleanliness" as
-> one of its sources, and because that factor is below 1 it renders **red** there. The tech node — where
-> players actually read the effect — shows green.
-
 ## Need-rate keys (`RATES_*` prefix)
 
 | Key | Display | Category | Effect |
@@ -125,53 +100,6 @@ classes (Child/Citizen/Slave/Noble).
 > - The reward is written to each subject's **shrine** religious-service satisfaction. The vanilla shrine AI re-clears that for subjects who actively seek a shrine and find none, so the nature-piety is **durably sticky only for subjects without shrine access** (a known interplay; a dedicated "nature religion" is the clean long-term fix).
 > - **Pilgrimage (Stage 2) is gated** by a master switch (`NATURE_PILGRIMAGE_ENABLED` in `MainScript`) plus a concurrency cap and a per-episode watchdog; it commandeers only genuinely idle citizens and always releases them, so real needs are never starved. Flip the switch off to run the passive proximity reward alone.
 
-## Need-rate front keys (`RATES_*`, added 2026-07-30)
-
-Every **vanilla** `RATES_*` key is a need-**growth** rate — higher means subjects develop that craving
-*faster*, demanding more service throughput and leaving the need unmet more often. Lower is better, so
-the game's tooltip coloring reads backwards on all of them (it colors from the number alone).
-
-Each one now has a **high-positive front key** that **divides** the vanilla rate. Boost the front key
-instead of the vanilla one and the effect is identical while the tooltip reads correctly:
-
-```
-RATES_SATIETY>MUL: 2.0     // green x2   — hunger need grows half as fast
-RATES_HUNGER>MUL: 0.5      // red   x0.5 — same effect, reads as a penalty
-```
-
-| Front key | Display | Fronts | (vanilla display) |
-|---|---|---|---|
-| `RATES_SATIETY` | Satiety | `RATES_HUNGER` | Hunger |
-| `RATES_HYDRATION` | Hydration | `RATES_THIRST` | Thirst |
-| `RATES_FRUGALITY` | Frugality | `RATES_SHOPPING` | Shopping |
-| `RATES_FRESHNESS` | Freshness | `RATES_WELL` | Dirtiness |
-| `RATES_CONTINENCE` | Continence | `RATES_CONSTIPATION` | Constipation |
-| `RATES_RUGGEDNESS` | Ruggedness | `RATES_BATH` | Bathing |
-| `RATES_INDEPENDENCE` | Independence | `RATES_HEARTH` | Loneliness |
-| `RATES_PLACIDITY` | Placidity | `RATES_ARENA` | Blood lust |
-| `RATES_AUSTERITY` | Austerity | `RATES_ARENAG` | Spectacle |
-| `RATES_STOICISM` | Stoicism | `RATES_STAGE` | Drama |
-| `RATES_DETACHMENT` | Detachment | `RATES_SPEAKER` | News Craving |
-| `RATES_HUMILITY` | Humility | `RATES_GROOMING` | Vanity |
-| `RATES_VIGOUR` | Vigour | `RATES_MASSAGE` | 'Back Pain' |
-| `RATES_HARDINESS` | Hardiness | `RATES_DOCTOR` | Health Care |
-| `RATES_RESERVE` | Reserve | `RATES_SKINNYDIP` | Skinny dip |
-| `RATES_CLEMENCY` | Clemency | `RATES_STOCKS` | Punishment |
-| `RATES_FORBEARANCE` | Forbearance | `RATES_COURT` | Justice |
-| `RATES_SECULARITY_SHRINE` | Secularity (Shrine) | `RATES_SHRINE` | Piety (Shrine) |
-| `RATES_SECULARITY_TEMPLE` | Secularity (Temple) | `RATES_TEMPLE` | Piety (Temple) |
-
-> Base `1.0`. The front key's own value is clamped to `[0.1, 10]` before inversion, so the factor applied
-> to the vanilla rate always lands in `[0.1, 10]` and the divisor can never reach `0`. Each front key is
-> registered into the **same category** as the key it fronts (Basic Needs for Satiety/Hydration/Frugality,
-> Service Needs for the rest), so it sits next to it in the boost browser.
->
-> **`RATES_NATURE` is deliberately not fronted** — it is this mod's own key and is already high-positive
-> (`>1` = loves nature). See the Need-rate keys section.
->
-> Both keys still work and **stack multiplicatively**, so mixed content is safe. The `CLASS_<CLASS>`
-> contentment keys also divide three of these rates; those factors stack with these independently.
-
 ## Class keys (`CLASS_*` prefix)
 
 `CLASS_<CLASS>[_<ROOMTYPE>]` keys ("Class Treatment") multiply a curated set of per-subject stats
@@ -182,7 +110,7 @@ no value cap, so the clamp is what enforces the range). The in-game name follows
 
 > **⚠️ Polarity flipped 2026-07-30 — re-check any content using a bare `CLASS_<CLASS>` key.** The bare
 > per-class key used to **multiply** the need rates, so `>MUL: 1.1` made that class 10% *needier* — a pure
-> cost that the game nonetheless colored green (it picks the color from the number alone). It now
+> cost that the game nonetheless colored blue (it picks the color from the number alone). It now
 > **divides** them: `>MUL: 1.1` makes that class 10% *calmer*. Higher is now better, matching the color.
 > **Key strings are unchanged**, so nothing breaks by reference — only the direction of the effect. To
 > author the old "spoiled" cost, use a value **below 1** (`CLASS_CITIZEN>MUL: 0.9`). Room-typed keys are
@@ -360,44 +288,67 @@ TECHS: {
 
 ## Tooltip coloring for "Low-Positive" effects
 
-Not a key — a display problem. In tooltips the game colors a boost **green** when it raises a boostable
+> **Palette note.** The engine's "good" colour (`GCOLOR.T().IGOOD` / `IGREAT`) renders **blue** in this
+> game's theme, not green — it has always been blue. "Bad" is red, and the neutral is an off-white.
+> Docs here say blue/red for that reason.
+
+Not a key — a display problem. In tooltips the game colors a boost **blue** when it raises a boostable
 (`>ADD` positive / `>MUL` > 1) and **red** when it lowers it. That is backwards for effects where a
 **lower** value is the good outcome for the player (call these *Low-Positive* effects), e.g.
 `PHYSICS_SOILING` ("Soiling" — lower means less filth): a tech that genuinely helps reads as a penalty.
 
-**The fix is a key, not a recolor** — boost the **front key** instead of the vanilla one. A front key is
-a high-positive key that *divides* the low-positive one it fronts: raising it is genuinely "up", so
-vanilla's own coloring is already correct. Nothing is patched and it works for every player with no setup.
+**The fix is a re-colour, and it needs no new keys.** Boost the **vanilla** key as normal
+(`PHYSICS_SOILING>MUL: 0.75`, `RATES_HUNGER>MUL: 0.5`) — this mod flips the colour so lowering it reads
+as the benefit it is.
 
-Fronted so far:
-- **[`PHYSICS_CLEANLINESS`](#physics-keys-physics_-prefix)** → `PHYSICS_SOILING`
-- **[19 need-rate fronts](#need-rate-front-keys-rates_-added-2026-07-30)** → every vanilla `RATES_*` key
-- the **[`CLASS_<CLASS>`](#class-keys-class_-prefix)** contentment keys were inverted in place instead
-  (we own them, so they needed no separate front key)
+How: the tech-node tooltip does **not** use the hardcoded `BoosterAbs.hover` colouring — it renders each
+effect with `bb.booster.format(b.text(), v)`, a *virtual* call on the booster. `format` delegates the
+number to `GFORMAT.f1`/`iIncr`, and those set the colour (`>1` blue, `<1` red, `==1` neutral). Since
+`format` is public and non-final, this mod swaps in a display-only wrapper (`your.mod.boostformat`) for
+selected keys and re-colours the line. The number is untouched, and because a tech's `BoostSpecs` has
+`connect == false`, the swap cannot affect gameplay at all.
 
-Any other "lower is better" key can be fronted the same way — one `registerInverseFront(...)` call.
+Current rules (`BoostFormats.RULES`):
+
+| Keys | Mode | Why |
+|---|---|---|
+| `PHYSICS_SOILING` | `INVERTED` | rate at which subjects get dirty — lower is better |
+| all 19 vanilla `RATES_*` keys | `INVERTED` | every one is a need-**growth** rate (`NEED.java:59`) — lower is better |
+| `ACTIVITY_JUDGE` / `_MOURN` / `_PUNISHMENT` / `_SOCIAL` | `NEUTRAL` | idle-activity desire weights — neither good nor bad |
+
+> The `RATES_*` entries are listed **individually, never by prefix** — the prefix is shared with
+> `RATES_NATURE`, which is genuinely high-positive and must not be inverted.
+>
+> **This only reaches the tech node.** The Boosts browser and the boostable tooltips colour inline in
+> `BoostSpecs.hover`/`BoosterAbs.hover`, which never call `format`; those would need bytecode patching
+> and stay vanilla. Accepted trade-off (2026-07-30) — the tech node is where players read tech effects.
+>
+> The `CLASS_<CLASS>` keys were handled differently again: we own them, so their polarity was inverted
+> **in place** (see the Class keys section) rather than re-coloured.
+
+**Effect lists are ordered to match.** The same polarity table drives the order of a tech's effect list
+(`BoostOrder`), so a line's position and its colour can never disagree:
+
+1. additive benefits, 2. multiplicative benefits (strongest first), 3. **costs** — including a
+low-positive key pushed *above* its neutral point, which sorts down with the negatives, 4. **neutral**
+keys (`ACTIVITY_*`) at the very bottom.
+
+Within a tier, entries are ranked by benefit magnitude measured *after* polarity, so an inverted `×0.5`
+outranks an inverted `×0.9`. This replaces the standalone **`tech-boost-sort`** mod, which sorted by raw
+sign and had no access to the polarity table — **do not load that jar alongside this one**, or the two
+will fight over the same list.
 
 **Not every backwards-looking key is one.** Verified high-positive despite the name: `ROOM_CONSUMPTION_*`
 (the engine *divides* by it — its own tooltip calls it "Consumption Bonus"), `WORLD_PROXIMITY`(`_TOLL`),
 `CIVIC_FURNITURE`, `WORLD_HEALTH`, and the vanilla `CIVIC_ACCIDENT`/`DEFLATION`/`MAINTENANCE`/`RAIDING`/
-`SPOILAGE` set — the last five are Jake using this same front-key trick in the base game.
+`SPOILAGE` set — those last five are the base game fronting its own low-positive values with
+high-positive keys.
 
-**Per-key colour override on the tech node.** The tech-node tooltip does **not** use the hardcoded
-`BoosterAbs.hover` colouring — it renders each effect with `bb.booster.format(b.text(), v)`, a *virtual*
-call on the booster. `format` delegates the number to `GFORMAT.f1`/`iIncr`, and those set the colour
-(`>1` green, `<1` red, `==1` neutral). Since `format` is public and non-final, this mod swaps in a
-display-only wrapper (`your.mod.boostformat`) for selected keys and re-colours the line — the number is
-untouched, and because a tech's `BoostSpecs` has `connect == false` the swap cannot affect gameplay.
-
-- **`ACTIVITY_JUDGE` / `_MOURN` / `_PUNISHMENT` / `_SOCIAL` now render neutral** (2026-07-30). They are
-  idle-activity desire weights — neither good nor bad — and the engine otherwise reserves its neutral
-  colour for a literal no-op value.
-- Any "lower is better" key can instead be set to `INVERTED` (green/red swapped) in `BoostFormats.RULES`,
-  as a lighter alternative to giving it a front key.
-
-**This only reaches the tech node.** The Boosts browser and boostable tooltips colour inline in
-`BoostSpecs.hover`/`BoosterAbs.hover`, which never call `format`; those need bytecode patching and stay
-vanilla. Front keys, by contrast, read correctly everywhere — which is why both mechanisms exist.
+> **Removed 2026-07-30 — the front keys.** An earlier build shipped `PHYSICS_CLEANLINESS` plus 19
+> `RATES_*` front keys (Satiety, Hydration, Frugality, …): high-positive keys that *divided* the vanilla
+> low-positive one so the colour came out right. The re-colour above does the same job with no new keys,
+> so they were dropped. If you have content referencing them, repoint it at the vanilla key and invert
+> the value (`RATES_SATIETY>MUL: 2.0` → `RATES_HUNGER>MUL: 0.5`). Recoverable from git history.
 
 > **Removed 2026-07-29 — the bytecode recolor agent.** Earlier versions shipped `your.mod.boostcolor`
 > (`ColorAgent` + `LowPositiveColors`), a Javassist Java agent that rewrote the engine's hardcoded

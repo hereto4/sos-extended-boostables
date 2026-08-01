@@ -52,15 +52,46 @@ public final class BoostFormats {
      *   <li>{@code NEUTRAL} — always render this key's value in the engine's neutral colour. For
      *       effects that are neither good nor bad, which the engine has no way to express (its neutral
      *       colour is reserved for a literal no-op value).</li>
-     *   <li>{@code INVERTED} — swap green and red, for a "lower is better" key we have not fronted.</li>
+     *   <li>{@code INVERTED} — swap the good/bad colours (blue &harr; red), for a "lower is better"
+     *       (low-positive) key: raising it is a cost, lowering it is a benefit.</li>
      * </ul>
      *
      * <p>{@code ACTIVITY_*} (Judgement / Mourning / Punishment / Social) are idle-activity desire
      * weights — how often a subject <em>wants</em> to do something while idle. They cost no work time
      * and are considered neutral, so they are rendered neutral (user decision, 2026-07-30).
+     *
+     * <p>The {@code RATES_*} entries are listed <b>individually rather than by prefix</b> on purpose:
+     * the prefix is shared by keys that are genuinely high-positive and must NOT be inverted — this
+     * mod's own {@code RATES_NATURE} (&gt;1 = loves nature) and, while they exist, the
+     * {@code RATES_*} front keys (Satiety, Hydration, …). Every vanilla need rate is a need-GROWTH
+     * rate ({@code init/type/NEED.java:59}), so on all of them a lower value is the better outcome.
      */
     private static final String[][] RULES = {
         { "ACTIVITY_*", "NEUTRAL" },
+
+        // Low-positive: the rate at which a subject becomes dirty.
+        { "PHYSICS_SOILING", "INVERTED" },
+
+        // Low-positive: every vanilla need-growth rate. (NOT RATES_NATURE — ours, high-positive.)
+        { "RATES_HUNGER", "INVERTED" },
+        { "RATES_THIRST", "INVERTED" },
+        { "RATES_SHOPPING", "INVERTED" },
+        { "RATES_WELL", "INVERTED" },
+        { "RATES_CONSTIPATION", "INVERTED" },
+        { "RATES_BATH", "INVERTED" },
+        { "RATES_HEARTH", "INVERTED" },
+        { "RATES_ARENA", "INVERTED" },
+        { "RATES_ARENAG", "INVERTED" },
+        { "RATES_STAGE", "INVERTED" },
+        { "RATES_SPEAKER", "INVERTED" },
+        { "RATES_GROOMING", "INVERTED" },
+        { "RATES_MASSAGE", "INVERTED" },
+        { "RATES_DOCTOR", "INVERTED" },
+        { "RATES_SKINNYDIP", "INVERTED" },
+        { "RATES_STOCKS", "INVERTED" },
+        { "RATES_COURT", "INVERTED" },
+        { "RATES_SHRINE", "INVERTED" },
+        { "RATES_TEMPLE", "INVERTED" },
     };
 
     private BoostFormats() {}
@@ -118,7 +149,19 @@ public final class BoostFormats {
 
     /** The rule that applies to this spec's boostable, or {@code null} if none does. */
     private static FormattedBooster.Mode modeFor(BoostSpec s) {
-        String key = s.boostable == null ? null : s.boostable.key;
+        return s.boostable == null ? null : modeForKey(s.boostable.key);
+    }
+
+    /**
+     * The colour rule that applies to a boostable key, or {@code null} if none does — i.e. the key's
+     * polarity as this mod understands it: {@code INVERTED} = lower is better, {@code NEUTRAL} = neither
+     * good nor bad, {@code null} = ordinary (higher is better).
+     *
+     * <p>Public because it is the single source of truth for polarity: {@link BoostOrder} uses it to
+     * decide where a boost line belongs in a tech's effect list, so the ordering and the colouring can
+     * never disagree.
+     */
+    public static FormattedBooster.Mode modeForKey(String key) {
         if (key == null)
             return null;
         for (String[] rule : RULES) {

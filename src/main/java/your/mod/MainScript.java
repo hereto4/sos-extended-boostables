@@ -127,56 +127,13 @@ public final class MainScript implements SCRIPT {
 
     private Boostable battleFear;
 
-    // PHYSICS_CLEANLINESS ("Cleanliness"): a HIGH-positive front for the vanilla LOW-positive
-    // PHYSICS_SOILING ("Soiling", base 0.125 — "the rate at which a subject becomes dirty", so LOWER is
-    // the good outcome). Content boosts this key instead of PHYSICS_SOILING: raising it is genuinely
-    // "up", so the engine's own green/red tooltip coloring is already correct and nothing has to be
-    // patched. This is the ONLY answer to the Low-Positive coloring problem in this mod: the bytecode
-    // recolor agent (your.mod.boostcolor) was removed 2026-07-29 — it could never arm itself, since the
-    // game's bundled JRE has no jdk.attach module. Front any other "lower is better" key the same way.
-    // Effect: a multiplicative 1/cleanliness factor on PHYSICS_SOILING, so >MUL: 2.0 halves soiling.
-    // The key's own value is floored at INV_MIN by BOOSTING (8-arg ensureBoostable) AND the applied
-    // factor re-clamps to [INV_MIN, INV_MAX], so the divisor can never reach 0.
-    private static final String CLEANLINESS_KEY = "PHYSICS_CLEANLINESS";
-    private Boostable physicsCleanliness;
-
-    // Shared clamp band for EVERY inverse "front" key (see registerInverseFront / InverseFrontBooster).
-    // The front key's own value is clamped here before being inverted, so the factor applied to the
-    // fronted low-positive target always lands in [1/INV_MAX, 1/INV_MIN] = [0.1, 10] and never hits 0.
-    private static final double INV_MIN = 0.1;
-    private static final double INV_MAX = 10.0;
-
-    // RATES_* front keys (2026-07-30). Every vanilla RATES_* boostable is a need-GROWTH rate — higher =
-    // the subject develops the craving faster = more service throughput demanded = worse for the player
-    // (init/type/NEED.java:59 "The rate at which the need of {0} increases daily"). Each row registers a
-    // high-positive front key that DIVIDES the vanilla rate, so content authors boost the front key and
-    // the tooltip colors correctly. Rows: { vanilla RATES_ key, front push key, front display name,
-    // cat } where cat "E" = vanilla "Basic Needs" (NEEDS.bCatE(), the three NEED_E rates) and "S" =
-    // "Service Needs" (NEEDS.bCat()) — each front key is registered into the same category as the key it
-    // fronts. Both categories use the "RATES_" prefix, so the full key is RATES_<push key>.
-    // NOT fronted: RATES_NATURE — that is this mod's own key and is already high-positive by design
-    // (>1 = loves nature). A row whose vanilla key is absent at runtime is logged and skipped.
-    private static final String[][] RATE_FRONTS = {
-        { "RATES_HUNGER",       "SATIETY",            "Satiety",             "E" },
-        { "RATES_THIRST",       "HYDRATION",          "Hydration",           "E" },
-        { "RATES_SHOPPING",     "FRUGALITY",          "Frugality",           "E" },
-        { "RATES_WELL",         "FRESHNESS",          "Freshness",           "S" },
-        { "RATES_CONSTIPATION", "CONTINENCE",         "Continence",          "S" },
-        { "RATES_BATH",         "RUGGEDNESS",         "Ruggedness",          "S" },
-        { "RATES_HEARTH",       "INDEPENDENCE",       "Independence",        "S" },
-        { "RATES_ARENA",        "PLACIDITY",          "Placidity",           "S" },
-        { "RATES_ARENAG",       "AUSTERITY",          "Austerity",           "S" },
-        { "RATES_STAGE",        "STOICISM",           "Stoicism",            "S" },
-        { "RATES_SPEAKER",      "DETACHMENT",         "Detachment",          "S" },
-        { "RATES_GROOMING",     "HUMILITY",           "Humility",            "S" },
-        { "RATES_MASSAGE",      "VIGOUR",             "Vigour",              "S" },
-        { "RATES_DOCTOR",       "HARDINESS",          "Hardiness",           "S" },
-        { "RATES_SKINNYDIP",    "RESERVE",            "Reserve",             "S" },
-        { "RATES_STOCKS",       "CLEMENCY",           "Clemency",            "S" },
-        { "RATES_COURT",        "FORBEARANCE",        "Forbearance",         "S" },
-        { "RATES_SHRINE",       "SECULARITY_SHRINE",  "Secularity (Shrine)", "S" },
-        { "RATES_TEMPLE",       "SECULARITY_TEMPLE",  "Secularity (Temple)", "S" },
-    };
+    // NOTE (2026-07-30): PHYSICS_CLEANLINESS and 19 RATES_* "front" keys used to be registered here —
+    // high-positive keys that divided a low-positive vanilla key so the tooltip coloured correctly.
+    // They were REMOVED once your.mod.boostformat proved it can recolour a tech-node effect line
+    // directly (BoostFormats.RULES -> INVERTED), which needs no new keys at all. Content boosts the
+    // vanilla key again (PHYSICS_SOILING, RATES_HUNGER, ...). Recover from git history if the
+    // format-override approach ever has to be abandoned; note it only covers the tech node, whereas
+    // front keys read correctly on every surface.
 
     // RATES_NATURE ("Piety (Nature)"): a per-subject multiplier centered at 1.0 meaning DESIRE for nature
     // (>1 seeks, <1 shuns, =1 neutral). NOT an engine need — the engine reads nothing; our per-tick loop
@@ -430,24 +387,6 @@ public final class MainScript implements SCRIPT {
               + "Piety (Shrine) fulfillment.",
                 UI.icons().s.sprout, NEEDS.bCat(), 1.0, NATURE_MIN);
 
-        // PHYSICS_CLEANLINESS "Cleanliness": the high-positive counterpart of vanilla PHYSICS_SOILING
-        // (see the constants block). Registered into the vanilla PHYSICS category so it sits beside
-        // Soiling in the boostable browser, reusing Soiling's own icon. Base 1.0 == vanilla soiling rate.
-        physicsCleanliness = registerInverseFront("PHYSICS_SOILING", "CLEANLINESS", "Cleanliness",
-                "How clean subjects stay. Higher is better: it divides Soiling (the rate at which a "
-              + "subject becomes dirty), so Cleanliness x2 means subjects get dirty half as fast.",
-                BOOSTABLES.PHYSICS());
-
-        // RATES_* front keys: one high-positive key per vanilla need-growth rate (see RATE_FRONTS).
-        int rateFronts = 0;
-        for (String[] row : RATE_FRONTS) {
-            BoostableCat rateCat = "E".equals(row[3]) ? NEEDS.bCatE() : NEEDS.bCat();
-            if (registerInverseFront(row[0], row[1], row[2], null, rateCat) != null)
-                rateFronts++;
-        }
-        System.out.println("[sos-extended-boostables] registered " + rateFronts + "/" + RATE_FRONTS.length
-                + " RATES_* front keys.");
-
         // CLASS_* "Class Treatment" registration (un-shelved 2026-07-11). New "CLASS_" BoostableCat
         // (prefix applied by BOOSTING.push). In-game names follow "<ClassName-plural> (<aspect>)" ->
         // "Plebeians (Needs)", "Plebeians (Mining)", "Slaves (Needs)", "Slaves (Mining)". registerClassKey
@@ -483,8 +422,8 @@ public final class MainScript implements SCRIPT {
 
         // NOTE (2026-07-29): the your.mod.boostcolor recolor agent used to self-attach here. It was
         // removed — self-attach is impossible on the game's bundled JRE (no jdk.attach module), and the
-        // Low-Positive coloring problem is solved instead by the PHYSICS_CLEANLINESS front key
-        // registered above. Recover the agent from git history if it is ever revived.
+        // Low-Positive coloring problem is solved instead by your.mod.boostformat, which re-colours the
+        // tech-node effect line directly. Recover the agent from git history if it is ever revived.
 
         // TARGET_RACE / TARGET_CLASS: queue the tech-boost rewriter on
         // BOOSTING.waiting and register the UI re-add connecter. Must run at this
@@ -498,6 +437,13 @@ public final class MainScript implements SCRIPT {
         // after the one that re-adds original specs for the UI (otherwise those arrive unwrapped).
         // See your.mod.boostformat.BoostFormats.
         your.mod.boostformat.BoostFormats.install();
+
+        // Tech effect-list ordering (benefits, then costs, then neutral). Ported here 2026-07-31 from
+        // the standalone tech-boost-sort jar because it must agree with the polarity table above — a
+        // low-positive key raised above its neutral point is a COST and has to sort with the negatives.
+        // Registered last so it runs after the colour swap. NOTE: the old tech-boost-sort.jar must not
+        // be loaded alongside this — both reorder the same list and whichever connecter runs last wins.
+        your.mod.boostformat.BoostOrder.install();
     }
 
     // ===== STAT_WORK_RETIREMENT DISABLED (2026-06-27) — helper used only by that feature =====
@@ -691,65 +637,6 @@ public final class MainScript implements SCRIPT {
     }
 
     /**
-     * Registers a high-positive <b>front key</b> for a low-positive vanilla boostable, and wires it:
-     * the fronted target is multiplied by {@code 1 / frontKey}, so raising the front key lowers the
-     * target by exactly that factor.
-     *
-     * <p><b>Why fronts instead of recoloring.</b> The engine colors a boost line purely from its number
-     * ({@code BoosterAbs.hover}: {@code >1} green, {@code <1} red, {@code ==1} grey) with no per-key seam,
-     * so a key where LOWER is better always reads backwards. A front key inverts the polarity in the
-     * content layer instead: raising it is genuinely "up", so vanilla's coloring is already correct and
-     * no bytecode patching is needed. The bytecode agent that used to do this was removed 2026-07-29.
-     *
-     * <p>Shape matches {@link UmbrellaBooster} (identity {@code getValue}; the multiplier comes from
-     * {@code pget}), so it resolves against whatever object the engine queried with — which matters
-     * because these targets are read per subject (e.g. {@code StatsNeeds:171} for the need rates,
-     * {@code StatsNeeds:180} for soiling).
-     *
-     * @param targetKey the vanilla low-positive boostable to front (must already be registered)
-     * @param pushKey   the front key's push key; the category prefix makes the full key
-     * @param display   the front key's in-game name
-     * @param desc      the front key's description, or {@code null} to derive one from the target
-     * @param cat       the category to register the front key into (also supplies the key prefix)
-     * @return the registered front {@link Boostable}, or {@code null} if it could not be wired
-     */
-    private Boostable registerInverseFront(String targetKey, String pushKey, String display, String desc,
-            SPRITE icon, BoostableCat cat) {
-        Boostable target = BOOSTING.MAP().tryGet(targetKey);
-        if (target == null) {
-            System.err.println("[sos-extended-boostables] front key " + pushKey + ": target not found: " + targetKey);
-            return null;
-        }
-        // Zero-multiply safety-net (same rule as the CLASS_* targets): a multiplicative booster on a
-        // zero-base boostable is a no-op and only adds a tooltip line that can hit the engine's
-        // unguarded x/0 progress math.
-        if (target.baseValue == 0) {
-            System.out.println("[sos-extended-boostables] front key " + pushKey + " skips zero-base target: " + targetKey);
-            return null;
-        }
-        if (desc == null) {
-            desc = "How slowly your subjects develop the " + target.name + " need. Higher is better: it "
-                 + "divides " + target.name + ", so x2 means that need grows half as fast.";
-        }
-        if (icon == null)
-            icon = target.nativeIcon;
-
-        Boostable front = ensureBoostable(cat.prefix + pushKey, pushKey, display, desc, icon, cat, 1.0, INV_MIN);
-        if (front == null)
-            return null;
-
-        new InverseFrontBooster(front, new BSourceInfo(display, icon)).add(target);
-        System.out.println("[sos-extended-boostables] " + cat.prefix + pushKey + " divides " + target.key + ".");
-        return front;
-    }
-
-    /** Convenience overload: derive the front key's icon from the target it fronts. */
-    private Boostable registerInverseFront(String targetKey, String pushKey, String display, String desc,
-            BoostableCat cat) {
-        return registerInverseFront(targetKey, pushKey, display, desc, null, cat);
-    }
-
-    /**
      * Registers a single umbrella boostable and makes its value cascade onto every existing boostable whose
      * key starts with {@code childPrefix} (skipping any whose key ends with {@code excludeSuffix}, when
      * non-null). A tech that boosts the umbrella shows ONE line ("Mines (All) *1.5") yet every matching
@@ -821,11 +708,11 @@ public final class MainScript implements SCRIPT {
         //    trade-off lives solely on the bare per-class key.
         // POLARITY (inverted in place 2026-07-30, user decision). The bare per-class key targets ONLY the
         // three need-growth rates, so before this change raising it made that class NEEDIER — a pure cost
-        // that the engine nonetheless colored green (it colors from the number alone). The key now
+        // that the engine nonetheless colored as a benefit (it colors from the number alone). The key now
         // DIVIDES those rates: higher = calmer = genuinely better, matching the color. Room-typed keys
         // are untouched (they were already high-positive: more output). Key strings are unchanged, so no
-        // cross-mod reference breaks; only the direction of the effect flipped. See registerInverseFront
-        // for the same idea applied to vanilla keys we don't own.
+        // cross-mod reference breaks; only the direction of the effect flipped. (The vanilla low-positive
+        // keys are handled by re-colouring instead — see your.mod.boostformat.BoostFormats.)
         SPRITE icon = UI.icons().s.human;
         String[] targets = CLASS_RATE_TARGETS;
         boolean invert = true; // bare per-class key: divide the need rates
@@ -1534,46 +1421,6 @@ public final class MainScript implements SCRIPT {
         @Override
         protected double pget(BOOSTABLE_O o) {
             return umbrella.get(o);
-        }
-    }
-
-    /**
-     * The multiplicative factor a high-positive <b>front key</b> applies to the low-positive boostable it
-     * fronts: {@code 1 / frontKey}, with the front key's value clamped to [{@link #INV_MIN},
-     * {@link #INV_MAX}] so the divisor can never be 0 (or absurd). Mirrors {@link UmbrellaBooster}:
-     * identity {@code getValue}, the factor produced by {@code pget} against the query object, so a
-     * per-subject read of the target gets that subject's front-key value (and any
-     * {@code TARGET_RACE}/{@code TARGET_CLASS} filter on the grant is respected).
-     *
-     * <p>Used by {@link #registerInverseFront}: PHYSICS_CLEANLINESS → PHYSICS_SOILING, and one per
-     * vanilla need rate (see {@link #RATE_FRONTS}).
-     */
-    private static final class InverseFrontBooster extends Booster {
-        private final Boostable front;
-
-        InverseFrontBooster(Boostable front, BSourceInfo info) {
-            super(info, true); // multiplicative
-            this.front = front;
-        }
-
-        @Override
-        public double from() {
-            return 1.0;
-        }
-
-        @Override
-        public double to() {
-            return 1.0;
-        }
-
-        @Override
-        public double getValue(double input) {
-            return input;
-        }
-
-        @Override
-        protected double pget(BOOSTABLE_O o) {
-            return 1.0 / CLAMP.d(front.get(o), INV_MIN, INV_MAX);
         }
     }
 

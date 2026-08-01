@@ -145,12 +145,16 @@ Adds new boostable keys to Songs of Syx (now v71.19, see [[v71-migration]]) that
    effect, correct color, ships to everyone. **Residual cosmetic limit:** Soiling's own detailed tooltip
    lists "Cleanliness" as a sub-1 source and renders that line red. **Built clean on v71.40 and IN-GAME
    VERIFIED 2026-07-29 (user-confirmed): the key registers and the tooltip colors correctly.**
-   **Generalized 2026-07-30** into `registerInverseFront(targetKey, pushKey, display, desc[, icon], cat)` +
-   `InverseFrontBooster` (replaces the one-off `CleanlinessBooster`); shared clamp band `INV_MIN`=0.1 /
-   `INV_MAX`=10. Full key is formed as `cat.prefix + pushKey` (verified: `BOOSTING.push` strips one leading
-   `_` then prepends `cat.prefix`). Cleanliness is now just its first caller.
+   Generalized 2026-07-30 into `registerInverseFront(...)` + `InverseFrontBooster`, then
+   **⚠️ REMOVED ENTIRELY 2026-07-30 along with #11** — superseded by the #13 colour override, which needs
+   no keys at all. Gone: `PHYSICS_CLEANLINESS`, `CLEANLINESS_KEY`, `physicsCleanliness`, `INV_MIN`/
+   `INV_MAX`, `RATE_FRONTS`, both `registerInverseFront` overloads, `InverseFrontBooster`. Content boosts
+   the vanilla keys again. Recover from git history if the format-override approach is ever abandoned.
+   Kept here as the record of what was tried and why it worked (both facts stay true: `BOOSTING.push`
+   forms the full key as `cat.prefix + pushKey` after stripping one leading `_`; a divisor booster on a
+   low-positive target reads correctly on *every* surface, unlike the colour override).
 
-11. **19 `RATES_*` front keys** ("Satiety", "Hydration", "Frugality", "Freshness", "Continence",
+11. **⚠️ REMOVED 2026-07-30 (never shipped past one build) — 19 `RATES_*` front keys** ("Satiety", "Hydration", "Frugality", "Freshness", "Continence",
    "Ruggedness", "Independence", "Placidity", "Austerity", "Stoicism", "Detachment", "Humility", "Vigour",
    "Hardiness", "Reserve", "Clemency", "Forbearance", "Secularity (Shrine)/(Temple)"; added 2026-07-30).
    Every vanilla `RATES_*` is a need-GROWTH rate (`NEED.java:59`), so lower is better on all of them — see
@@ -164,6 +168,15 @@ Adds new boostable keys to Songs of Syx (now v71.19, see [[v71-migration]]) that
    `RATES_STOCKS` semantics are themselves unclear), RUGGEDNESS (Bathing). Built clean v71.40; **in-game
    not yet verified.**
 
+> **Palette facts (user-reported, 2026-07-30/31).** (a) The engine's "good" colour renders **BLUE** in
+> this game's theme — always has, not green. "Bad" is red; neutral is off-white (`COLOR.WHITE85`).
+> Earlier notes here that say "green" mean this blue. (b) **There are TWO good/bad pairs and they are
+> visibly different shades** — `IGOOD`/`IBAD` are the *lighter* pair. `BoosterAbs.format` picks per
+> branch: `isMul`→`GFORMAT.f1` and additive-non-integral→`f0` both use **`IGREAT`/`IWORST`**; only
+> additive-**integral** goes through `iIncr` and uses `IGOOD`/`IBAD`. Any code re-colouring a boost line
+> must mirror that branch choice or the mismatch is visible (shipped a too-light red on 2026-07-30 by
+> using `IGOOD`/`IBAD` unconditionally; fixed 2026-07-31 in `FormattedBooster.colorFor`).
+
 13. **Tech-node colour override (`your.mod.boostformat`, 2026-07-30).** The tech-node effect list does NOT
    use `BoosterAbs.hover`'s hardcoded colouring — `Node.hoverInfoGet` renders each line with
    `bb.booster.format(b.text(), v)` (confirmed in the **installed v71.44 jar**, offsets 1201/1305).
@@ -175,7 +188,11 @@ Adds new boostable keys to Songs of Syx (now v71.19, see [[v71-migration]]) that
    and overrides only `format`: it lets the engine format the number, then re-sets the colour —
    `GText.color(..)` stores ONE colour for the whole text object, bound at render, so last call wins.
    `BoostFormats.install()` registers a `BOOSTING.connecter` that swaps matching specs per a `RULES`
-   table (`NEUTRAL` | `INVERTED`, exact key or `PREFIX_*`); ships `ACTIVITY_* → NEUTRAL`.
+   table (`NEUTRAL` | `INVERTED`, exact key or `PREFIX_*`). Ships `ACTIVITY_* → NEUTRAL`
+   (**in-game VERIFIED 2026-07-30, user-confirmed**) plus `INVERTED` for `PHYSICS_SOILING` and all 19
+   vanilla `RATES_*` keys (added 2026-07-30, in-game not yet verified). The `RATES_*` entries are listed
+   INDIVIDUALLY, never by prefix — the prefix is shared with `RATES_NATURE` and the `RATES_*` front keys,
+   which are high-positive and must not be inverted.
    **Provably display-only:** `TECH`'s `BoostSpecs` has `connect == false` (`TECH.java:122`), so
    `push`/`remove` there never touch the boostable's factor list (the live effect is the original booster
    object stored by `Boostable.addFactor`). Order-preserving (remove+push in sequence) and idempotent.
@@ -184,6 +201,19 @@ Adds new boostable keys to Songs of Syx (now v71.19, see [[v71-migration]]) that
    inline and never call `format`, so the Boosts browser + boostable tooltips still need the (deleted)
    agent; that is why front keys (#10/#11) still earn their place. NB `GFORMAT.f1Inv`/`f0Inv` already
    exist as colour-swapped formatters. Built clean v71.40; **in-game not yet verified.**
+
+14. **Tech effect-list ordering (`your.mod.boostformat.BoostOrder`, 2026-07-31)** — **ported in from the
+   standalone `tech-boost-sort` mod**, which sorted by raw sign and could not see the polarity table.
+   Tiers: 0 additive benefit, 1 multiplicative benefit, 2 **cost**, 3 **neutral (very bottom)**;
+   within a tier, benefit magnitude descending. Benefit/cost is judged AFTER polarity via
+   `BoostFormats.modeForKey` (now public — the single source of truth shared with the colouring), so a
+   low-positive key above its neutral point is a cost and sorts with the negatives, and `>MUL: 0.5` on an
+   inverted key outranks `>MUL: 0.9`. Rebuilds the list with the public `remove`+`push` in sorted order
+   (no `ArrayListGrower` cast needed; `connect == false` makes it display-only). Registered last in
+   `initBeforeGameInited` so it runs after the colour swap. **⚠️ The old `tech-boost-sort.jar` must be
+   removed wherever it is deployed** (it was bundled in the CaC workshop folder
+   `…/1162750/3694649839/V71/script/`) — both register a connecter that reorders the same list and the
+   last one to run wins. Built clean v71.40; **in-game not yet verified.**
 
 12. **`CLASS_<CLASS>` polarity INVERTED IN PLACE 2026-07-30** (user decision; the bare per-class keys only).
    They targeted only the three need-growth rates, so raising one was a pure cost that rendered green.
