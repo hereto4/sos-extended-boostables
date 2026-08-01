@@ -2,13 +2,16 @@ your\mod\MainScript$3.class
 your\mod\MainScript$BoostedResAmount.class
 your\mod\targetfilter\TargetFilteredBooster.class
 your\mod\MainScript$UmbrellaBooster.class
+your\mod\boostformat\BoostOrder$2.class
 your\mod\MainScript$1.class
+your\mod\boostformat\BoostOrder.class
 your\mod\targetfilter\ParseWarningSuppressor.class
 your\mod\update\UpdateNotifier.class
 your\mod\MainScript$ClassTreatmentBooster$1.class
 your\mod\targetfilter\TargetFilterRegistry.class
 your\mod\MainScript$IndoctrinationBooster.class
 your\mod\targetfilter\TargetFilters$1.class
+your\mod\boostformat\BoostOrder$1.class
 your\mod\boostformat\FormattedBooster$Mode.class
 your\mod\boostformat\FormattedBooster.class
 your\mod\targetfilter\TargetFilters$2.class
@@ -27,7 +30,6 @@ your\mod\boostformat\BoostFormats.class
 your\mod\MainScript$Pilgrim.class
 your\mod\update\UpdateNoticeWindow$1.class
 your\mod\targetfilter\TargetFilterRegistry$Spec.class
-your\mod\MainScript$InverseFrontBooster.class
 your\mod\targetfilter\TargetFilterApplier$Saved.class
 your\mod\MainScript$IndoctrinationBooster$1.class
 your\mod\targetfilter\TargetFilterApplier.class

@@ -1,7 +1,14 @@
 Changelog v1.4.0
-ADDITIONS
-- Added RATES_NATURE key, that lets subjects worship at nature objects for piety gain (see mod description for details)
-- Added TARGET_CLASS key, allowing effect-scoping to subject class (Noble, Plebeian, Slave, Ex-Slave)
+MAJOR ADDITION: CLASS TREATMENT
+- added CLASS_<CLASSNAME> keys for Nobles, Slaves, and Plebeians; in-game "ClassName (Contentment)"
+-- represents the neediness of a certain class; <1 = needier, >1 more content
+-- needier = higher basic needs (thirst, hunger, shopping)
+- added CLASS_<CLASSNAME>_<ROOMTYPE> keys
+-- allows assigning roomtype effects on a per-cass basis
+OTHER ADDITIONS
+- fixed CaC's tech effect color-coding + sorting logic and moved it to this mod
+- added RATES_NATURE key, that lets subjects worship at nature objects for piety gain (see mod description for details)
+- added TARGET_CLASS key, allowing effect-scoping to subject class (Noble, Plebeian, Slave, Ex-Slave)
 CHANGES
 - Moved TARGET_RACE from Create-A-Culture to instead live in this mod (allows effect-scoping to subject race)
 

@@ -101,7 +101,7 @@
         <mod.name>Extended Boostables</mod.name>
         <mod.description>Adds extended boostable keys for room types not covered by vanilla.</mod.description>
         <mod.author>Glorfy</mod.author>
-        <mod.info>Adds ROOM__SLAVER, ROOM__CANNIBAL, WORLD_PLUNDER, ROOM_MINE/WORKSHOP/FARM/REFINER_ALL, BATTLE_FEAR, PHYSICS_CLEANLINESS and 19 RATES_* contentment keys, plus TARGET_RACE/TARGET_CLASS tech-scoping keys.</mod.info>
+        <mod.info>Adds ROOM__SLAVER, ROOM__CANNIBAL, WORLD_PLUNDER, ROOM_MINE/WORKSHOP/FARM/REFINER_ALL, and BATTLE_FEAR boostables, plus TARGET_RACE/TARGET_CLASS tech-scoping keys and corrected tech-tooltip colouring for low-positive effects.</mod.info>
         <!--
             This is the game version you are currently using. When the game updates:
             * Download the new game version if you don't have it

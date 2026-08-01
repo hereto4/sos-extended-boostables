@@ -1,8 +1,15 @@
 ---
 name: dev-mods-load-from-mods-folder
-description: In-dev mods run from the /mods project folder (enabled in the launcher), NOT the Steam Workshop copy — never conclude otherwise from a stale LauncherSettings.txt MODS list
+description: "POLICY: never read the Steam Workshop directory. All dev mods live in ...\\songsofsyx\\mods\\ — that folder is both the repo and the deploy target"
 type: feedback
 ---
+
+> **POLICY (user, 2026-07-31): the Steam Workshop directory is off-limits.**
+> Do not read, search, cite, or propose edits to `…\steamapps\workshop\content\1162750\`. It holds stale
+> published snapshots. `C:\Users\Nate\AppData\Roaming\songsofsyx\mods\<mod>\` is the only source of truth
+> for mod code, jars, and deploy state. Never report a stale artifact found in a Workshop folder as an
+> issue. Workshop paths matter only in an explicit, user-driven release discussion.
+
 
 The user runs in-development mods from the **project folder under
 `C:\Users\Nate\AppData\Roaming\songsofsyx\mods\<mod>\`**, enabled in the launcher. A build's automatic
