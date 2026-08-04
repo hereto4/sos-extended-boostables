@@ -3,6 +3,8 @@ package your.mod.update;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.List;
 
 import init.constant.C;
 import init.paths.ModInfo;
@@ -12,9 +14,9 @@ import snake2d.MButt;
 import snake2d.Renderer;
 import snake2d.util.color.COLOR;
 import snake2d.util.datatypes.COORDINATE;
+import snake2d.util.datatypes.Rec;
 import snake2d.util.file.Json;
 import snake2d.util.file.JsonE;
-import snake2d.util.gui.renderable.RENDEROBJ;
 import snake2d.util.misc.ACTION;
 import snake2d.util.sprite.text.Font;
 import util.colors.GCOLOR;
@@ -37,15 +39,17 @@ import view.main.VIEW;
  * dependency) gets update windows for free — it only needs the data file.
  *
  * <p>The file carries a per-release {@code ENABLED} toggle, a {@code TITLE}, and a {@code CHANGES}
- * string array. A mod's window fires only when BOTH its VERSION differs from the last version shown
+ * string array. A mod's notice fires only when BOTH its VERSION differs from the last version shown
  * for that mod AND its {@code ENABLED} is true. A disabled release is intentionally NOT recorded, so
  * re-enabling it on a later load still shows it.
  *
+ * <p>All pending mods are shown together in a <b>single</b> window (one section per mod), so the player
+ * dismisses one popup rather than a confusing stack.
+ *
  * <p>"Last shown version" is persisted per-install (not per-save), one file per mod (keyed by the mod's
  * folder name) under {@code %APPDATA%/songsofsyx/saves/profile/<modfolder>-update.txt} — this is what
- * makes each window fire once per update across every save. Every file/parse step is guarded to fail
- * safe (skip that mod, log) rather than break game load. Multiple pending windows stack and are shown
- * one after another (each is closed with X / ESC / right-click).
+ * makes each notice fire once per update across every save. Every file/parse step is guarded to fail
+ * safe (skip that mod, log) rather than break game load.
  */
 public final class UpdateNotifier {
 
@@ -53,6 +57,9 @@ public final class UpdateNotifier {
     public static final boolean ENABLED = true;
 
     private static final String CONFIG_FILE = "UpdateNotice.txt";
+    // NB: all diagnostics go to System.out, never System.err. In this engine snake2d.Errors tees
+    // System.err into the crash/error dump and fires the game's error handler when it is non-empty
+    // (see Errors.check()), so a user typo in an UpdateNotice.txt must not reach stderr.
     private static final String LOG = "[sos-extended-boostables] update notice: ";
 
     /** One-shot flag so the diagnostic log on the repeated "waiting" path doesn't spam. */
@@ -61,10 +68,10 @@ public final class UpdateNotifier {
     private UpdateNotifier() {}
 
     /**
-     * Scans all loaded mods and shows an update window for each one whose VERSION changed and whose
-     * {@code UpdateNotice.txt} is enabled.
+     * Scans all loaded mods and, if any have a changed+enabled {@code UpdateNotice.txt}, shows them all
+     * together in a single window and records each as shown.
      *
-     * @return {@code true} once processed (windows shown or nothing to do); {@code false} only while the
+     * @return {@code true} once processed (window shown or nothing to do); {@code false} only while the
      *         in-game {@link VIEW} isn't ready yet, so the caller retries next tick.
      */
     public static boolean showPending() {
@@ -82,49 +89,72 @@ public final class UpdateNotifier {
             return false;
         }
 
+        List<Notice> pending = new ArrayList<>();
         try {
             for (ModInfo m : PATHS.currentMods()) {
                 try {
-                    processMod(m);
+                    Notice n = evaluate(m);
+                    if (n != null) pending.add(n);
                 } catch (Throwable t) {
-                    System.err.println(LOG + "error processing mod '" + m.name + "': " + t);
+                    System.out.println(LOG + "error processing mod '" + m.name + "': " + t);
                 }
             }
         } catch (Throwable t) {
-            System.err.println(LOG + "could not read currentMods: " + t);
+            System.out.println(LOG + "could not read currentMods: " + t);
+        }
+
+        if (!pending.isEmpty()) {
+            try {
+                new UpdateNoticeWindow(pending).open(VIEW.inters().manager);
+                for (Notice n : pending) writeLastShown(n.stateKey, n.version);
+                System.out.println(LOG + "showed " + pending.size() + " update notice(s).");
+            } catch (Throwable t) {
+                System.out.println(LOG + "failed to show window: " + t);
+            }
         }
         return true;
     }
 
-    /** Evaluates one mod's UpdateNotice.txt and shows its window if the version changed and it's enabled. */
-    private static void processMod(ModInfo m) {
+    /** Evaluates one mod's UpdateNotice.txt; returns a {@link Notice} to show, or null (with logging). */
+    private static Notice evaluate(ModInfo m) {
         Path p = Paths.get(m.absolutePath, "V" + m.majorVersion, CONFIG_FILE);
-        if (!Files.exists(p)) return; // this mod didn't opt in
+        if (!Files.exists(p)) return null; // this mod didn't opt in
 
         Config cfg = readConfig(p, m.name);
-        if (cfg == null) return; // malformed — already logged
+        if (cfg == null) return null; // malformed — already logged
         if (!cfg.enabled) {
             System.out.println(LOG + "'" + m.name + "' config ENABLED=false; not showing.");
-            return; // per-release toggle off — do NOT record (can be enabled later)
+            return null; // per-release toggle off — do NOT record (can be enabled later)
         }
 
         String current = m.version;
         if (current == null || current.isEmpty() || "???".equals(current)) {
-            System.err.println(LOG + "'" + m.name + "' has no resolvable VERSION; skipping.");
-            return;
+            System.out.println(LOG + "'" + m.name + "' has no resolvable VERSION; skipping.");
+            return null;
         }
 
         String key = stateFile(m);
         if (current.equals(readLastShown(key))) {
             System.out.println(LOG + "'" + m.name + "' version " + current + " already shown; not showing.");
-            return;
+            return null;
         }
 
-        System.out.println(LOG + "showing '" + m.name + "' update window for version " + current
-                + " (" + (cfg.lines == null ? 0 : cfg.lines.length) + " line(s)).");
-        new UpdateNoticeWindow(cfg.title, cfg.lines).open(VIEW.inters().manager);
-        writeLastShown(key, current);
-        System.out.println(LOG + "showed '" + m.name + "' update notice for version " + current + ".");
+        System.out.println(LOG + "'" + m.name + "' has a new version " + current + " to show.");
+        return new Notice(cfg.title, cfg.lines, key, current);
+    }
+
+    /** One mod's ready-to-show notice (package-private so {@link UpdateNoticeWindow} can render it). */
+    static final class Notice {
+        final String title;
+        final String[] lines;
+        final String stateKey;
+        final String version;
+        Notice(String title, String[] lines, String stateKey, String version) {
+            this.title = title;
+            this.lines = lines;
+            this.stateKey = stateKey;
+            this.version = version;
+        }
     }
 
     /** Profile filename (no extension) for a mod's "last shown version" — keyed by its unique folder name. */
@@ -152,7 +182,7 @@ public final class UpdateNotifier {
             String[] lines = j.textsTry("CHANGES");
             return new Config(enabled, title, lines);
         } catch (Throwable t) {
-            System.err.println(LOG + "failed to read " + p + ": " + t);
+            System.out.println(LOG + "failed to read " + p + ": " + t);
             return null;
         }
     }
@@ -165,12 +195,12 @@ public final class UpdateNotifier {
                 return j.text("VERSION", "");
             }
         } catch (Throwable t) {
-            System.err.println(LOG + "failed to read state file '" + key + "': " + t);
+            System.out.println(LOG + "failed to read state file '" + key + "': " + t);
         }
         return "";
     }
 
-    /** Records {@code version} as the last version shown for {@code key}, so its window never repeats for it. */
+    /** Records {@code version} as the last version shown for {@code key}, so its notice never repeats for it. */
     private static void writeLastShown(String key, String version) {
         try {
             JsonE j = new JsonE();
@@ -180,14 +210,15 @@ public final class UpdateNotifier {
                     : PATHS.local().PROFILE.create(key);
             j.save(p);
         } catch (Throwable t) {
-            System.err.println(LOG + "failed to write state file '" + key + "': " + t);
+            System.out.println(LOG + "failed to write state file '" + key + "': " + t);
         }
     }
 }
 
 /**
- * The changelog window: a centered {@link GPanel} frame (with a close X via {@code clickActionSet})
- * wrapping a scrollable {@link GBox} of the title + change lines.
+ * The changelog window: a large, fixed-size centered {@link GPanel} frame (with a close X via
+ * {@code clickActionSet}) wrapping a scrollable {@link GBox} that lists every pending mod's notice as
+ * its own section (a scaled title, a divider, then the change lines). One window, one dismissal.
  *
  * <p><b>Rendering:</b> {@link #render} returns {@code false}. In {@code VIEW.render} the interrupter
  * manager is drawn after the terrain background but before the UI/foreground passes; returning
@@ -199,42 +230,64 @@ public final class UpdateNotifier {
  * load→gameplay transition. It closes only on the X, ESC, or a right-click — deliberately NOT on a
  * left-click, so a stray click buffered during loading can't dismiss it before the player sees it.
  *
- * <p><b>CHANGES markup</b> (each array entry is one line): <ul>
- * <li>{@code "# Heading"} → heading (title-sized); {@code "## Heading"} → smaller sub-heading.</li>
- * <li>{@code "---"} (3+ dashes) → a horizontal divider line.</li>
- * <li>{@code ""} (empty) → a blank spacer line.</li>
- * <li>{@code "[tag] text"} → colored text. Tags: {@code good great bad worst warn error label sub
- *     normal}. An unknown tag is left as literal text.</li></ul>
- * A color tag may precede a heading marker (e.g. {@code "[warn]# Title"}). Plain lines render as body text.
+ * <p><b>CHANGES markup</b> (each array entry is one line): {@code "# Heading"} → heading (title-sized);
+ * {@code "## Heading"} → smaller sub-heading; {@code "---"} (3+ dashes) → horizontal divider;
+ * {@code ""} → blank spacer; {@code "[tag] text"} → colored text (tags: {@code good great bad worst
+ * warn error label sub normal}; unknown tag is left literal). A color tag may precede a heading.
  */
 final class UpdateNoticeWindow extends Interrupter {
 
+    /** Fixed inner size of the window (px, in the game's virtual UI resolution). Deliberately large. */
+    private static final int INNER_W = 900;
+    private static final int INNER_H = 560;
+    /** Inner padding between the frame and the text, and scale applied to all text. */
+    private static final int PAD = 20;
+    private static final double SCALE = 1.5;
     /** Extra vertical gap after a blank-line spacer / after a heading. */
-    private static final int SPACER_GAP = 10;
-    private static final int HEADING_GAP = 4;
+    private static final int SPACER_GAP = 14;
+    private static final int HEADING_GAP = 6;
 
     private final GBox content = new GBox();
     private final GPanel frame = new GPanel();
-    private final RENDEROBJ ren;
     private final ACTION exit = new ACTION() {
         @Override public void exe() { hide(); }
     };
 
-    UpdateNoticeWindow(String title, String[] lines) {
+    UpdateNoticeWindow(List<UpdateNotifier.Notice> notices) {
         super(true, true); // persistent + pinned — survive load-time interrupter churn; stay until closed
         frame.setBig();
         content.clear();
-        content.maxWidth = 600;
-        content.title(title);
-        buildContent(lines);
-        ren = content.asRenObj();
+        content.maxWidth = INNER_W - PAD * 2;   // wrap within the window
+        content.maxHeight = INNER_H - PAD * 2;  // scroll (mouse wheel) when taller than this
+
+        for (int i = 0; i < notices.size(); i++) {
+            UpdateNotifier.Notice n = notices.get(i);
+            if (i > 0) {                       // separate each mod's section
+                content.NL(SPACER_GAP);
+                content.sep();
+                content.NL(SPACER_GAP);
+            }
+            addLine(n.title, UI.FONT().H1, GCOLOR.T().H1, SCALE + 0.4, HEADING_GAP);
+            content.sep();
+            buildContent(n.lines);
+        }
     }
 
-    /** Renders the CHANGES lines using the lightweight markup documented on this class. */
+    /** Adds one styled, scaled line to the content box, followed by a newline with {@code gap} extra px. */
+    private void addLine(String text, Font font, COLOR color, double scale, int gap) {
+        GText t = content.text();
+        t.setFont(font);
+        t.setScale(scale);
+        if (color != null) t.color(color); else t.normalify();
+        t.add(text);
+        content.add(t);
+        content.NL(gap);
+    }
+
+    /** Renders one mod's CHANGES lines using the lightweight markup documented on this class. */
     private void buildContent(String[] lines) {
         if (lines == null || lines.length == 0) {
-            content.textLL("(no changes listed)");
-            content.NL();
+            addLine("(no changes listed)", UI.FONT().S, null, SCALE, 0);
             return;
         }
         for (String raw : lines) {
@@ -263,24 +316,18 @@ final class UpdateNoticeWindow extends Interrupter {
                 }
             }
 
-            // Optional heading marker: ## or #. Sized so a heading never exceeds the window title (H2):
-            // "#" -> H2 (title-sized) with the strong H1 heading color, "##" -> M (smaller) with H2 color.
+            // Optional heading marker: ## or #. Sized under the title: "#" -> H2 (strong H1 color),
+            // "##" -> M (H2 color). Plain lines are body text (Small).
             Font font = UI.FONT().S;
             COLOR headingColor = null;
+            int gap = 0;
             if (s.startsWith("## ")) {
-                font = UI.FONT().M; headingColor = GCOLOR.T().H2; s = s.substring(3);
+                font = UI.FONT().M; headingColor = GCOLOR.T().H2; s = s.substring(3); gap = HEADING_GAP;
             } else if (s.startsWith("# ")) {
-                font = UI.FONT().H2; headingColor = GCOLOR.T().H1; s = s.substring(2);
+                font = UI.FONT().H2; headingColor = GCOLOR.T().H1; s = s.substring(2); gap = HEADING_GAP;
             }
 
-            GText t = content.text();
-            t.setFont(font);
-            if (color != null) t.color(color);
-            else if (headingColor != null) t.color(headingColor);
-            else t.normalify();
-            t.add(s);
-            content.add(t);
-            content.NL(headingColor != null ? HEADING_GAP : 0);
+            addLine(s, font, color != null ? color : headingColor, SCALE, gap);
         }
     }
 
@@ -305,15 +352,11 @@ final class UpdateNoticeWindow extends Interrupter {
         show(m);
     }
 
-    private void centre() {
-        ren.body().moveX1(C.WIDTH() / 2 - ren.body().width() / 2);
-        ren.body().moveY1(C.HEIGHT() / 2 - ren.body().height() / 2);
-    }
-
     @Override
     protected boolean hover(COORDINATE mCoo, boolean mouseHasMoved) {
-        // frame.hover consumes the X close click; keep hover within the window so inside-clicks don't fall through.
-        return frame.hover(mCoo) || mCoo.isWithinRec(frame.body()) || mCoo.isWithinRec(ren.body());
+        // frame.hover consumes the X close click; keep hover over the whole window so it stays interactive
+        // (and the mouse wheel scrolls the content) and inside-clicks don't fall through to the game.
+        return frame.hover(mCoo) || mCoo.isWithinRec(frame.body());
     }
 
     @Override
@@ -337,11 +380,18 @@ final class UpdateNoticeWindow extends Interrupter {
 
     @Override
     protected boolean render(Renderer r, float ds) {
-        centre();
-        frame.inner().set(ren.body());
+        int x1 = C.WIDTH() / 2 - INNER_W / 2;
+        int y1 = C.HEIGHT() / 2 - INNER_H / 2;
+
+        Rec inner = frame.inner();
+        inner.setWidth(INNER_W);
+        inner.setHeight(INNER_H);
+        inner.moveX1(x1);
+        inner.moveY1(y1);
+
         frame.clickActionSet(exit); // draws the close (X) button and wires its click
         frame.render(r, ds);
-        ren.render(r, ds);
+        content.renderWithout(r, x1 + PAD, y1 + PAD); // content only (no nested panel), scrolls if tall
         return false; // top-most: stop VIEW from drawing the UI/foreground over us
     }
 

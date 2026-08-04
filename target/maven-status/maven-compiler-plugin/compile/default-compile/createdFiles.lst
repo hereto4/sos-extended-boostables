@@ -5,6 +5,7 @@ your\mod\MainScript$UmbrellaBooster.class
 your\mod\boostformat\BoostOrder$2.class
 your\mod\MainScript$1.class
 your\mod\boostformat\BoostOrder.class
+your\mod\vassal\VassalOpinionSpec.class
 your\mod\targetfilter\ParseWarningSuppressor.class
 your\mod\update\UpdateNotifier.class
 your\mod\MainScript$ClassTreatmentBooster$1.class
@@ -17,6 +18,7 @@ your\mod\boostformat\FormattedBooster.class
 your\mod\targetfilter\TargetFilters$2.class
 your\mod\update\UpdateNotifier$Config.class
 your\mod\boostformat\BoostFormats$1.class
+your\mod\update\UpdateNotifier$Notice.class
 your\mod\MainScript$NobleOfficeBooster$1.class
 your\mod\MainScript$2.class
 your\mod\MainScript.class

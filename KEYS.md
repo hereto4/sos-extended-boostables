@@ -46,11 +46,46 @@ whatever matching `ROOM_*` boostables exist at load — including rooms added by
 | Key | Display | Category | Effect |
 |---|---|---|---|
 | `CIVIC_INDOCTRINATION` | Indoctrination | Civics | Multiplies the **effectiveness of indoctrinating subjects** — i.e. how quickly subjects whose **(class, race) education policy** is `INDOCTRINATION` gain the `INDOCTRINATION` stat at **universities**. Implemented as a multiplicative factor on each university's learning-speed (`bonus()`) boostable, active only for subjects currently on the INDOCTRINATION policy (plain-education subjects are unaffected). Universities only — schools have no `bonus()` factor. |
+| `CIVIC_VASSAL_OPINION` | Vassal Loyalty | Civics | Adds **opinion points to factions that are currently your vassals**, and to nobody else. Every other faction — including one you are still negotiating vassalage with — is completely unaffected. Base value is `0`. |
 
 > **University-scoped.** Indoctrination is also gained by children in **Schools**, but schools compute
 > learning speed with no boostable factor, so school (child) indoctrination is **not** boosted — only
 > universities (adult indoctrination). The indoctrination policy itself is toggled per-race on the
 > school/university room UI; this key only amplifies it, it does not enable it.
+
+### `CIVIC_VASSAL_OPINION` — "Vassal Loyalty"
+
+Grant it from a tech (or race) `BOOST:` block with **`>ADD`**:
+
+```
+CIVIC_VASSAL_OPINION>ADD: 3,
+```
+
+> **Use `>ADD` only.** The base value is `0`, so `>MUL` parses fine but does nothing (`0 × n = 0`).
+> **Magnitude:** vanilla `CIVIC_OPINION`'s base is `1.5` and the vassal stance's reference opinion is
+> `6`, so **2–5** is the sensible band. Because vassals carry a hardcoded ×0.5 trust penalty (below), the
+> effective *trust* gain is roughly **half** the opinion you add.
+
+**What it actually does — read this before writing tooltip/mod-page copy.** It does **not** stop a vassal
+from leaving the stance: no opinion threshold does that. The engine degrades only Trade, Pact and Alliance
+stances when opinion falls; there is no vassal branch, and the vassal stance's minimum opinion is checked
+only when the vassalage deal is first *proposed*.
+
+What it does is **keep their trust above the point where they'd turn on you**:
+
+1. Opinion feeds **trust** at roughly 1:1.
+2. Vassals carry a **hardcoded ×0.5 trust penalty** — the engine models vassalage as breeding resentment,
+   so your vassals are half as trustworthy as anyone else at the same opinion. This key is the direct
+   counterweight to that penalty.
+3. A faction at **trust ≥ 1 will not move to war against you**, and trust shifts attack likelihood either
+   way below that.
+
+Side effects of raising real opinion (rather than trust alone): better gift/deal drafting and emissary
+targeting with that vassal, and more headroom to decline their tribute before it costs you.
+
+> **It will not help you *acquire* vassals.** The bonus is gated on "this faction's overlord is the
+> player", so it is inert on anyone you're still negotiating with. Use vanilla `CIVIC_OPINION` to reach
+> vassalage and `CIVIC_VASSAL_OPINION` to hold it — cleanly separable techs.
 
 ## Battle keys
 
@@ -199,8 +234,17 @@ offices are covered (an unrecognized office target falls into a generic `CLASS_N
 > **How it works.** For each office an additive `NobleOfficeBooster` is attached to the office's target
 > boostable, adding `officeContribution × (factor − 1)` (player-faction only) so the net office
 > contribution becomes `officeContribution × factor`. `factor` is the allocation-weighted average, across
-> the office's holders, of `clamp(CLASS_NOBLE_<CAT>) × clamp(CLASS_NOBLE_ALL)` read **per holder**. Exact
-> for buffs (`>MUL ≥ 1`); a close approximation for deflation combined with a multiplier on the same room bonus.
+> the office's holders, of `techBoost × contentment` read **per holder**, where
+> `techBoost = clamp(CLASS_NOBLE_<CAT>) × clamp(CLASS_NOBLE_ALL)`. Exact for buffs (`>MUL ≥ 1`); a close
+> approximation for deflation combined with a multiplier on the same room bonus.
+>
+> **Office effect scales with each noble's contentment.** Nobles have no engine happiness/loyalty stat, so
+> `contentment` is that noble's own **need-satisfaction** — the mean of `1 − level/max` over the three needs
+> `CLASS_NOBLE` governs (hunger/thirst/shopping), mapped linearly onto **[0.5, 1.0]** (fully satisfied → ×1.0,
+> chronically unmet → ×0.5). So a discontent noble runs their office worse **even with no tech** (a change
+> from vanilla, where office output is contentment-independent). This is what makes the `CLASS_NOBLE`
+> ("Contentment") key a **real cost**: authoring `CLASS_NOBLE>MUL:<1` speeds nobles' needs → they're
+> satisfied less often → their offices weaken. (Off-map Governors aren't need-simulated → treated as fully content.)
 >
 > **`TARGET_RACE` / `TARGET_CLASS`.** Because the factor is read with each **office-holding noble's**
 > `Induvidual`, a filtered grant only lifts the office effect of nobles that pass the filter (e.g.
@@ -366,6 +410,7 @@ BOOST: {
     ROOM_REFINER_ALL>MUL: 1.15,
     WORLD_PLUNDER>MUL: 2.0,
     CIVIC_INDOCTRINATION>MUL: 1.5,
+    CIVIC_VASSAL_OPINION>ADD: 3,
     STAT_WORK_RETIREMENT>MUL: 1.5,
 },
 ```

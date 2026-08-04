@@ -330,9 +330,24 @@ Adds new boostable keys to Songs of Syx (now v71.19, see [[v71-migration]]) that
    **allocation-weighted average over the office's HOLDING NOBLES** of `clamp(catKey.get(nobleIndu),0.5,1.5)
    * clamp(allKey.get(nobleIndu),0.5,1.5)`, read with each holder's `n.subject().indu()` so the filter
    matches the NOBLE (not the room's workers). `supplement()` iterates `GAME.NOBLE().active()` for nobles
-   whose `office()==this`, weight `slots=1+NOBLES.RANK_INCREASE*rank`. **Off-map Governor caveat:**
-   `n.subject()==null` → fall back to `.get(player)` (unfiltered), so a race-filtered `CLASS_NOBLE_GOVERNOR`
-   won't reach an off-map governor. (Only Governor `leavesMap()`; Master-of-X nobles stay on map.)
+   whose `office()==this`, weight `slots=1+NOBLES.RANK_INCREASE*rank`; **memoised per `GAME.updateI()` tick**
+   (hot per-worker read — mirrors the engine `Boo` cache). **Off-map Governor caveat:** `n.subject()==null`
+   → fall back to `.get(player)` (unfiltered), so a race-filtered `CLASS_NOBLE_GOVERNOR` won't reach an
+   off-map governor. (Only Governor `leavesMap()`; Master-of-X nobles stay on map.)
+
+   **CONTENTMENT → OFFICE SCALING (2026-08-03, user):** each holder's per-noble factor is now
+   `nobleEffFactor = techBoost × contentment(noble)`, where `techBoost = clamp(catKey)*clamp(allKey)` and
+   `contentment ∈ [NOBLE_CONTENT_FLOOR=0.5, 1.0]`. **Why:** the CLASS_NOBLE "Contentment" cost (need-rates)
+   was inert — nobles have **no engine happiness/loyalty** (`STANDINGS.java:34-35` builds StandingCitizen
+   only for CITIZEN + SLAVE, per-(class,race) aggregate, never per-Induvidual; nobles are outside both).
+   The one per-noble signal that exists and that CLASS_NOBLE already moves: their **need levels** (StatsNeeds
+   accumulates for all non-tourist Humanoids incl. nobles, `:167,171`). So `contentment(indu)` = mean of
+   `1 − level/max` over the 3 CLASS need STATs (`STATS.NEEDS().SNEEDS`, match `sn.need.rate.key` ∈
+   CLASS_RATE_TARGETS, read `sn.stat().indu().get/max(indu)`), mapped linearly onto [0.5,1]. Result: a
+   discontent noble runs their office worse **even with no tech** (a change from vanilla), and `CLASS_NOBLE>MUL:<1`
+   (faster needs → less satisfied) is finally a real cost that weakens the offices. Non-redundant with
+   CLASS_NOBLE_ALL (that's a flat tech mul; this is a dynamic per-noble gate on live need-satisfaction).
+   Off-map Governor → contentment 1.0 (needs not simulated). Built clean.
    **Timing OK:** NOBLES ctor at GAME.<init>:167 and `game=this` at :117, both before initBeforeGameInited(:173).
    **Re-entrancy safe:** office.value reads employment (not boostables); CLASS_NOBLE_* are distinct boostables
    from the target. **Accuracy:** additive supplement is exact for factor≥1 (buffs); slight under-scaling for

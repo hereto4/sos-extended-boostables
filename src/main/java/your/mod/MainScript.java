@@ -5,12 +5,16 @@ import game.GAME;
 import game.nobility.Noble;
 import game.nobility.NobleOffice;
 import game.nobility.NOBLES;
+import settlement.stats.colls.StatsNeeds;
 import game.battle.div.Div;
 import game.battle.thread.status.DivStatus;
 import game.faction.FACTIONS;
 import game.faction.Faction;
 import game.faction.npc.FactionNPC;
 import game.faction.player.Player;
+import game.faction.royalty.Royalty;
+import game.faction.royalty.opinion.ROPINION;
+import game.boosting.superb.SuperBoostable;
 import game.time.TIME;
 import init.constant.Config;
 import init.race.RACES;
@@ -112,6 +116,16 @@ public final class MainScript implements SCRIPT {
     // contribution by [CLASS_MIN, CLASS_MAX]: CLASS_NOBLE_<CATEGORY> scales the offices of one category,
     // CLASS_NOBLE_ALL scales every office (both stack multiplicatively, each clamped). See registerNobleOffices.
     private static final String CLASS_NOBLE_ALL_KEY = "CLASS_NOBLE_ALL";
+    // A noble's office effect scales with their own need-satisfaction ("contentment"): fully-satisfied =
+    // ×1.0, fully-discontent = ×NOBLE_CONTENT_FLOOR, linear between. This is what makes lowering
+    // CLASS_NOBLE ("Contentment", the need-rate key) a real cost — needier nobles run their offices worse.
+    private static final double NOBLE_CONTENT_FLOOR = 0.5;
+
+    // CIVIC_VASSAL_OPINION ("Vassal Loyalty"): additive opinion points that apply only to factions where
+    // DIP.overlord(...) == the player. Base 0 (inert until content grants it), authored with >ADD. The key
+    // is only a carrier — your.mod.vassal.VassalOpinionSpec, installed per game, is what reads it and feeds
+    // it into the per-royalty opinion pipeline. See SPEC_VASSAL_OPINION.md / KEYS.md.
+    private static final String VASSAL_OPINION_KEY = "CIVIC_VASSAL_OPINION";
 
     /** Vanilla raid loots once every this many seconds of raiding (WArmyState.raiding accumulator). */
     private static final double RAID_PERIOD = 120.0;
@@ -254,6 +268,18 @@ public final class MainScript implements SCRIPT {
     /** CIVIC_INDOCTRINATION, resolved at init; null until then. */
     private Boostable civicIndoctrination;
 
+    /** CIVIC_VASSAL_OPINION, resolved at init; null until then. */
+    private Boostable vassalOpinion;
+
+    /**
+     * The {@code SuperBoostable<Royalty>} our vassal-opinion spec is currently installed on. Identity
+     * guard only: {@code SuperBoostables} is rebuilt in the GAME constructor ({@code GAME.java:139}), so
+     * every new game / load hands us a fresh object and we install again; if a future engine version ever
+     * reuses the instance across {@code createInstance()} calls, this stops the spec stacking and doubling
+     * the bonus. See {@code SPEC_VASSAL_OPINION.md} §6.1.
+     */
+    private SuperBoostable<Royalty> vassalOpinionInstalledOn;
+
     /** Per-army raid accumulators, mirroring WArmy.stateFloat for player raiders only. */
     private final IdentityHashMap<WArmy, Double> raidTimers = new IdentityHashMap<>();
     private final Set<WArmy> seenRaiders = Collections.newSetFromMap(new IdentityHashMap<WArmy, Boolean>());
@@ -386,6 +412,17 @@ public final class MainScript implements SCRIPT {
               + "monuments or natural trees to fulfill this service. Fulfilling this service grants "
               + "Piety (Shrine) fulfillment.",
                 UI.icons().s.sprout, NEEDS.bCat(), 1.0, NATURE_MIN);
+
+        // CIVIC_VASSAL_OPINION ("Vassal Loyalty"): additive opinion points applied ONLY to factions that
+        // are currently the player's vassals. Base 0 so it is a pure no-op until content grants it; author
+        // with >ADD (>MUL is meaningless against base 0). The key itself is inert — the consumer is the
+        // per-game VassalOpinionSpec installed from createInstance() (see installVassalOpinion).
+        // Magnitude: CIVIC_OPINION's base is 1.5 and the vassal stance's reference threshold is 6, so 2-5
+        // is the plausible authoring band. Full design: SPEC_VASSAL_OPINION.md.
+        vassalOpinion = ensureBoostable(VASSAL_OPINION_KEY, "VASSAL_OPINION", "Vassal Loyalty",
+                "Raises the opinion of factions that are your vassals, keeping their trust above the point "
+              + "where they would turn on you.",
+                UI.icons().s.noble, BOOSTABLES.CIVICS(), 0.0);
 
         // CLASS_* "Class Treatment" registration (un-shelved 2026-07-11). New "CLASS_" BoostableCat
         // (prefix applied by BOOSTING.push). In-game names follow "<ClassName-plural> (<aspect>)" ->
@@ -858,8 +895,30 @@ public final class MainScript implements SCRIPT {
         return new String[] { "OFFICE", "Offices" };
     }
 
+    /**
+     * Installs the {@code CIVIC_VASSAL_OPINION} contribution onto this game's per-royalty opinion
+     * pipeline. Must run from {@link #createInstance()} — "called once when leaving the main menu, and
+     * once for every game load" ({@code script/SCRIPT.java:46-51}) — and NOT from
+     * {@code initBeforeGameInited()}: {@code SuperBoostables} is constructed inside the GAME constructor
+     * ({@code GAME.java:139}), so a spec installed at init time would attach to an object that is about to
+     * be thrown away.
+     *
+     * <p>Constructing the spec IS the registration ({@code self.all.add(this)},
+     * {@code SuperSpec.java:32}); the identity guard is what stops a second install stacking a second
+     * copy. See {@code SPEC_VASSAL_OPINION.md} §6.
+     */
+    private void installVassalOpinion() {
+        if (vassalOpinion == null) return;                 // key registration failed; stay inert
+        SuperBoostable<Royalty> target = ROPINION.BOOST(); // == GAME.BOOSTS().OPINION, fresh per GAME
+        if (target == null || target == vassalOpinionInstalledOn) return;
+        vassalOpinionInstalledOn = target;
+        new your.mod.vassal.VassalOpinionSpec(target, vassalOpinion,
+                new BSourceInfo("Vassal Loyalty", UI.icons().s.noble));
+    }
+
     @Override
     public SCRIPT_INSTANCE createInstance() {
+        installVassalOpinion();
         return new SCRIPT_INSTANCE() {
             private double timer = 0;
             /** One-shot guard for the "mod updated" event window; keeps retrying until VIEW is ready. */
@@ -1497,12 +1556,20 @@ public final class MainScript implements SCRIPT {
      * An <b>additive</b> factor placed on a noble office's target boostable (a room's {@code bonus()}, or
      * {@code CIVIC_GOV} for the Governor) that scales ONLY that office's own contribution. The office adds
      * {@code C = office.add * clamp(office.value(allocations),0,1)} to the target; this booster adds the
-     * supplement {@code C * (factor − 1)} so the net office part becomes {@code C * factor}, where
-     * {@code factor = clamp(catKey,[MIN,MAX]) * clamp(allKey,[MIN,MAX])}. Player-faction only; neutral
-     * {@code 0} for NPC factions (so only the player's offices are scaled). Uses {@link BValue.BValueFaction}
-     * exactly like the engine's own office booster, so the supplement reaches the per-worker reads. The
-     * office's {@code value()}/{@code allocations} read employment/noble state (never boostables), and the
-     * two CLASS keys are distinct boostables from the target, so evaluating this inside the target's read is
+     * supplement {@code C * (avgFactor − 1)} so the net office part becomes {@code C * avgFactor}, the
+     * allocation-weighted mean over the office's holders of {@code effFactor(noble) = techBoost × contentment}:
+     * <ul>
+     *   <li>{@code techBoost = clamp(catKey,[MIN,MAX]) * clamp(allKey,[MIN,MAX])} — the CLASS_NOBLE_&lt;CAT&gt;
+     *       and CLASS_NOBLE_ALL tech multipliers.</li>
+     *   <li>{@code contentment} — the noble's own need-satisfaction in [{@link #NOBLE_CONTENT_FLOOR}, 1]. So a
+     *       discontent noble runs their office worse, and lowering {@code CLASS_NOBLE} (which speeds their
+     *       needs) is a real cost. This is what nobles have instead of a happiness/loyalty stat.</li>
+     * </ul>
+     * Player-faction only; neutral {@code 0} for NPC factions (so only the player's offices are scaled). Uses
+     * {@link BValue.BValueFaction} exactly like the engine's own office booster, so the supplement reaches the
+     * per-worker reads, and it is memoised per update-tick ({@link #supplement}). The office's
+     * {@code value()}/{@code allocations} read employment/noble state, {@code contentment} reads need STATs, and
+     * the CLASS keys are distinct boostables from the target — so evaluating this inside the target's read is
      * re-entrancy-safe. {@code from()/to()} are 0 so the booster stays out of the displayed min/max range.
      *
      * <p><b>TARGET_RACE / TARGET_CLASS.</b> The scaling factor is evaluated against the OFFICE-HOLDING
@@ -1518,6 +1585,8 @@ public final class MainScript implements SCRIPT {
         private final Boostable catKey;   // CLASS_NOBLE_<CATEGORY>
         private final Boostable allKey;   // CLASS_NOBLE_ALL
         private final BValue value;
+        private int cachedTick = Integer.MIN_VALUE;   // per-update-tick memo (like the engine's own Boo)
+        private double cachedSupp = 0.0;
 
         NobleOfficeBooster(NobleOffice office, Boostable catKey, Boostable allKey) {
             super(new BSourceInfo("" + office.name, office.target.nativeIcon), false); // additive
@@ -1530,13 +1599,25 @@ public final class MainScript implements SCRIPT {
             };
         }
 
+        /** Per-update-tick memo of {@link #computeSupplement} — this booster sits on a hot per-worker
+         *  read, so recompute at most once per game update (mirrors {@code BoostCompound.Boo}'s caching). */
+        private double supplement() {
+            int tick = GAME.updateI();
+            if (tick != cachedTick) {
+                cachedTick = tick;
+                cachedSupp = computeSupplement();
+            }
+            return cachedSupp;
+        }
+
         /**
          * {@code officeContribution * (avgFactor − 1)} for the player — the amount to ADD to the target,
          * so the net office contribution becomes {@code officeContribution * avgFactor}. {@code avgFactor}
-         * is the allocation-weighted mean of each holding noble's {@link #nobleFactor}, so race/class
-         * filters that only pass some holders scale the office proportionally.
+         * is the allocation-weighted mean of each holding noble's {@link #nobleEffFactor} (tech boost ×
+         * that noble's contentment), so race/class filters and per-noble discontent both scale the office
+         * proportionally.
          */
-        private double supplement() {
+        private double computeSupplement() {
             NOBLES nob = GAME.NOBLE();
             if (nob == null) return 0.0;
             int totalSlots = nob.allocations(office);
@@ -1544,12 +1625,12 @@ public final class MainScript implements SCRIPT {
             double contribution = office.add * CLAMP.d(office.value(totalSlots), 0.0, 1.0);
             if (contribution == 0.0) return 0.0;
 
-            double weighted = 0.0;   // Σ slots(n) * nobleFactor(n)
+            double weighted = 0.0;   // Σ slots(n) * nobleEffFactor(n)
             int counted = 0;         // Σ slots(n)  (== totalSlots barring cache lag)
             for (Noble n : nob.active()) {
                 if (n.office() != office) continue;
                 int slots = 1 + NOBLES.RANK_INCREASE * n.rank();
-                weighted += slots * nobleFactor(n);
+                weighted += slots * nobleEffFactor(n);
                 counted += slots;
             }
             if (counted <= 0) return 0.0;
@@ -1557,13 +1638,53 @@ public final class MainScript implements SCRIPT {
             return contribution * (avgFactor - 1.0);
         }
 
-        /** Clamped CLASS_NOBLE factor for one holder, read with that noble's Induvidual so race/class
-         *  filters apply; off-map holders fall back to the unfiltered player value. */
-        private double nobleFactor(Noble n) {
+        /**
+         * Effective factor for one holder = tech boost × contentment. The tech boost is
+         * {@code clamp(catKey) * clamp(allKey)} read with the noble's {@code Induvidual} so
+         * TARGET_RACE/TARGET_CLASS filters match the noble; contentment is that noble's own need-satisfaction
+         * in [{@link #NOBLE_CONTENT_FLOOR}, 1]. Off-map holders (a Governor who left the map) fall back to
+         * the unfiltered player value and are treated as fully content (their needs aren't simulated).
+         */
+        private double nobleEffFactor(Noble n) {
             Humanoid h = n.subject();
-            BOOSTABLE_O ctx = (h != null) ? h.indu() : FACTIONS.player();
-            return CLAMP.d(catKey.get(ctx), CLASS_MIN, CLASS_MAX)
-                    * CLAMP.d(allKey.get(ctx), CLASS_MIN, CLASS_MAX);
+            if (h == null) {
+                return CLAMP.d(catKey.get(FACTIONS.player()), CLASS_MIN, CLASS_MAX)
+                        * CLAMP.d(allKey.get(FACTIONS.player()), CLASS_MIN, CLASS_MAX);
+            }
+            Induvidual ind = h.indu();
+            double tech = CLAMP.d(catKey.get(ind), CLASS_MIN, CLASS_MAX)
+                    * CLAMP.d(allKey.get(ind), CLASS_MIN, CLASS_MAX);
+            return tech * contentment(ind);
+        }
+
+        /**
+         * A noble's contentment in [{@link #NOBLE_CONTENT_FLOOR}, 1], from their satisfaction of the three
+         * needs {@code CLASS_NOBLE} governs (hunger/thirst/shopping): each need's satisfaction is
+         * {@code 1 - level/max}; the mean maps linearly onto [floor, 1]. Nobles have no engine
+         * happiness/loyalty stat, so their unmet-need levels (computed per-subject by {@code StatsNeeds})
+         * are the contentment signal — and the same axis {@code CLASS_NOBLE} moves via the need rates.
+         */
+        private static double contentment(Induvidual ind) {
+            StatsNeeds needs = STATS.NEEDS();
+            if (needs == null) return 1.0;
+            double satSum = 0.0;
+            int n = 0;
+            for (StatsNeeds.StatNeedNormal sn : needs.SNEEDS) {
+                if (!isClassRateKey(sn.need.rate.key)) continue;   // only the CLASS_NOBLE need axis
+                int max = sn.stat().indu().max(ind);
+                if (max <= 0) continue;
+                double unmet = CLAMP.d((double) sn.stat().indu().get(ind) / max, 0.0, 1.0);
+                satSum += 1.0 - unmet;
+                n++;
+            }
+            double avgSat = (n > 0) ? satSum / n : 1.0;   // no needs found → treat as content
+            return NOBLE_CONTENT_FLOOR + (1.0 - NOBLE_CONTENT_FLOOR) * avgSat;
+        }
+
+        /** True if {@code key} is one of {@link #CLASS_RATE_TARGETS} (the hunger/thirst/shopping rates). */
+        private static boolean isClassRateKey(String key) {
+            for (String k : CLASS_RATE_TARGETS) if (k.equals(key)) return true;
+            return false;
         }
 
         @Override
