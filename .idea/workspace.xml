@@ -4,16 +4,14 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="7a96583c-c7b8-4ffb-8620-4d12c75a9672" name="Changes" comment="CLASS_* + booster coloring FINAL">
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-    </list>
+    <list default="true" id="7a96583c-c7b8-4ffb-8620-4d12c75a9672" name="Changes" comment="wip" />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
     <option name="LAST_RESOLUTION" value="IGNORE" />
   </component>
   <component name="EmbeddingIndexingInfo">
-    <option name="cachedIndexableFilesCount" value="13371" />
+    <option name="cachedIndexableFilesCount" value="13372" />
   </component>
   <component name="Git.Settings">
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
@@ -316,7 +314,15 @@
       <option name="project" value="LOCAL" />
       <updated>1785598481415</updated>
     </task>
-    <option name="localTasksCounter" value="28" />
+    <task id="LOCAL-00028" summary="wip">
+      <option name="closed" value="true" />
+      <created>1785839388111</created>
+      <option name="number" value="00028" />
+      <option name="presentableId" value="LOCAL-00028" />
+      <option name="project" value="LOCAL" />
+      <updated>1785839388111</updated>
+    </task>
+    <option name="localTasksCounter" value="29" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -346,7 +352,6 @@
     <MESSAGE value="v1.2.4 - fixed CIVIC_INDOCTRINATION, moved plunder to WORLD_PLUNDER" />
     <MESSAGE value="+unversioned files" />
     <MESSAGE value="deployed WORLD_PRODUCTION_SLAVE_ALL" />
-    <MESSAGE value="wip" />
     <MESSAGE value="RATES_HUNGER (and other?)" />
     <MESSAGE value="SteamDesc rewrite (final)" />
     <MESSAGE value="SteamDesc tweaks" />
@@ -354,6 +359,7 @@
     <MESSAGE value="UpdateWindow FINAL" />
     <MESSAGE value="CLASS_* setup + booster coloring rework" />
     <MESSAGE value="CLASS_* + booster coloring FINAL" />
-    <option name="LAST_COMMIT_MESSAGE" value="CLASS_* + booster coloring FINAL" />
+    <MESSAGE value="wip" />
+    <option name="LAST_COMMIT_MESSAGE" value="wip" />
   </component>
 </project>

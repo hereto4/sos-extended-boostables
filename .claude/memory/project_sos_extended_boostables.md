@@ -267,12 +267,12 @@ Adds new boostable keys to Songs of Syx (now v71.19, see [[v71-migration]]) that
    only needs to be in the map before `init.finish()` resolves REQUIRES promises (initBeforeGameInited window).
    Consumed by Create-A-Culture's monorace techs. Full analysis in [[v71-migration]].
 
-8. `CLASS_<CLASS>[_<ROOMTYPE>]` "Class Treatment" keys — **LIVE. Currently registered: `CLASS_CITIZEN` +
-   `CLASS_CITIZEN_MINE` ("Plebeians (Needs)/(Mining)"), `CLASS_SLAVE` + `CLASS_SLAVE_MINE` ("Slaves
-   (Needs)/(Mining)"), and `CLASS_NOBLE` ("Nobles (Needs)" — display overridden from the awkward vanilla plural "Nobilities" via the `classDisplayName` helper).** `CLASS_NOBLE` is **needs-only by design
-   — no per-room variants** (nobles don't work rooms; to be elaborated later). Staged as commented
-   one-liner `registerClassKey` calls: the other room types (`_FARM`/`_REFINER`/`_WORKSHOP`) for CITIZEN
-   and SLAVE. History: added 2026-07-02 (CITIZEN test), expanded 2026-07-04 to the room-typed family,
+8. `CLASS_<CLASS>[_<ROOMTYPE>]` "Class Treatment" keys — **LIVE. Full CITIZEN + SLAVE sets registered
+   2026-08-04: `CLASS_<C>` (Contentment, inverted need-rates), `CLASS_<C>_MINE/_FARM/_REFINER/_WORKSHOP`
+   (each → its `ROOM_<TYPE>_ALL` umbrella), and `CLASS_<C>_ALL` ("All Work" — targets all four umbrellas at
+   once via new helper `registerClassAllKey`).** `CLASS_NOBLE` ("Nobles (Contentment)"; display overridden
+   from vanilla "Nobilities" via `classDisplayName`) has **no per-room variants** — nobles get per-OFFICE
+   keys instead (see below). History: added 2026-07-02 (CITIZEN test), expanded 2026-07-04 to the room-typed family,
    SHELVED 2026-07-04 after confirming CITIZEN worked in-game, un-shelved + expanded to SLAVE 2026-07-11,
    NOBLE added 2026-07-29. Class accessors are all player classes: `HCLASSES.CITIZEN()`.names="Plebeians",
    `.SLAVE()`.names="Slaves", `.NOBLE()`.names="Nobilities". Built clean v71.40; SLAVE + NOBLE gameplay
@@ -353,8 +353,27 @@ Adds new boostable keys to Songs of Syx (now v71.19, see [[v71-migration]]) that
    from the target. **Accuracy:** additive supplement is exact for factor≥1 (buffs); slight under-scaling for
    factor<1 combined with a MUL on the same room bonus (reduction lands in engine `sub` pool, unmultiplied) —
    accepted, WORLD_PLUNDER-style. **GOVERNOR key scales `CIVIC_GOV`** (user opted in; see [[cac-prrr-govpoints-conflict]]).
-   Built clean v71.40. **In-game: `CLASS_NOBLE_ALL` CONFIRMED working 2026-07-29.** Per-category
-   `CLASS_NOBLE_<OFFICE>` keys and the TARGET_RACE per-holder filtering still unverified in-game.
+   Built clean v71.40. **In-game DIAGNOSTIC 2026-08-04 — the mechanism WORKS.** Log line proved: for
+   office "Master of Herb Farms" (target `ROOM_FARM_HERB`), `computeSupplement` found the holder
+   (counted=1), read catKey/allKey correctly, and produced `supplement=-0.641` from the noble's
+   `contentment=0.74` (unboosted) — i.e. a discontent noble already reduces that office's contribution
+   2.5→1.86. So the supplement reaches the room bonus and contentment scaling is live. **Why it looked
+   inert:** the effect lands on the room's `bonus()` (shows in the ROOM's production-boost breakdown /
+   actual output), but the **noble office panel renders `NobleOffice.hoverValue` = `value×add`, computed
+   directly from the office and bypassing all boosters — so no boostable-based effect can EVER show there.**
+   The per-type→per-room mapping is fine (CLASS_NOBLE_FARM correctly hit the per-room Herb-Farms office).
+   Lifecycle ruled out: `game=this`(GAME:117) → NOBLES(:167) → initBeforeGameInited(:173) →
+   createInstance(:187), all one instance, so captured `office` refs are live. **Display: the noble office
+   PANEL (`NobleOffice.hoverValue`) renders `value×add` directly and CANNOT be augmented cleanly** (no
+   booster seam; only bytecode-patching, which is the dead javassist route). So visibility lives in the
+   ROOM's production-boost breakdown (`IndustryUtil.hoverBoosts` lists every additive booster on the room
+   bonus by name — user-confirmed the modifier shows there). **Two-line split (2026-08-04):** each office
+   now gets TWO `NobleOfficeBooster`s (a `contentmentPart` flag) so the room breakdown itemises **"Noble
+   Contentment"** = `C*(avgContent-1)` and **"Noble Class Boost"** = `C*(avgEff-avgContent)`; they sum to
+   the net `C*(avgEff-1)`. `avgContent`/`avgEff` = allocation-weighted means of contentment and of
+   tech×contentment over holders. Diagnostic logging removed. **CONFIRMED WORKING in-game 2026-08-04
+   (two lines show in the room production breakdown; contentment penalty + class boost behave as designed).
+   The whole CLASS_NOBLE office system (per-office keys + ALL + contentment scaling) is done.**
 
 9. **`TARGET_RACE` / `TARGET_CLASS` tech-scoping keys** — **moved into this mod 2026-07-24 from the
    former standalone `target-race-tech` mod, and generalized to add `TARGET_CLASS`.** These are NOT

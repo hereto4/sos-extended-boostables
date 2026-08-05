@@ -237,12 +237,13 @@ public final class UpdateNotifier {
  */
 final class UpdateNoticeWindow extends Interrupter {
 
-    /** Fixed inner size of the window (px, in the game's virtual UI resolution). Deliberately large. */
-    private static final int INNER_W = 900;
-    private static final int INNER_H = 560;
-    /** Inner padding between the frame and the text, and scale applied to all text. */
+    /** Fixed inner size of the window (px, in the game's virtual UI resolution) — roomy but not huge. */
+    private static final int INNER_W = 680;
+    private static final int INNER_H = 480;
+    /** Inner padding between the frame and the text. */
     private static final int PAD = 20;
-    private static final double SCALE = 1.5;
+    /** Text scale — 1.0 = the game's natural font sizes (the window is enlarged, not the text). */
+    private static final double SCALE = 1.0;
     /** Extra vertical gap after a blank-line spacer / after a heading. */
     private static final int SPACER_GAP = 14;
     private static final int HEADING_GAP = 6;
@@ -267,7 +268,7 @@ final class UpdateNoticeWindow extends Interrupter {
                 content.sep();
                 content.NL(SPACER_GAP);
             }
-            addLine(n.title, UI.FONT().H1, GCOLOR.T().H1, SCALE + 0.4, HEADING_GAP);
+            addLine(n.title, UI.FONT().H1, GCOLOR.T().H1, SCALE, HEADING_GAP);
             content.sep();
             buildContent(n.lines);
         }

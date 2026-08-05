@@ -95,7 +95,19 @@ public final class MainScript implements SCRIPT {
     // WORLD_PRODUCTION_SLAVE_ALL: an umbrella over the per-race WORLD_PRODUCTION_SLAVE_<RACE> region-output
     // keys (same cascade pattern as ROOM_*_ALL). Excludes the hidden WORLD_PRODUCTION_SLAVE_<RACE>_YEARLY
     // display-derivative variants (per user, 2026-07-05).
-    private static final String SLAVE_PRODUCTION_ALL_KEY = "WORLD_PRODUCTION_SLAVE_ALL";
+    // NOTE: renamed 2026-08-02 from SLAVE_PRODUCTION_ALL_KEY to match its own value — the engine has a
+    // SEPARATE "SLAVE_PRODUCTION_" family (see CAPTIVE_ALL_KEY below) and the old constant name pointed at
+    // the wrong one of the two.
+    private static final String WORLD_PRODUCTION_SLAVE_ALL_KEY = "WORLD_PRODUCTION_SLAVE_ALL";
+
+    // SLAVE_PRODUCTION_ALL: an umbrella over the per-race SLAVE_PRODUCTION_<RACE> keys — the engine's
+    // "Captives" family (Recipes.boostsSlave, prefix "SLAVE_PRODUCTION_", TYPE_WORLD), i.e. a region's
+    // ability/target for producing captives of that race. This is a DIFFERENT family from
+    // WORLD_PRODUCTION_SLAVE_<RACE> above (daily/yearly slave *production* output); the game ships both and
+    // they are easy to confuse. Children are pushed one per RACES.all() with base 1
+    // (Creator.java:109-132), so the umbrella is multiplicative like the ROOM_*_ALL ones and there are no
+    // "_YEARLY" derivatives to exclude.
+    private static final String CAPTIVE_ALL_KEY = "SLAVE_PRODUCTION_ALL";
 
     // CLASS_<CLASS>[_<ROOMTYPE>] "Class Treatment" keys (un-shelved 2026-07-11; CITIZEN + SLAVE live).
     // A conditional multiplicative factor applied to selected per-subject boostables, but ONLY for
@@ -374,9 +386,22 @@ public final class MainScript implements SCRIPT {
         // region-output keys (dynamically discovered, so new races are auto-included). Registered under the
         // engine's World: Production category (prefix "WORLD_" -> key WORLD_PRODUCTION_SLAVE_ALL). The
         // hidden per-race "_YEARLY" display-derivative variants are excluded (per user).
-        registerUmbrellaCascade(SLAVE_PRODUCTION_ALL_KEY, "PRODUCTION_SLAVE_ALL", "Production: Slaves (All)",
+        registerUmbrellaCascade(WORLD_PRODUCTION_SLAVE_ALL_KEY, "PRODUCTION_SLAVE_ALL", "Production: Slaves (All)",
                 "WORLD_PRODUCTION_SLAVE_", "Affects the production of slaves (all races).",
                 BoostableCat.ALL().WORLD_PRODUCTION, "_YEARLY");
+
+        // SLAVE_PRODUCTION_ALL umbrella: cascades to the per-race SLAVE_PRODUCTION_<RACE> "Captives" keys.
+        // Registered into the engine's OWN category for that family (SETT.RECIPES().boostsSlave, whose
+        // prefix is "SLAVE_PRODUCTION_"), so the push key is just "ALL" -> full key SLAVE_PRODUCTION_ALL,
+        // and the umbrella groups with its children under "Captives" in the World boost panel instead of
+        // creating a near-duplicate category. Children are discovered dynamically, so races added by other
+        // mods are auto-included. No excludeSuffix: unlike WORLD_PRODUCTION_SLAVE_*, this family has no
+        // "_YEARLY" display derivatives — every key under the prefix is a real per-race child.
+        // Safe at this hook: SETT (and its Recipes field, which pushes the children) is constructed in the
+        // GAME ctor at GAME.java:143, before initBeforeGameInited() at GAME.java:173.
+        registerUmbrellaCascade(CAPTIVE_ALL_KEY, "ALL", "Captives (All)",
+                "SLAVE_PRODUCTION_", "Affects the ability to produce captives of every race at once.",
+                SETT.RECIPES().boostsSlave, null);
 
         // ===== STAT_WORK_RETIREMENT DISABLED (2026-06-27) — see note on the constants block =====
         // STAT_* prefix. New BoostableCat whose prefix is "STAT_"; push key "WORK_RETIREMENT"
@@ -431,18 +456,22 @@ public final class MainScript implements SCRIPT {
         // umbrella (registered just above, so it already exists).
         BoostableCat classCat = new BoostableCat("CLASS_", "Class Treatment", "",
                 BoostableCat.TYPE_SETT, UI.icons().s.human);
-        // CITIZEN (Plebeians): needs + mining live; other room types staged after in-game validation.
-        registerClassKey(classCat, HCLASSES.CITIZEN(), null, null, null);                    // "Plebeians (Needs)"
-        registerClassKey(classCat, HCLASSES.CITIZEN(), "MINE", MINE_ALL_KEY, "Mining");       // "Plebeians (Mining)"
-        // registerClassKey(classCat, HCLASSES.CITIZEN(), "FARM", FARM_ALL_KEY, "Farming");
-        // registerClassKey(classCat, HCLASSES.CITIZEN(), "REFINER", REFINER_ALL_KEY, "Refining");
-        // registerClassKey(classCat, HCLASSES.CITIZEN(), "WORKSHOP", WORKSHOP_ALL_KEY, "Crafting");
-        // SLAVE (Slaves): added 2026-07-11, mirroring the CITIZEN live set.
-        registerClassKey(classCat, HCLASSES.SLAVE(), null, null, null);                      // "Slaves (Needs)"
-        registerClassKey(classCat, HCLASSES.SLAVE(), "MINE", MINE_ALL_KEY, "Mining");         // "Slaves (Mining)"
-        // registerClassKey(classCat, HCLASSES.SLAVE(), "FARM", FARM_ALL_KEY, "Farming");
-        // registerClassKey(classCat, HCLASSES.SLAVE(), "REFINER", REFINER_ALL_KEY, "Refining");
-        // registerClassKey(classCat, HCLASSES.SLAVE(), "WORKSHOP", WORKSHOP_ALL_KEY, "Crafting");
+        // CITIZEN (Plebeians): contentment key + the full room-output set (2026-08-04).
+        registerClassKey(classCat, HCLASSES.CITIZEN(), null, null, null);                    // "Plebeians (Contentment)"
+        registerClassKey(classCat, HCLASSES.CITIZEN(), "MINE", MINE_ALL_KEY, "Mining");
+        registerClassKey(classCat, HCLASSES.CITIZEN(), "FARM", FARM_ALL_KEY, "Farming");
+        registerClassKey(classCat, HCLASSES.CITIZEN(), "REFINER", REFINER_ALL_KEY, "Refining");
+        registerClassKey(classCat, HCLASSES.CITIZEN(), "WORKSHOP", WORKSHOP_ALL_KEY, "Crafting");
+        registerClassAllKey(classCat, HCLASSES.CITIZEN(), "All Work",
+                MINE_ALL_KEY, FARM_ALL_KEY, REFINER_ALL_KEY, WORKSHOP_ALL_KEY);              // "Plebeians (All Work)"
+        // SLAVE (Slaves): same full set (2026-08-04).
+        registerClassKey(classCat, HCLASSES.SLAVE(), null, null, null);                      // "Slaves (Contentment)"
+        registerClassKey(classCat, HCLASSES.SLAVE(), "MINE", MINE_ALL_KEY, "Mining");
+        registerClassKey(classCat, HCLASSES.SLAVE(), "FARM", FARM_ALL_KEY, "Farming");
+        registerClassKey(classCat, HCLASSES.SLAVE(), "REFINER", REFINER_ALL_KEY, "Refining");
+        registerClassKey(classCat, HCLASSES.SLAVE(), "WORKSHOP", WORKSHOP_ALL_KEY, "Crafting");
+        registerClassAllKey(classCat, HCLASSES.SLAVE(), "All Work",
+                MINE_ALL_KEY, FARM_ALL_KEY, REFINER_ALL_KEY, WORKSHOP_ALL_KEY);              // "Slaves (All Work)"
         // NOBLE (Nobles): the bare needs key (no per-room variants — nobles don't work rooms). Added
         // 2026-07-29; display "Nobles (Needs)".
         registerClassKey(classCat, HCLASSES.NOBLE(), null, null, null);
@@ -779,6 +808,25 @@ public final class MainScript implements SCRIPT {
     }
 
     /**
+     * Registers a {@code CLASS_<CLASS>_ALL} room-output key that scales this class's output across MANY room
+     * umbrellas at once (the citizen/slave analogue of {@code CLASS_NOBLE_ALL}) — e.g. all Mines + Farms +
+     * Refineries + Workshops. Output-only (no need rates), capped like the other room-typed keys. Each
+     * {@code roomAllKeys} entry is a {@code ROOM_<TYPE>_ALL} umbrella; missing/zero-base ones are skipped by
+     * {@code registerClassTreatment}.
+     */
+    private void registerClassAllKey(BoostableCat cat, HCLASS hclass, String activity, String... roomAllKeys) {
+        String pushKey = hclass.key + "_ALL";
+        String fullKey = "CLASS_" + pushKey;
+        String label = classDisplayName(hclass);
+        String display = label + " (" + activity + ")";
+        String desc = "Multiplies your " + label + "' output across all Mines, Farms, Refineries, and Workshops.";
+        Boostable key = ensureBoostable(fullKey, pushKey, display, desc, UI.icons().s.human, cat);
+        if (key != null) {
+            registerClassTreatment(key, hclass, roomAllKeys, display, CLASS_MAX, false); // output-only, not inverted
+        }
+    }
+
+    /**
      * Installs a CLASS_&lt;CLASS&gt; "Class Treatment" effect: attaches a conditional multiplicative
      * {@link ClassTreatmentBooster} to each named target boostable. The booster scales the target only for
      * subjects whose {@link HCLASS} matches {@code hclass} (per the employee/subject {@code Induvidual} the
@@ -861,7 +909,10 @@ public final class MainScript implements SCRIPT {
                 catKeys.put(token, catKey);
             }
             if (catKey == null || allKey == null) continue;
-            new NobleOfficeBooster(office, catKey, allKey).add(office.target);
+            // Two additive display lines on the room's production breakdown: the contentment penalty and the
+            // CLASS_NOBLE tech boost, itemised separately (they sum to the net office scaling).
+            new NobleOfficeBooster(office, catKey, allKey, true).add(office.target);   // "Noble Contentment"
+            new NobleOfficeBooster(office, catKey, allKey, false).add(office.target);  // "Noble Class Boost"
             attached++;
         }
         System.out.println("[sos-extended-boostables] CLASS_NOBLE offices: " + catKeys.size()
@@ -1555,9 +1606,12 @@ public final class MainScript implements SCRIPT {
     /**
      * An <b>additive</b> factor placed on a noble office's target boostable (a room's {@code bonus()}, or
      * {@code CIVIC_GOV} for the Governor) that scales ONLY that office's own contribution. The office adds
-     * {@code C = office.add * clamp(office.value(allocations),0,1)} to the target; this booster adds the
-     * supplement {@code C * (avgFactor − 1)} so the net office part becomes {@code C * avgFactor}, the
-     * allocation-weighted mean over the office's holders of {@code effFactor(noble) = techBoost × contentment}:
+     * {@code C = office.add * clamp(office.value(allocations),0,1)} to the target. Each office gets TWO of
+     * these boosters (a {@code contentmentPart} flag), so the room's production breakdown shows the effect
+     * as two labelled additive lines — "Noble Contentment" = {@code C*(avgContent−1)} and "Noble Class Boost"
+     * = {@code C*(avgEff−avgContent)} — that sum to the true net {@code C*(avgEff−1)}. {@code avgContent} and
+     * {@code avgEff} are the allocation-weighted means over the office's holders of {@code contentment} and of
+     * {@code techBoost × contentment}:
      * <ul>
      *   <li>{@code techBoost = clamp(catKey,[MIN,MAX]) * clamp(allKey,[MIN,MAX])} — the CLASS_NOBLE_&lt;CAT&gt;
      *       and CLASS_NOBLE_ALL tech multipliers.</li>
@@ -1584,15 +1638,18 @@ public final class MainScript implements SCRIPT {
         private final NobleOffice office;
         private final Boostable catKey;   // CLASS_NOBLE_<CATEGORY>
         private final Boostable allKey;   // CLASS_NOBLE_ALL
+        private final boolean contentmentPart; // true = "Noble Contentment" line; false = "Noble Class Boost" line
         private final BValue value;
         private int cachedTick = Integer.MIN_VALUE;   // per-update-tick memo (like the engine's own Boo)
         private double cachedSupp = 0.0;
 
-        NobleOfficeBooster(NobleOffice office, Boostable catKey, Boostable allKey) {
-            super(new BSourceInfo("" + office.name, office.target.nativeIcon), false); // additive
+        NobleOfficeBooster(NobleOffice office, Boostable catKey, Boostable allKey, boolean contentmentPart) {
+            super(new BSourceInfo(contentmentPart ? "Noble Contentment" : "Noble Class Boost",
+                    contentmentPart ? UI.icons().s.human : UI.icons().s.noble), false); // additive, display line
             this.office = office;
             this.catKey = catKey;
             this.allKey = allKey;
+            this.contentmentPart = contentmentPart;
             this.value = new BValue.BValueFaction(office.target) {
                 @Override public double vGet(Player f) { return supplement(); }
                 @Override public double vGet(FactionNPC f) { return 0.0; }
@@ -1625,36 +1682,44 @@ public final class MainScript implements SCRIPT {
             double contribution = office.add * CLAMP.d(office.value(totalSlots), 0.0, 1.0);
             if (contribution == 0.0) return 0.0;
 
-            double weighted = 0.0;   // Σ slots(n) * nobleEffFactor(n)
+            double wContent = 0.0;   // Σ slots·content(n)
+            double wEff = 0.0;       // Σ slots·tech(n)·content(n)
             int counted = 0;         // Σ slots(n)  (== totalSlots barring cache lag)
             for (Noble n : nob.active()) {
                 if (n.office() != office) continue;
                 int slots = 1 + NOBLES.RANK_INCREASE * n.rank();
-                weighted += slots * nobleEffFactor(n);
+                double tech = nobleTech(n);
+                double content = nobleContent(n);
+                wContent += slots * content;
+                wEff += slots * tech * content;
                 counted += slots;
             }
             if (counted <= 0) return 0.0;
-            double avgFactor = weighted / counted;
-            return contribution * (avgFactor - 1.0);
+            double avgContent = wContent / counted;   // allocation-weighted mean contentment
+            double avgEff = wEff / counted;            // allocation-weighted mean (tech × contentment)
+            // Two additive display lines whose sum is the true net C*(avgEff-1):
+            //   Contentment line = C*(avgContent-1)      (the pure contentment penalty, tech-independent)
+            //   Class-boost line = C*(avgEff-avgContent) (the CLASS_NOBLE tech boost, on top)
+            return contribution * (contentmentPart ? (avgContent - 1.0) : (avgEff - avgContent));
         }
 
         /**
-         * Effective factor for one holder = tech boost × contentment. The tech boost is
-         * {@code clamp(catKey) * clamp(allKey)} read with the noble's {@code Induvidual} so
-         * TARGET_RACE/TARGET_CLASS filters match the noble; contentment is that noble's own need-satisfaction
-         * in [{@link #NOBLE_CONTENT_FLOOR}, 1]. Off-map holders (a Governor who left the map) fall back to
-         * the unfiltered player value and are treated as fully content (their needs aren't simulated).
+         * Tech-boost factor for one holder = {@code clamp(catKey) * clamp(allKey)}, read with the noble's
+         * {@code Induvidual} so TARGET_RACE/TARGET_CLASS filters match the noble. Off-map holders (a Governor
+         * who left the map) fall back to the unfiltered player value.
          */
-        private double nobleEffFactor(Noble n) {
+        private double nobleTech(Noble n) {
             Humanoid h = n.subject();
-            if (h == null) {
-                return CLAMP.d(catKey.get(FACTIONS.player()), CLASS_MIN, CLASS_MAX)
-                        * CLAMP.d(allKey.get(FACTIONS.player()), CLASS_MIN, CLASS_MAX);
-            }
-            Induvidual ind = h.indu();
-            double tech = CLAMP.d(catKey.get(ind), CLASS_MIN, CLASS_MAX)
-                    * CLAMP.d(allKey.get(ind), CLASS_MIN, CLASS_MAX);
-            return tech * contentment(ind);
+            BOOSTABLE_O ctx = (h != null) ? h.indu() : FACTIONS.player();
+            return CLAMP.d(catKey.get(ctx), CLASS_MIN, CLASS_MAX)
+                    * CLAMP.d(allKey.get(ctx), CLASS_MIN, CLASS_MAX);
+        }
+
+        /** Contentment for one holder in [{@link #NOBLE_CONTENT_FLOOR}, 1]; off-map holders (whose needs
+         *  aren't simulated) are treated as fully content. */
+        private static double nobleContent(Noble n) {
+            Humanoid h = n.subject();
+            return (h != null) ? contentment(h.indu()) : 1.0;
         }
 
         /**

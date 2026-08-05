@@ -40,6 +40,19 @@ whatever matching `ROOM_*` boostables exist at load — including rooms added by
 |---|---|---|---|
 | `WORLD_PLUNDER` | Raid Plunder | World | Multiplies the **resources your armies plunder while raiding** enemy territory. Vanilla still loots its full amount; this delivers the extra `(value − 1)×` as supplemental spoils. Scoped to the **raid action only** — battle-victory and conquest spoils are unaffected. Not to be confused with vanilla `CIVIC_RAIDING` ("Raid Security"), which lowers the chance of *being* raided. Renamed 2026-07-04 from `CIVIC_PLUNDER` (moved from the Civics group to the World group; now `TYPE_WORLD`). |
 | `WORLD_PRODUCTION_SLAVE_ALL` | Production: Slaves (All) | World: Production | **Umbrella** over the vanilla per-race `WORLD_PRODUCTION_SLAVE_<RACE>` region-output keys — one tooltip line that multiplies the production of slaves of **every race** at once. Children are discovered dynamically, so new races are auto-included. The hidden per-race `_YEARLY` display-derivative variants are **excluded**. Same cascade mechanism as the `ROOM_*_ALL` umbrellas. |
+| `SLAVE_PRODUCTION_ALL` | Captives (All) | Captives | **Umbrella** over the vanilla per-race `SLAVE_PRODUCTION_<RACE>` ("Captives: X") keys — one tooltip line that multiplies a region's ability to produce captives of **every race** at once. Registered into the engine's own *Captives* category, so it groups with its children rather than making a near-duplicate group. Children are discovered dynamically (races added by other mods are auto-included), and this family has no `_YEARLY` derivatives, so nothing is excluded. |
+
+> ### ⚠️ `SLAVE_PRODUCTION_ALL` vs `WORLD_PRODUCTION_SLAVE_ALL` — two different things
+>
+> The game ships **two** similarly-named per-race slave families, and this mod now has an umbrella over
+> each. They are easy to mix up, so:
+>
+> | Umbrella | Children | What the children mean |
+> |---|---|---|
+> | `SLAVE_PRODUCTION_ALL` | `SLAVE_PRODUCTION_<RACE>` — *"Captives: Humans"* | A region's **ability/target for producing captives** of that race (`Recipes.boostsSlave`). |
+> | `WORLD_PRODUCTION_SLAVE_ALL` | `WORLD_PRODUCTION_SLAVE_<RACE>` — *"Production: Humans"* | The per-region **daily slave production output** (plus hidden `_YEARLY` variants). |
+>
+> Both are multiplicative over base `1`, so author either with `>MUL`.
 
 ## Civic keys
 
@@ -175,16 +188,17 @@ There are two kinds of key, with **disjoint** effects:
 | Key | Display | Applies to | Multiplies |
 |---|---|---|---|
 | `CLASS_CITIZEN` | Plebeians (Contentment) | Citizen-class subjects | **divides** `RATES_HUNGER`, `RATES_THIRST`, `RATES_SHOPPING` |
-| `CLASS_CITIZEN_MINE` | Plebeians (Mining) | Citizen-class subjects | all Mine output only (`ROOM_MINE_ALL` → every `ROOM_MINE_*`) |
+| `CLASS_CITIZEN_MINE` / `_FARM` / `_REFINER` / `_WORKSHOP` | Plebeians (Mining/Farming/Refining/Crafting) | Citizen-class subjects | that room type's output (`ROOM_<TYPE>_ALL` → every `ROOM_<TYPE>_*`) |
+| `CLASS_CITIZEN_ALL` | Plebeians (All Work) | Citizen-class subjects | output across **all four** room umbrellas (Mines + Farms + Refineries + Workshops) |
 | `CLASS_SLAVE` | Slaves (Contentment) | Slave-class subjects | **divides** `RATES_HUNGER`, `RATES_THIRST`, `RATES_SHOPPING` |
-| `CLASS_SLAVE_MINE` | Slaves (Mining) | Slave-class subjects | all Mine output only (`ROOM_MINE_ALL` → every `ROOM_MINE_*`) |
+| `CLASS_SLAVE_MINE` / `_FARM` / `_REFINER` / `_WORKSHOP` | Slaves (Mining/Farming/Refining/Crafting) | Slave-class subjects | that room type's output (`ROOM_<TYPE>_ALL` → every `ROOM_<TYPE>_*`) |
+| `CLASS_SLAVE_ALL` | Slaves (All Work) | Slave-class subjects | output across **all four** room umbrellas (Mines + Farms + Refineries + Workshops) |
 | `CLASS_NOBLE` | Nobles (Contentment) | Noble-class subjects | **divides** `RATES_HUNGER`, `RATES_THIRST`, `RATES_SHOPPING` |
 
-> **Roadmap.** Live: `CLASS_CITIZEN` + `CLASS_CITIZEN_MINE`, `CLASS_SLAVE` + `CLASS_SLAVE_MINE`
-> (un-shelved 2026-07-11), `CLASS_NOBLE` (2026-07-29). **Nobles have no per-*room* variants** (they don't
-> work rooms) — instead they get per-**office** keys (`CLASS_NOBLE_<OFFICE>` + `CLASS_NOBLE_ALL`, see the
-> Noble office keys section below). Staged as one-liner `registerClassKey` calls: the other room types
-> (`_FARM` / `_REFINER` / `_WORKSHOP`, each = that room's `ROOM_<TYPE>_ALL` output only) for CITIZEN and SLAVE.
+> **Roadmap.** Live: full CITIZEN and SLAVE sets — `_MINE`/`_FARM`/`_REFINER`/`_WORKSHOP` + `_ALL`, plus the
+> bare contentment key (2026-08-04). `CLASS_NOBLE` (contentment) + the per-**office** keys
+> (`CLASS_NOBLE_<OFFICE>` + `CLASS_NOBLE_ALL`, see the Noble office keys section) — nobles have no per-*room*
+> variants (they don't work rooms).
 >
 > **How it works.** A conditional multiplicative `Booster` is attached to each target boostable; it
 > returns the clamped key value only for subjects whose class matches (via the subject's `Induvidual` at
@@ -231,12 +245,16 @@ offices are covered (an unrecognized office target falls into a generic `CLASS_N
 | `CLASS_NOBLE_GOVERNOR` | Nobles (Governing) | Governor office (`CIVIC_GOV` gov-points output) |
 | `CLASS_NOBLE_ALL` | Nobles (All Offices) | every office, all categories |
 
-> **How it works.** For each office an additive `NobleOfficeBooster` is attached to the office's target
-> boostable, adding `officeContribution × (factor − 1)` (player-faction only) so the net office
-> contribution becomes `officeContribution × factor`. `factor` is the allocation-weighted average, across
-> the office's holders, of `techBoost × contentment` read **per holder**, where
-> `techBoost = clamp(CLASS_NOBLE_<CAT>) × clamp(CLASS_NOBLE_ALL)`. Exact for buffs (`>MUL ≥ 1`); a close
-> approximation for deflation combined with a multiplier on the same room bonus.
+> **How it works.** Each office gets two additive `NobleOfficeBooster`s on the office's target boostable
+> (player-faction only) whose sum makes the net office contribution `officeContribution × factor`, where
+> `factor` is the allocation-weighted average, across the office's holders, of `techBoost × contentment`
+> read **per holder** (`techBoost = clamp(CLASS_NOBLE_<CAT>) × clamp(CLASS_NOBLE_ALL)`). Exact for buffs
+> (`>MUL ≥ 1`); a close approximation for deflation combined with a multiplier on the same room bonus.
+>
+> **Where you see it.** The noble *panel* shows the office's base `value×add` and can't reflect these
+> modifiers (it renders no boosters). The effect and its two itemised lines — **"Noble Contentment"** (the
+> discontent penalty) and **"Noble Class Boost"** (the tech boost) — appear in the **room's production-rate
+> breakdown** (hover the room's output), where the game lists every skill modifier.
 >
 > **Office effect scales with each noble's contentment.** Nobles have no engine happiness/loyalty stat, so
 > `contentment` is that noble's own **need-satisfaction** — the mean of `1 − level/max` over the three needs
@@ -409,6 +427,7 @@ BOOST: {
     ROOM_MINE_ALL>MUL: 1.25,
     ROOM_REFINER_ALL>MUL: 1.15,
     WORLD_PLUNDER>MUL: 2.0,
+    SLAVE_PRODUCTION_ALL>MUL: 1.25,
     CIVIC_INDOCTRINATION>MUL: 1.5,
     CIVIC_VASSAL_OPINION>ADD: 3,
     STAT_WORK_RETIREMENT>MUL: 1.5,
