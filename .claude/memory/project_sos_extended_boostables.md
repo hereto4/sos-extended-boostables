@@ -193,6 +193,11 @@ Adds new boostable keys to Songs of Syx (now v71.19, see [[v71-migration]]) that
    vanilla `RATES_*` keys (added 2026-07-30, in-game not yet verified). The `RATES_*` entries are listed
    INDIVIDUALLY, never by prefix — the prefix is shared with `RATES_NATURE` and the `RATES_*` front keys,
    which are high-positive and must not be inverted.
+   **`ROOM_CONSUMPTION_*` is deliberately NOT classified.** It was added as an `INVERTED` prefix rule on
+   2026-07-31 (user request) and **reverted the same day** once the arithmetic was re-confirmed: the
+   engine *divides* by that boostable (`IndustryUtil.calcConsumptionRate = calcProductionRate(..)/conBonus`,
+   verified in **v71.44**) and the room tooltip calls it "Consumption Bonus", so above 1.0 the room
+   consumes **less** and vanilla's colouring is already right. Don't re-add it.
    **Provably display-only:** `TECH`'s `BoostSpecs` has `connect == false` (`TECH.java:122`), so
    `push`/`remove` there never touch the boostable's factor list (the live effect is the original booster
    object stored by `Boostable.addFactor`). Order-preserving (remove+push in sequence) and idempotent.

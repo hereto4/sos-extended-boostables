@@ -92,6 +92,15 @@ public final class MainScript implements SCRIPT {
     private static final String FARM_ALL_KEY = "ROOM_FARM_ALL";
     private static final String REFINER_ALL_KEY = "ROOM_REFINER_ALL";
 
+    /**
+     * Full-key prefix of every consumption boostable the engine registers — both the per-room form
+     * {@code ROOM_CONSUMPTION_<ROOMKEY>} ({@code RoomConsumption.java:84}) and the per-recipe form
+     * {@code ROOM_CONSUMPTION_<ROOMKEY>_<i>} ({@code Industry.java:279}). The category is
+     * {@code BOOSTABLES.CONSUMPTION()}, which *is* {@code BOOSTABLES.ROOMS()} (prefix {@code ROOM}), so the
+     * push key we hand {@code BOOSTING.push} is everything after {@code ROOM_}.
+     */
+    private static final String CONSUMPTION_PREFIX = "ROOM_CONSUMPTION_";
+
     // WORLD_PRODUCTION_SLAVE_ALL: an umbrella over the per-race WORLD_PRODUCTION_SLAVE_<RACE> region-output
     // keys (same cascade pattern as ROOM_*_ALL). Excludes the hidden WORLD_PRODUCTION_SLAVE_<RACE>_YEARLY
     // display-derivative variants (per user, 2026-07-05).
@@ -381,6 +390,10 @@ public final class MainScript implements SCRIPT {
                 "Affects every Farm room type at once.", BOOSTABLES.ROOMS(), null);
         registerUmbrellaCascade(REFINER_ALL_KEY, "REFINER_ALL", "Refineries (All)", "ROOM_REFINER_",
                 "Affects every Refinery room type at once.", BOOSTABLES.ROOMS(), null);
+
+        // ROOM_CONSUMPTION_<ROOMKEY>_ALL umbrellas: one key per multi-recipe room, standing in for that
+        // room's whole per-recipe consumption set. Discovered from the engine's own keys (see the method).
+        registerConsumptionUmbrellas();
 
         // WORLD_PRODUCTION_SLAVE_ALL umbrella: cascades to the per-race WORLD_PRODUCTION_SLAVE_<RACE>
         // region-output keys (dynamically discovered, so new races are auto-included). Registered under the
@@ -738,6 +751,120 @@ public final class MainScript implements SCRIPT {
             new UmbrellaBooster(umbrella, info).add(child);
         }
         System.out.println("[sos-extended-boostables] " + fullKey + " cascades to " + children.size() + " boostable(s).");
+    }
+
+    /**
+     * Registers one {@code ROOM_CONSUMPTION_<ROOMKEY>_ALL} umbrella for <b>every</b> room whose consumption
+     * the engine registered per recipe, and cascades it to that room's whole
+     * {@code ROOM_CONSUMPTION_<ROOMKEY>_<i>} set. Authoring the umbrella once is then equivalent to writing
+     * every numbered child — {@code ROOM_CONSUMPTION_WORKSHOP_RATION_ALL>MUL: 1.5} covers Rationmaker
+     * recipes I–VI — but it is a single key, so a tech shows <b>one</b> effect line instead of six.
+     *
+     * <p><b>Rooms with only one recipe get an umbrella too</b> (user decision 2026-08-05). It is redundant
+     * on the day it is registered, but the cascade is rebuilt from the live key set every load, so it
+     * silently starts covering a second recipe the moment a patch or another mod adds one. That makes
+     * {@code ROOM_CONSUMPTION_<ROOM>_ALL} a safe uniform target for content across every industry room,
+     * with no per-room "does this one have an umbrella?" question and nothing to revisit later.
+     *
+     * <p><b>Where the children come from.</b> An industry room declares an {@code INDUSTRIES} array; for
+     * each entry with both inputs and outputs the engine pushes
+     * {@code CONSUMPTION_<blue.key>_<i>} into {@code BOOSTABLES.CONSUMPTION()}
+     * ({@code Industry.createIndustries}, {@code settlement/room/industry/module/Industry.java:279}), named
+     * <i>"&lt;Room&gt; Input: &lt;numeral&gt;"</i>. Rooms with a plain {@code CONSUMPTION} block instead get a
+     * single unnumbered {@code ROOM_CONSUMPTION_<blue.key>} ({@code RoomConsumption.java:84}) — Administrations,
+     * Laboratories, Libraries, Embassies. Those already are one key per room, so they get no umbrella.
+     *
+     * <p><b>Discovery, not a hardcoded list.</b> We group the existing keys by stripping the trailing
+     * {@code _<digits>}, so a room added by another mod gets its own umbrella automatically. Vanilla v71.44
+     * yields <b>15</b>: six multi-recipe — Bakery (2), Brewery (2), Carpenter (5), Rationmaker (6),
+     * Smithy (5), Tailor (3) — and nine single-recipe (Charcoaler, Smelter, Weaver, Bowyer, Jeweller,
+     * Masonry, Mechanic, Papermaker, Pottery).
+     *
+     * <p>Not covered, by design: the four rooms whose consumption comes from a plain {@code CONSUMPTION}
+     * block rather than {@code INDUSTRIES} ({@code ROOM_CONSUMPTION_ADMIN_NORMAL},
+     * {@code _LABORATORY_NORMAL}, {@code _LIBRARY_NORMAL}, {@code ROOM_CONSUMPTION__EMBASSY}). Those keys
+     * carry no recipe index, and the engine never numbers them — a recipe list would come from the separate
+     * {@code Industry} path and push its own {@code _<i>} keys, which this method would then pick up.
+     *
+     * <p><b>Polarity.</b> These keys are <b>high-positive</b>: the engine <i>divides</i> by them
+     * ({@code IndustryUtil.calcConsumptionRate}, {@code IndustryUtil.java:42,51}), so a higher value means
+     * less input consumed for the same output. The umbrella inherits that direction unchanged, which is why
+     * it needs no {@code BoostFormats} colour rule (see the polarity table there).
+     *
+     * <p>Runs at {@code initBeforeGameInited}, after {@code SETT} (and therefore every room blueprint and its
+     * industries) has been constructed in the GAME constructor — the same guarantee the {@code ROOM_*_ALL}
+     * umbrellas rely on.
+     */
+    private void registerConsumptionUmbrellas() {
+        // Pass 1: group the per-recipe children by room, keyed on the full key minus its trailing "_<i>".
+        // Counting is enough to decide; we also keep the first child's display name to derive the
+        // umbrella's (localisation-safe — we reuse whatever text the engine already produced).
+        Map<String, Integer> counts = new LinkedHashMap<>();
+        Map<String, String> firstChildName = new LinkedHashMap<>();
+        for (Boostable b : BOOSTING.ALL()) {
+            if (b.key == null || !b.key.startsWith(CONSUMPTION_PREFIX)) continue;
+            int cut = b.key.lastIndexOf('_');
+            if (cut < CONSUMPTION_PREFIX.length() + 1) continue;   // no room key between prefix and index
+            if (!isRecipeIndex(b.key, cut + 1)) continue;          // unnumbered => per-room key, not a child
+            String group = b.key.substring(0, cut);
+            Integer n = counts.get(group);
+            if (n == null) {
+                counts.put(group, 1);
+                firstChildName.put(group, "" + b.name);
+            } else {
+                counts.put(group, n + 1);
+            }
+        }
+
+        // Pass 2: one umbrella per room, INCLUDING rooms that currently have only a single recipe (user
+        // decision 2026-08-05). A single-recipe room's umbrella is redundant today — it cascades to that
+        // one "_0" key — but the cascade is rebuilt from the live key set on every load, so the moment a
+        // game update or another mod gives that room a second recipe the existing umbrella covers it with
+        // no content change. Content can therefore author ROOM_CONSUMPTION_<ROOM>_ALL uniformly for every
+        // industry room and never revisit it. The cost is one extra neutral x1.0 line on that room's
+        // production breakdown while the umbrella is unboosted, same as the other umbrellas.
+        int made = 0, single = 0;
+        for (Map.Entry<String, Integer> e : counts.entrySet()) {
+            String group = e.getKey();                                    // ROOM_CONSUMPTION_WORKSHOP_RATION
+            int n = e.getValue();
+            String roomKey = group.substring(CONSUMPTION_PREFIX.length()); // WORKSHOP_RATION
+            String stem = nameStem(firstChildName.get(group));             // "Rationmaker Input"
+            String desc = (n > 1)
+                    ? "Affects all " + n + " of this room's input recipes at once, in place of the " + n
+                            + " numbered \"" + stem + "\" keys."
+                    : "Affects every input recipe of this room at once. This room currently has only one, "
+                            + "but the key also covers any recipe a game update or another mod adds later.";
+            registerUmbrellaCascade(group + "_ALL", "CONSUMPTION_" + roomKey + "_ALL", stem + ": All",
+                    group + "_",
+                    desc + " Higher means less resource consumed per unit produced; output is unaffected.",
+                    BOOSTABLES.CONSUMPTION(), null);
+            made++;
+            if (n == 1) single++;
+        }
+        System.out.println("[sos-extended-boostables] ROOM_CONSUMPTION_*_ALL: registered " + made
+                + " umbrella(s) — " + (made - single) + " multi-recipe, " + single
+                + " single-recipe (future-proofed).");
+    }
+
+    /** True if {@code key} from {@code from} to its end is a non-empty run of digits (a recipe index). */
+    private static boolean isRecipeIndex(String key, int from) {
+        if (from >= key.length()) return false;
+        for (int i = from; i < key.length(); i++) {
+            if (key.charAt(i) < '0' || key.charAt(i) > '9') return false;
+        }
+        return true;
+    }
+
+    /**
+     * The shared stem of a per-recipe consumption key's display name — everything before the trailing
+     * {@code ": <numeral>"} the engine appends. {@code "Rationmaker Input: I"} → {@code "Rationmaker Input"}.
+     * Taking the LAST colon keeps this correct even if a room's own name contains one; if the engine ever
+     * stops appending a numeral, the whole name is used as the stem rather than mangling it.
+     */
+    private static String nameStem(String childName) {
+        if (childName == null) return "Input";
+        int c = childName.lastIndexOf(':');
+        return c > 0 ? childName.substring(0, c) : childName;
     }
 
     /**

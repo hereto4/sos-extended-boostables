@@ -1,5 +1,6 @@
 your\mod\MainScript$3.class
 your\mod\MainScript$BoostedResAmount.class
+your\mod\update\UpdateNoticeWindow$Row.class
 your\mod\targetfilter\TargetFilteredBooster.class
 your\mod\MainScript$UmbrellaBooster.class
 your\mod\boostformat\BoostOrder$2.class
@@ -23,6 +24,7 @@ your\mod\MainScript$NobleOfficeBooster$1.class
 your\mod\MainScript$2.class
 your\mod\MainScript.class
 your\mod\targetfilter\SubjectFilter.class
+your\mod\update\UpdateNoticeWindow$Seg.class
 your\mod\MainScript$4.class
 your\mod\update\UpdateNoticeWindow.class
 your\mod\MainScript$NobleOfficeBooster.class
@@ -31,6 +33,7 @@ your\mod\MainScript$ClassTreatmentBooster.class
 your\mod\boostformat\BoostFormats.class
 your\mod\MainScript$Pilgrim.class
 your\mod\update\UpdateNoticeWindow$1.class
+your\mod\update\UpdateNoticeWindow$Tok.class
 your\mod\targetfilter\TargetFilterRegistry$Spec.class
 your\mod\targetfilter\TargetFilterApplier$Saved.class
 your\mod\MainScript$IndoctrinationBooster$1.class

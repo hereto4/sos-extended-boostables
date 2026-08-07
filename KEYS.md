@@ -34,6 +34,61 @@ whatever matching `ROOM_*` boostables exist at load — including rooms added by
 > The umbrella applies multiplicatively to each room. When the umbrella isn't boosted by any tech it
 > is a no-op (the per-room production breakdown may show a neutral `×1.0` line for it).
 
+## Consumption "Input: All" umbrella keys
+
+Vanilla splits a multi-recipe room's input consumption into **one key per recipe** —
+`ROOM_CONSUMPTION_WORKSHOP_RATION_0` … `_5` for the Rationmaker's six recipes. Boosting the whole
+room therefore meant listing all six, and the tech tooltip then showed **six near-identical effect
+lines**.
+
+Each of those rooms now also gets a single `ROOM_CONSUMPTION_<ROOMKEY>_ALL` key. It is exactly
+equivalent to writing every numbered child, but as **one key**, so it renders as **one** modifier
+line in-game:
+
+```
+ROOM_CONSUMPTION_WORKSHOP_RATION_ALL>MUL: 1.5     \ one line, covers recipes I-VI
+```
+
+**Every** industry room gets one — 15 in vanilla v71.44:
+
+| Key | Display | Cascades to (vanilla v71.44) |
+|---|---|---|
+| `ROOM_CONSUMPTION_REFINER_BAKERY_ALL` | Bakery Input: All | recipes I–II (`_0`,`_1`) |
+| `ROOM_CONSUMPTION_REFINER_BREWERY_ALL` | Brewery Input: All | recipes I–II (`_0`,`_1`) |
+| `ROOM_CONSUMPTION_WORKSHOP_CARPENTER_ALL` | Carpenter Input: All | recipes I–V (`_0`…`_4`) |
+| `ROOM_CONSUMPTION_WORKSHOP_RATION_ALL` | Rationmaker Input: All | recipes I–VI (`_0`…`_5`) |
+| `ROOM_CONSUMPTION_WORKSHOP_SMITHY_ALL` | Smithy Input: All | recipes I–V (`_0`…`_4`) |
+| `ROOM_CONSUMPTION_WORKSHOP_TAILOR_ALL` | Tailor Input: All | recipes I–III (`_0`,`_1`,`_2`) |
+| `ROOM_CONSUMPTION_REFINER_COALER_ALL` | Charcoaler Input: All | recipe I (`_0`) — single today |
+| `ROOM_CONSUMPTION_REFINER_SMELTER_ALL` | Metal Smelter Input: All | recipe I (`_0`) — single today |
+| `ROOM_CONSUMPTION_REFINER_WEAVER_ALL` | Weaver Input: All | recipe I (`_0`) — single today |
+| `ROOM_CONSUMPTION_WORKSHOP_BOWYER_ALL` | Bowyer Input: All | recipe I (`_0`) — single today |
+| `ROOM_CONSUMPTION_WORKSHOP_JEWELRY_ALL` | Jeweller Input: All | recipe I (`_0`) — single today |
+| `ROOM_CONSUMPTION_WORKSHOP_MASON_ALL` | Masonry Input: All | recipe I (`_0`) — single today |
+| `ROOM_CONSUMPTION_WORKSHOP_MECHANIC_ALL` | Mechanic Input: All | recipe I (`_0`) — single today |
+| `ROOM_CONSUMPTION_WORKSHOP_PAPER_ALL` | Papermaker Input: All | recipe I (`_0`) — single today |
+| `ROOM_CONSUMPTION_WORKSHOP_POTTERY_ALL` | Pottery Input: All | recipe I (`_0`) — single today |
+
+> **⚠️ Higher = LESS consumed.** These are **high-positive** keys: the engine *divides* by the
+> consumption boostable (`IndustryUtil.calcConsumptionRate`), and output is unaffected. So `>MUL: 1.5`
+> is a **1/1.5 ≈ 33% input saving** — a benefit, not a cost. (Vanilla's "Consumption Rate" display name
+> reads backwards; the room's own tooltip calls it "Consumption Bonus".)
+
+> **Single-recipe rooms get an umbrella on purpose.** The nine marked *"single today"* are redundant
+> right now — the umbrella covers one child. They exist so that **if a game update or another mod adds a
+> second recipe to that room, the umbrella covers it with no content change**: the cascade is rebuilt from
+> the live key set on every load, not baked in. So content can point at
+> `ROOM_CONSUMPTION_<ROOM>_ALL` for **any** industry room, uniformly, and never revisit it. The only cost
+> is one extra neutral `×1.0` line on that room's production breakdown while unboosted.
+
+> **Which rooms get one is discovered at load, not hardcoded** — keys are grouped by stripping the
+> trailing `_<i>`, so an industry room added by another mod gets its own `_ALL` key automatically.
+> **Not covered:** the four rooms whose consumption comes from a plain `CONSUMPTION` block instead of
+> `INDUSTRIES` — `ROOM_CONSUMPTION_ADMIN_NORMAL`, `_LABORATORY_NORMAL`, `_LIBRARY_NORMAL`,
+> `ROOM_CONSUMPTION__EMBASSY`. The engine never numbers those, so they are already exactly one key per
+> room. (Were such a room ever given a real recipe list, the engine would push numbered `_<i>` keys via
+> the separate `Industry` path and this feature would pick it up.)
+
 ## World keys
 
 | Key | Display | Category | Effect |

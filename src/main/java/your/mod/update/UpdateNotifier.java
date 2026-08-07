@@ -18,6 +18,7 @@ import snake2d.util.datatypes.Rec;
 import snake2d.util.file.Json;
 import snake2d.util.file.JsonE;
 import snake2d.util.misc.ACTION;
+import snake2d.util.misc.CLAMP;
 import snake2d.util.sprite.text.Font;
 import util.colors.GCOLOR;
 import util.gui.misc.GBox;
@@ -216,15 +217,19 @@ public final class UpdateNotifier {
 }
 
 /**
- * The changelog window: a large, fixed-size centered {@link GPanel} frame (with a close X via
- * {@code clickActionSet}) wrapping a scrollable {@link GBox} that lists every pending mod's notice as
- * its own section (a scaled title, a divider, then the change lines). One window, one dismissal.
+ * The changelog window: a large, fixed-size centered {@link GPanel} frame (with a close X), listing every
+ * pending mod's notice as its own section (a title, a divider, then the change lines). One window, one
+ * dismissal.
  *
- * <p><b>Rendering:</b> {@link #render} returns {@code false}. In {@code VIEW.render} the interrupter
- * manager is drawn after the terrain background but before the UI/foreground passes; returning
- * {@code false} makes {@code VIEW} stop there, so this window is the top-most thing drawn (this is
- * exactly what the engine's own {@code IPromtScreen} does — a version that returned {@code true} got
- * painted over by the UI/foreground, hence "showed in the log but invisible").
+ * <p><b>Manual layout.</b> The content is pre-laid-out into a flat list of {@link Row}s at construction —
+ * each row is a single visual line of text (already word-wrapped by us), a divider, or a spacer, with an
+ * explicit pixel height. {@link #render} draws each row at an explicit Y (with mouse-wheel scrolling and
+ * clipping to the window). We do NOT use {@code GBox}: driving the layout ourselves is what fixed the
+ * overlapping/ghosted text that GBox produced for long wrapped paragraphs.
+ *
+ * <p><b>Rendering returns {@code false}.</b> In {@code VIEW.render} the interrupter manager is drawn after
+ * the terrain background but before the UI/foreground passes; returning {@code false} makes {@code VIEW}
+ * stop there, so this window is the top-most thing drawn (as the engine's own {@code IPromtScreen} does).
  *
  * <p>Constructed {@code persistent + pinned} so it survives the interrupter churn during the
  * load→gameplay transition. It closes only on the X, ESC, or a right-click — deliberately NOT on a
@@ -232,104 +237,215 @@ public final class UpdateNotifier {
  *
  * <p><b>CHANGES markup</b> (each array entry is one line): {@code "# Heading"} → heading (title-sized);
  * {@code "## Heading"} → smaller sub-heading; {@code "---"} (3+ dashes) → horizontal divider;
- * {@code ""} → blank spacer; {@code "[tag] text"} → colored text (tags: {@code good great bad worst
- * warn error label sub normal}; unknown tag is left literal). A color tag may precede a heading.
+ * {@code ""} → blank spacer. Color is inline: {@code [tag]} switches color for the following text and
+ * {@code [/]} reverts it, so {@code "kill [good]bonus[/] applied"} colors just one word while
+ * {@code "[warn] whole line"} (unclosed) colors the rest. Tags: {@code good great bad worst warn error
+ * label sub normal}; an unknown tag is left as literal text.
  */
 final class UpdateNoticeWindow extends Interrupter {
 
-    /** Fixed inner size of the window (px, in the game's virtual UI resolution) — roomy but not huge. */
+    /** Window width, and preferred height — the actual height is clamped to the screen (see ctor). */
     private static final int INNER_W = 680;
-    private static final int INNER_H = 480;
-    /** Inner padding between the frame and the text. */
+    private static final int PREF_H = 760;
+    private static final int V_MARGIN = 120;
     private static final int PAD = 20;
-    /** Text scale — 1.0 = the game's natural font sizes (the window is enlarged, not the text). */
-    private static final double SCALE = 1.0;
-    /** Extra vertical gap after a blank-line spacer / after a heading. */
-    private static final int SPACER_GAP = 14;
-    private static final int HEADING_GAP = 6;
+    private static final double SCALE = 1.0; // 1.0 = the game's natural font sizes
+    private static final int LINE_GAP = 8;   // vertical gap after a full line (a real CHANGES entry)
+    private static final int WRAP_GAP = 2;   // tighter gap between the wrapped rows of one paragraph
+    private static final int HEADING_GAP = 12;
+    private static final int SPACER_GAP = 16; // blank-line height
+    private static final int DIVIDER_H = 14;  // divider-row height
+    private static final int SCROLL_STEP = 40;
 
-    private final GBox content = new GBox();
+    private static final int T_TEXT = 0, T_DIVIDER = 1, T_SPACER = 2;
+
+    private final int winW;
+    private final int winH;
+    private final List<Row> rows = new ArrayList<>();
+    private final int totalH;
+    private int scrollOffset = 0;
+
+    /** Scrollbar geometry, refreshed each render() so mouseClick() can hit-test it. */
+    private int barX1 = -1, barX2 = -1, barTop = 0, barVisibleH = 0, barMaxScroll = 0;
+    /** Latest mouse position (from hover()), used for scrollbar click handling. */
+    private int lastMouseX = 0, lastMouseY = 0;
+
     private final GPanel frame = new GPanel();
+    /** Scratch text reused for width/height measurement (build) and drawing (render). */
+    private final GText scratch = new GText(UI.FONT().S, 512);
     private final ACTION exit = new ACTION() {
         @Override public void exe() { hide(); }
     };
 
-    UpdateNoticeWindow(List<UpdateNotifier.Notice> notices) {
-        super(true, true); // persistent + pinned — survive load-time interrupter churn; stay until closed
-        frame.setBig();
-        content.clear();
-        content.maxWidth = INNER_W - PAD * 2;   // wrap within the window
-        content.maxHeight = INNER_H - PAD * 2;  // scroll (mouse wheel) when taller than this
+    /** One text segment (a run of one color) within a text row. */
+    private static final class Seg {
+        final String text; final Font font; final COLOR color;
+        Seg(String text, Font font, COLOR color) { this.text = text; this.font = font; this.color = color; }
+    }
 
-        for (int i = 0; i < notices.size(); i++) {
-            UpdateNotifier.Notice n = notices.get(i);
-            if (i > 0) {                       // separate each mod's section
-                content.NL(SPACER_GAP);
-                content.sep();
-                content.NL(SPACER_GAP);
-            }
-            addLine(n.title, UI.FONT().H1, GCOLOR.T().H1, SCALE, HEADING_GAP);
-            content.sep();
-            buildContent(n.lines);
+    /** One laid-out row: a single visual line of text, a divider, or a blank spacer. */
+    private static final class Row {
+        final int type; final List<Seg> segs; final int height; final int gapAfter;
+        Row(int type, List<Seg> segs, int height, int gapAfter) {
+            this.type = type; this.segs = segs; this.height = height; this.gapAfter = gapAfter;
         }
     }
 
-    /** Adds one styled, scaled line to the content box, followed by a newline with {@code gap} extra px. */
-    private void addLine(String text, Font font, COLOR color, double scale, int gap) {
-        GText t = content.text();
-        t.setFont(font);
-        t.setScale(scale);
-        if (color != null) t.color(color); else t.normalify();
-        t.add(text);
-        content.add(t);
-        content.NL(gap);
+    /** A single word with its color, used while color-aware word-wrapping a line. */
+    private static final class Tok {
+        final String word; final COLOR color;
+        Tok(String word, COLOR color) { this.word = word; this.color = color; }
     }
 
-    /** Renders one mod's CHANGES lines using the lightweight markup documented on this class. */
+    UpdateNoticeWindow(List<UpdateNotifier.Notice> notices) {
+        super(true, true); // persistent + pinned — survive load-time interrupter churn; stay until closed
+        frame.setBig();
+
+        // Tall, but never taller than the screen: clamp the preferred height to the available height.
+        winW = Math.min(INNER_W, Math.max(360, C.WIDTH() - 80));
+        winH = Math.max(360, Math.min(PREF_H, C.HEIGHT() - V_MARGIN));
+
+        for (int i = 0; i < notices.size(); i++) {
+            UpdateNotifier.Notice n = notices.get(i);
+            if (i > 0) {                              // separate each mod's section
+                rows.add(spacer());
+                rows.add(divider());
+                rows.add(spacer());
+            }
+            addLine(n.title, UI.FONT().H1, GCOLOR.T().H1, HEADING_GAP);
+            rows.add(divider());
+            buildContent(n.lines);
+        }
+
+        int h = 0;
+        for (Row row : rows) h += row.height + row.gapAfter;
+        totalH = h;
+    }
+
+    // ===== layout (build) =====
+
     private void buildContent(String[] lines) {
         if (lines == null || lines.length == 0) {
-            addLine("(no changes listed)", UI.FONT().S, null, SCALE, 0);
+            addLine("(no changes listed)", UI.FONT().S, null, LINE_GAP);
             return;
         }
         for (String raw : lines) {
             String s = (raw == null ? "" : raw).trim();
 
-            if (s.isEmpty()) {                                          // blank spacer
-                content.NL(SPACER_GAP);
-                continue;
-            }
-            if (s.length() >= 3 && s.chars().allMatch(c -> c == '-')) { // divider
-                content.sep();
-                continue;
-            }
+            if (s.isEmpty()) { rows.add(spacer()); continue; }
+            if (s.length() >= 3 && s.chars().allMatch(c -> c == '-')) { rows.add(divider()); continue; }
 
-            // Optional leading color tag: [tag]
-            COLOR color = null;
-            if (s.startsWith("[")) {
-                int end = s.indexOf(']');
-                if (end > 1) {
-                    COLOR c = colorFor(s.substring(1, end).trim().toLowerCase());
-                    if (c != null) {
-                        color = c;
-                        s = s.substring(end + 1);
-                        if (s.startsWith(" ")) s = s.substring(1);
-                    }
-                }
-            }
-
-            // Optional heading marker: ## or #. Sized under the title: "#" -> H2 (strong H1 color),
-            // "##" -> M (H2 color). Plain lines are body text (Small).
             Font font = UI.FONT().S;
-            COLOR headingColor = null;
-            int gap = 0;
+            COLOR baseColor = null;
+            int gap = LINE_GAP;
             if (s.startsWith("## ")) {
-                font = UI.FONT().M; headingColor = GCOLOR.T().H2; s = s.substring(3); gap = HEADING_GAP;
+                font = UI.FONT().M; baseColor = GCOLOR.T().H2; s = s.substring(3); gap = HEADING_GAP;
             } else if (s.startsWith("# ")) {
-                font = UI.FONT().H2; headingColor = GCOLOR.T().H1; s = s.substring(2); gap = HEADING_GAP;
+                font = UI.FONT().H2; baseColor = GCOLOR.T().H1; s = s.substring(2); gap = HEADING_GAP;
             }
 
-            addLine(s, font, color != null ? color : headingColor, SCALE, gap);
+            addLine(s, font, baseColor, gap);
         }
+    }
+
+    /**
+     * Parses one line's inline {@code [tag]}…{@code [/]} color markup into colored words, then greedily
+     * word-wraps those to the content width — emitting one {@link Row} per visual line, where each row may
+     * contain several colored {@link Seg}s. This wraps correctly whether or not the line uses inline color.
+     */
+    private void addLine(String s, Font font, COLOR baseColor, int gap) {
+        // 1) split the line into (word, color) tokens
+        List<Tok> toks = new ArrayList<>();
+        COLOR cur = baseColor;
+        StringBuilder run = new StringBuilder();
+        int i = 0;
+        while (i < s.length()) {
+            char ch = s.charAt(i);
+            if (ch == '[') {
+                int end = s.indexOf(']', i);
+                if (end > i) {
+                    String tag = s.substring(i + 1, end).trim().toLowerCase();
+                    if (tag.equals("/")) { addWords(toks, run.toString(), cur); run.setLength(0); cur = baseColor; i = end + 1; continue; }
+                    COLOR c = colorFor(tag);
+                    if (c != null) { addWords(toks, run.toString(), cur); run.setLength(0); cur = c; i = end + 1; continue; }
+                }
+                run.append(ch); i++;
+            } else {
+                run.append(ch); i++;
+            }
+        }
+        addWords(toks, run.toString(), cur);
+
+        if (toks.isEmpty()) {                       // nothing to draw
+            rows.add(new Row(T_SPACER, null, gap, 0));
+            return;
+        }
+
+        // 2) greedy-wrap the tokens to the content width, one Row per visual line
+        int maxW = winW - PAD * 2;
+        int lh = lineHeight(font);
+        List<Tok> line = new ArrayList<>();
+        StringBuilder lineText = new StringBuilder();
+        for (Tok t : toks) {
+            String piece = t.word + " ";
+            if (!line.isEmpty() && measureWidth(lineText.toString() + piece, font) > maxW) {
+                // a wrapped continuation follows → this row gets the tight WRAP_GAP
+                rows.add(makeRow(line, font, lh, WRAP_GAP));
+                line = new ArrayList<>();
+                lineText.setLength(0);
+            }
+            line.add(t);
+            lineText.append(piece);
+        }
+        // the paragraph's final visual line gets the full line-break gap
+        if (!line.isEmpty()) rows.add(makeRow(line, font, lh, gap));
+    }
+
+    /** Splits {@code text} into words, tagging each with {@code color}. */
+    private static void addWords(List<Tok> toks, String text, COLOR color) {
+        for (String w : text.split("\\s+")) if (!w.isEmpty()) toks.add(new Tok(w, color));
+    }
+
+    /** Builds one visual-line row from its tokens, merging consecutive same-color words into segments. */
+    private Row makeRow(List<Tok> line, Font font, int height, int gap) {
+        List<Seg> segs = new ArrayList<>();
+        StringBuilder sb = new StringBuilder();
+        COLOR segColor = line.get(0).color;
+        for (Tok t : line) {
+            if (t.color != segColor) {              // color change → close the current segment
+                segs.add(new Seg(sb.toString(), font, segColor));
+                sb.setLength(0);
+                segColor = t.color;
+            }
+            sb.append(t.word).append(' ');
+        }
+        if (sb.length() > 0) segs.add(new Seg(sb.toString(), font, segColor));
+        return new Row(T_TEXT, segs, height, gap);
+    }
+
+    private Row divider() { return new Row(T_DIVIDER, null, DIVIDER_H, 0); }
+    private Row spacer()  { return new Row(T_SPACER, null, SPACER_GAP, 0); }
+
+    /** Single-line pixel width of {@code s} in {@code font} at {@link #SCALE} (no wrapping). */
+    private int measureWidth(String s, Font font) {
+        scratch.clear();
+        scratch.setFont(font);
+        scratch.setScale(SCALE);
+        scratch.setMaxWidth(1_000_000);
+        scratch.add(s);
+        scratch.adjustWidth();
+        return scratch.width();
+    }
+
+    /** Single-line pixel height of {@code font} at {@link #SCALE}. */
+    private int lineHeight(Font font) {
+        scratch.clear();
+        scratch.setFont(font);
+        scratch.setScale(SCALE);
+        scratch.setMaxWidth(1_000_000);
+        scratch.add("Ag");
+        scratch.adjustWidth();
+        return scratch.height();
     }
 
     /** Maps a {@code [tag]} to a themed text color, or {@code null} if unknown (left as literal text). */
@@ -353,26 +469,30 @@ final class UpdateNoticeWindow extends Interrupter {
         show(m);
     }
 
+    // ===== interrupter =====
+
     @Override
     protected boolean hover(COORDINATE mCoo, boolean mouseHasMoved) {
-        // frame.hover consumes the X close click; keep hover over the whole window so it stays interactive
-        // (and the mouse wheel scrolls the content) and inside-clicks don't fall through to the game.
+        lastMouseX = mCoo.x();
+        lastMouseY = mCoo.y();
         return frame.hover(mCoo) || mCoo.isWithinRec(frame.body());
     }
 
     @Override
     protected void mouseClick(MButt button) {
-        if (button == MButt.RIGHT) hide();
-        // left-clicks inside the window do nothing (the X is handled in hover()).
+        if (button == MButt.RIGHT) { hide(); return; }
+        // Left-click on the scrollbar jumps the view to that position.
+        if (button == MButt.LEFT && barMaxScroll > 0
+                && lastMouseX >= barX1 && lastMouseX <= barX2
+                && lastMouseY >= barTop && lastMouseY <= barTop + barVisibleH) {
+            int rel = lastMouseY - barTop;
+            scrollOffset = CLAMP.i((int) ((long) rel * barMaxScroll / Math.max(1, barVisibleH)), 0, barMaxScroll);
+        }
     }
 
     @Override
     protected boolean otherClick(MButt button) {
-        // Only a right-click outside closes it; ignore stray left-clicks (e.g. buffered during loading).
-        if (button == MButt.RIGHT) {
-            hide();
-            return true;
-        }
+        if (button == MButt.RIGHT) { hide(); return true; }
         return false;
     }
 
@@ -381,18 +501,67 @@ final class UpdateNoticeWindow extends Interrupter {
 
     @Override
     protected boolean render(Renderer r, float ds) {
-        int x1 = C.WIDTH() / 2 - INNER_W / 2;
-        int y1 = C.HEIGHT() / 2 - INNER_H / 2;
+        int x1 = C.WIDTH() / 2 - winW / 2;
+        int y1 = C.HEIGHT() / 2 - winH / 2;
 
         Rec inner = frame.inner();
-        inner.setWidth(INNER_W);
-        inner.setHeight(INNER_H);
+        inner.setWidth(winW);
+        inner.setHeight(winH);
         inner.moveX1(x1);
         inner.moveY1(y1);
-
         frame.clickActionSet(exit); // draws the close (X) button and wires its click
         frame.render(r, ds);
-        content.renderWithout(r, x1 + PAD, y1 + PAD); // content only (no nested panel), scrolls if tall
+
+        int left = x1 + PAD;
+        int top = y1 + PAD;
+        int visibleH = winH - PAD * 2;
+        int bottom = top + visibleH;
+        int maxScroll = Math.max(0, totalH - visibleH);
+
+        // Mouse-wheel scroll (the window is modal, so consuming the wheel here is fine).
+        double dv = MButt.clearWheelSpin();
+        if (dv < 0) scrollOffset += SCROLL_STEP;
+        else if (dv > 0) scrollOffset -= SCROLL_STEP;
+        scrollOffset = CLAMP.i(scrollOffset, 0, maxScroll);
+
+        int y = top - scrollOffset;
+        for (Row row : rows) {
+            if (y >= top && y + row.height <= bottom) { // only draw fully-visible rows
+                if (row.type == T_TEXT) {
+                    int sx = left;
+                    for (Seg seg : row.segs) {
+                        scratch.clear();
+                        scratch.setFont(seg.font);
+                        scratch.setScale(SCALE);
+                        scratch.setMaxWidth(1_000_000); // segments are pre-wrapped; never wrap one internally
+                        if (seg.color != null) scratch.color(seg.color); else scratch.normalify();
+                        scratch.add(seg.text);
+                        scratch.adjustWidth();
+                        scratch.render(r, sx, sx + 1_000_000, y, y + row.height);
+                        sx += scratch.width();
+                    }
+                } else if (row.type == T_DIVIDER) {
+                    int dy = y + row.height / 2;
+                    GCOLOR.UI().border().render(r, left, left + (winW - PAD * 2), dy, dy + 1);
+                }
+            }
+            y += row.height + row.gapAfter;
+        }
+
+        // Scrollbar (only when the content overflows the window).
+        barTop = top;
+        barVisibleH = visibleH;
+        barMaxScroll = maxScroll;
+        if (maxScroll > 0) {
+            barX2 = x1 + winW - 6;
+            barX1 = barX2 - 8;
+            COLOR.WHITE20.render(r, barX1, barX2, top, bottom); // track
+            int thumbH = Math.max(24, (int) ((long) visibleH * visibleH / totalH));
+            int thumbY = top + (int) ((long) (visibleH - thumbH) * scrollOffset / maxScroll);
+            COLOR.WHITE150.render(r, barX1, barX2, thumbY, thumbY + thumbH); // thumb
+        } else {
+            barX1 = barX2 = -1;
+        }
         return false; // top-most: stop VIEW from drawing the UI/foreground over us
     }
 

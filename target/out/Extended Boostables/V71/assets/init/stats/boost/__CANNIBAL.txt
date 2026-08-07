@@ -1,3 +1,0 @@
-ICON: 32->stats_main->0,
-CATEGORY: ROOM,
-BASE_VALUE: 1.0,

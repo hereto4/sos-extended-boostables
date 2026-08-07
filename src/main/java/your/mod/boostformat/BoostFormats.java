@@ -72,6 +72,12 @@ public final class BoostFormats {
         // Low-positive: the rate at which a subject becomes dirty.
         { "PHYSICS_SOILING", "INVERTED" },
 
+        // NOTE: ROOM_CONSUMPTION_* is deliberately NOT listed. It looks low-positive but is not — the
+        // engine DIVIDES by it (IndustryUtil.calcConsumptionRate = calcProductionRate(..)/conBonus,
+        // verified v71.44) and the room tooltip calls it "Consumption Bonus", so a value above 1.0 makes
+        // the room consume LESS and vanilla's colouring is already correct. Briefly classified INVERTED
+        // on 2026-07-31 and reverted the same day.
+
         // Low-positive: every vanilla need-growth rate. (NOT RATES_NATURE — ours, high-positive.)
         { "RATES_HUNGER", "INVERTED" },
         { "RATES_THIRST", "INVERTED" },
