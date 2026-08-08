@@ -4,49 +4,8 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="7a96583c-c7b8-4ffb-8620-4d12c75a9672" name="Changes" comment="Major CLASS_* work">
-      <change beforePath="$PROJECT_DIR$/.claude/memory/project_sos_extended_boostables.md" beforeDir="false" afterPath="$PROJECT_DIR$/.claude/memory/project_sos_extended_boostables.md" afterDir="false" />
+    <list default="true" id="7a96583c-c7b8-4ffb-8620-4d12c75a9672" name="Changes" comment="noble code ref">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/KEYS.md" beforeDir="false" afterPath="$PROJECT_DIR$/KEYS.md" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/V71/UpdateNotice.txt" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/V71/script/sos-extended-boostables.jar" beforeDir="false" afterPath="$PROJECT_DIR$/V71/script/sos-extended-boostables.jar" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/_Info.txt" beforeDir="false" afterPath="$PROJECT_DIR$/_Info.txt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/your/mod/MainScript.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/your/mod/MainScript.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/your/mod/boostformat/BoostFormats.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/your/mod/boostformat/BoostFormats.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/your/mod/update/UpdateNotifier.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/your/mod/update/UpdateNotifier.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/resources/mod-files/UpdateNotice.txt" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/your/mod/MainScript$1.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/your/mod/MainScript$1.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/your/mod/MainScript$2.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/your/mod/MainScript$2.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/your/mod/MainScript$3.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/your/mod/MainScript$3.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/your/mod/MainScript$4.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/your/mod/MainScript$4.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/your/mod/MainScript$BoostedResAmount.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/your/mod/MainScript$BoostedResAmount.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/your/mod/MainScript$ClassTreatmentBooster$1.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/your/mod/MainScript$ClassTreatmentBooster$1.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/your/mod/MainScript$ClassTreatmentBooster.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/your/mod/MainScript$ClassTreatmentBooster.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/your/mod/MainScript$IndoctrinationBooster$1.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/your/mod/MainScript$IndoctrinationBooster$1.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/your/mod/MainScript$IndoctrinationBooster.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/your/mod/MainScript$IndoctrinationBooster.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/your/mod/MainScript$NobleOfficeBooster$1.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/your/mod/MainScript$NobleOfficeBooster$1.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/your/mod/MainScript$NobleOfficeBooster.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/your/mod/MainScript$NobleOfficeBooster.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/your/mod/MainScript$Pilgrim.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/your/mod/MainScript$Pilgrim.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/your/mod/MainScript$UmbrellaBooster.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/your/mod/MainScript$UmbrellaBooster.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/your/mod/MainScript.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/your/mod/MainScript.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/your/mod/boostformat/BoostFormats$1.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/your/mod/boostformat/BoostFormats$1.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/your/mod/boostformat/BoostFormats.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/your/mod/boostformat/BoostFormats.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/your/mod/update/UpdateNoticeWindow$1.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/your/mod/update/UpdateNoticeWindow$1.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/your/mod/update/UpdateNoticeWindow.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/your/mod/update/UpdateNoticeWindow.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/your/mod/update/UpdateNotifier$Config.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/your/mod/update/UpdateNotifier$Config.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/your/mod/update/UpdateNotifier$Notice.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/your/mod/update/UpdateNotifier$Notice.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/your/mod/update/UpdateNotifier.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/your/mod/update/UpdateNotifier.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/maven-status/maven-compiler-plugin/compile/default-compile/createdFiles.lst" beforeDir="false" afterPath="$PROJECT_DIR$/target/maven-status/maven-compiler-plugin/compile/default-compile/createdFiles.lst" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/original-sos-extended-boostables.jar" beforeDir="false" afterPath="$PROJECT_DIR$/target/original-sos-extended-boostables.jar" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/out/Extended Boostables/V71/UpdateNotice.txt" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/out/Extended Boostables/V71/assets/init/stats/boost/__CANNIBAL.txt" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/out/Extended Boostables/V71/assets/text/stats/boost/__CANNIBAL.txt" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/out/Extended Boostables/V71/script/_src/sos-extended-boostables-sources.jar" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/out/Extended Boostables/V71/script/sos-extended-boostables.jar" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/out/Extended Boostables/_Info.txt" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/sos-extended-boostables-sources.jar" beforeDir="false" afterPath="$PROJECT_DIR$/target/sos-extended-boostables-sources.jar" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/sos-extended-boostables.jar" beforeDir="false" afterPath="$PROJECT_DIR$/target/sos-extended-boostables.jar" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/sos-scripting-template-1.2.4-shaded.jar" beforeDir="false" afterPath="$PROJECT_DIR$/target/sos-scripting-template-1.2.4-shaded.jar" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -65,15 +24,74 @@
     &quot;assignee&quot;: &quot;hereto4&quot;
   }
 }</component>
-  <component name="GithubPullRequestsUISettings">{
-  &quot;selectedUrlAndAccountId&quot;: {
-    &quot;url&quot;: &quot;https://github.com/hereto4/sos-extended-boostables.git&quot;,
-    &quot;accountId&quot;: &quot;99e4c94c-0e3d-44db-a66f-1a1ba44e41f1&quot;
+  <component name="GithubPullRequestsUISettings"><![CDATA[{
+  "selectedUrlAndAccountId": {
+    "url": "https://github.com/hereto4/sos-extended-boostables.git",
+    "accountId": "86a21ebb-bb4f-47e1-bd8c-9a2fcbf75e75"
   }
-}</component>
+}]]></component>
   <component name="McpProjectServerCommands">
     <commands />
     <urls />
+  </component>
+  <component name="NextEditCompletionFeaturesState">
+    <decayedCancelled>
+      <entry key="MS100" value="1.0073287597263432" />
+      <entry key="MS500" value="1.5096014945444534" />
+      <entry key="S2" value="2.640375023241381" />
+      <entry key="S5" value="3.302721546272267" />
+      <entry key="S10" value="3.617139882604792" />
+      <entry key="S30" value="3.8637111302342286" />
+      <entry key="S60" value="3.930697200239439" />
+      <entry key="M2" value="3.965053059761907" />
+      <entry key="M5" value="3.9859495176461506" />
+      <entry key="M10" value="3.9929627424263683" />
+      <entry key="M15" value="3.995305819776537" />
+      <entry key="M30" value="3.9976515710828613" />
+      <entry key="H1" value="3.9988254506114544" />
+      <entry key="H2" value="3.999412641544637" />
+      <entry key="H4" value="3.9997062998284703" />
+      <entry key="D1" value="3.99995104706224" />
+      <entry key="W1" value="3.9999930066519283" />
+    </decayedCancelled>
+    <decayedSelected>
+      <entry key="MS100" value="0.0" />
+      <entry key="MS500" value="0.0" />
+      <entry key="S2" value="0.0" />
+      <entry key="S5" value="0.0" />
+      <entry key="S10" value="0.0" />
+      <entry key="S30" value="0.0" />
+      <entry key="S60" value="0.0" />
+      <entry key="M2" value="0.0" />
+      <entry key="M5" value="0.0" />
+      <entry key="M10" value="0.0" />
+      <entry key="M15" value="0.0" />
+      <entry key="M30" value="0.0" />
+      <entry key="H1" value="0.0" />
+      <entry key="H2" value="0.0" />
+      <entry key="H4" value="0.0" />
+      <entry key="D1" value="0.0" />
+      <entry key="W1" value="0.0" />
+    </decayedSelected>
+    <decayedShown>
+      <entry key="MS100" value="0.979734327656721" />
+      <entry key="MS500" value="1.5007269313478482" />
+      <entry key="S2" value="2.636269372907022" />
+      <entry key="S5" value="3.3006043729258514" />
+      <entry key="S10" value="3.615965628795455" />
+      <entry key="S30" value="3.863289142573741" />
+      <entry key="S60" value="3.930482031815369" />
+      <entry key="M2" value="3.9649444033064536" />
+      <entry key="M5" value="3.9859057939720466" />
+      <entry key="M10" value="3.9929408367572328" />
+      <entry key="M15" value="3.9952912062330426" />
+      <entry key="M30" value="3.997644259423163" />
+      <entry key="H1" value="3.9988217935585078" />
+      <entry key="H2" value="3.99941081271225" />
+      <entry key="H4" value="3.999705385335781" />
+      <entry key="D1" value="3.9999508946361657" />
+      <entry key="W1" value="3.999992984876515" />
+    </decayedShown>
   </component>
   <component name="ProjectColorInfo">{
   &quot;associatedIndex&quot;: 4
@@ -85,28 +103,33 @@
     <option name="sortByType" value="true" />
     <option name="sortKey" value="BY_TYPE" />
   </component>
-  <component name="PropertiesComponent">{
-  &quot;keyToString&quot;: {
-    &quot;Application.DEBUG.executor&quot;: &quot;Run&quot;,
-    &quot;Maven.sos-scripting-template [clean].executor&quot;: &quot;Run&quot;,
-    &quot;ModuleVcsDetector.initialDetectionPerformed&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.MCP Project settings loaded&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
-    &quot;git-widget-placeholder&quot;: &quot;main&quot;,
-    &quot;ignore.virus.scanning.warn.message&quot;: &quot;true&quot;,
-    &quot;kotlin-language-version-configured&quot;: &quot;true&quot;,
-    &quot;last_opened_file_path&quot;: &quot;C:/Users/Nate/AppData/Roaming/songsofsyx/mods/sos-extended-boostables&quot;,
-    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
-    &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
-    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
-    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
-    &quot;project.structure.last.edited&quot;: &quot;Libraries&quot;,
-    &quot;project.structure.proportion&quot;: &quot;0.0&quot;,
-    &quot;project.structure.side.proportion&quot;: &quot;0.41609195&quot;
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "Application.DEBUG.executor": "Run",
+    "Maven.sos-scripting-template [clean].executor": "Run",
+    "ModuleVcsDetector.initialDetectionPerformed": "true",
+    "RunOnceActivity.MCP Project settings loaded": "true",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252": "true",
+    "RunOnceActivity.git.unshallow": "true",
+    "RunOnceActivity.typescript.service.memoryLimit.init": "true",
+    "codeWithMe.voiceChat.enabledByDefault": "false",
+    "com.intellij.ml.llm.matterhorn.ej.ui.settings.DefaultModelSelectionForGA.v1": "true",
+    "git-widget-placeholder": "main",
+    "ignore.virus.scanning.warn.message": "true",
+    "junie.onboarding.icon.badge.shown": "true",
+    "kotlin-language-version-configured": "true",
+    "last_opened_file_path": "C:/Users/Nate/AppData/Roaming/songsofsyx/mods/sos-extended-boostables",
+    "node.js.detected.package.eslint": "true",
+    "node.js.detected.package.tslint": "true",
+    "node.js.selected.package.eslint": "(autodetect)",
+    "node.js.selected.package.tslint": "(autodetect)",
+    "project.structure.last.edited": "Libraries",
+    "project.structure.proportion": "0.0",
+    "project.structure.side.proportion": "0.41609195",
+    "to.speed.mode.migration.done": "true"
   }
-}</component>
+}]]></component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
       <recent name="C:\Users\Nate\AppData\Roaming\songsofsyx\mods\sos-extended-boostables" />
@@ -129,7 +152,8 @@
   <component name="SharedIndexes">
     <attachedChunks>
       <set>
-        <option value="bundled-jdk-30f59d01ecdd-2fc7cc6b9a17-intellij.indexing.shared.core-IU-253.32098.101" />
+        <option value="bundled-jdk-30f59d01ecdd-37e91769500f-intellij.indexing.shared.core-IU-261.26222.65" />
+        <option value="bundled-js-predefined-d6986cc7102b-31caf2ab9e3c-JavaScript-IU-261.26222.65" />
       </set>
     </attachedChunks>
   </component>
@@ -373,8 +397,19 @@
       <option name="project" value="LOCAL" />
       <updated>1785907901826</updated>
     </task>
-    <option name="localTasksCounter" value="30" />
+    <task id="LOCAL-00030" summary="noble code ref">
+      <option name="closed" value="true" />
+      <created>1786129943539</created>
+      <option name="number" value="00030" />
+      <option name="presentableId" value="LOCAL-00030" />
+      <option name="project" value="LOCAL" />
+      <updated>1786129943539</updated>
+    </task>
+    <option name="localTasksCounter" value="31" />
     <servers />
+  </component>
+  <component name="TypeScriptGeneratedFilesManager">
+    <option name="version" value="3" />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
     <option name="TAB_STATES">
@@ -412,6 +447,7 @@
     <MESSAGE value="CLASS_* + booster coloring FINAL" />
     <MESSAGE value="wip" />
     <MESSAGE value="Major CLASS_* work" />
-    <option name="LAST_COMMIT_MESSAGE" value="Major CLASS_* work" />
+    <MESSAGE value="noble code ref" />
+    <option name="LAST_COMMIT_MESSAGE" value="noble code ref" />
   </component>
 </project>

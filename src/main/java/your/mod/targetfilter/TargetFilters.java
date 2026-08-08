@@ -3,6 +3,7 @@ package your.mod.targetfilter;
 import java.lang.reflect.Field;
 
 import game.boosting.BOOSTING;
+import game.boosting.Boostable;
 import snake2d.util.misc.ACTION;
 
 /**
@@ -26,9 +27,34 @@ public final class TargetFilters {
 
     private TargetFilters() {}
 
-    /** initBeforeGameCreated: pre-scan tech files, record flags, pre-suppress parse warnings. */
+    /**
+     * initBeforeGameCreated: pre-scan tech files, record flags, pre-suppress parse warnings, and
+     * drop the previous game's {@link #markUnfilterable(Boostable)} registrations (boostables are
+     * rebuilt per game — {@code new INIT()} lives in the GAME constructor).
+     */
     public static void scan() {
+        TargetFilterApplier.resetUnfilterable();
         TargetFilterRegistry.scanTechFiles();
+    }
+
+    /**
+     * Declare that {@code bo} has no subject-scoped read-point, so a race/class filter can never
+     * be evaluated against it. A flagged tech granting this key keeps the filter on all its
+     * <em>other</em> boosts and applies this one unfiltered, through the vanilla tech path.
+     *
+     * <p>Without this, such a boost silently contributes nothing: the filtered booster is only
+     * ever asked about a target it cannot test, so it returns identity at every tech level and the
+     * effect tooltip drops the line entirely. The engine's own two cases ({@code CIVIC_OPINION},
+     * {@code CIVIC_TRUST}) are built in; this is for keys a mod registers itself.
+     *
+     * <p>Call before {@code BOOSTING.finishSetup()} drains the waiting queue — anywhere in
+     * {@code initBeforeGameInited()} works, including after {@link #install()}. Null-safe, so it
+     * can be handed the result of a registration that may have failed.
+     *
+     * @param bo the boostable, read only at faction/region/division scope; null is ignored
+     */
+    public static void markUnfilterable(Boostable bo) {
+        TargetFilterApplier.markUnfilterable(bo);
     }
 
     /**

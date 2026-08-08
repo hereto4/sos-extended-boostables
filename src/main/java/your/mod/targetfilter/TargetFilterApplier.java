@@ -2,9 +2,12 @@ package your.mod.targetfilter;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
+import game.boosting.BOOSTABLES;
 import game.boosting.BoostSpec;
 import game.boosting.Boostable;
 import game.boosting.Booster;
@@ -27,6 +30,9 @@ import init.type.HCLASSES;
  *       {@link Boostable} (via {@code Boostable.addFactor}). That booster returns
  *       identity for any target that doesn't pass the tech's {@link SubjectFilter},
  *       so only the matching subjects see the boost.</li>
+ *   <li><b>Except</b> for boostables the filter can provably never reach — see
+ *       {@link #isUnfilterable}. Those BoostSpecs are left untouched on the vanilla
+ *       tech path, so they apply unfiltered rather than vanishing.</li>
  * </ul>
  *
  * <p>Run from a {@code BOOSTING.waiting} action queued during
@@ -44,6 +50,14 @@ final class TargetFilterApplier {
 
     /** (TECH, original BoostSpec) pairs pulled from tech.boosters during applyAll. */
     private static final List<Saved> saved = new ArrayList<>();
+
+    /**
+     * Extra boostables registered as unfilterable by the host script — see
+     * {@link TargetFilters#markUnfilterable(Boostable)}. Identity-keyed: {@code Boostable}
+     * inherits {@code Object}'s equals/hashCode (its base {@code util.info.INFO} overrides
+     * neither), which is exactly what we want.
+     */
+    private static final Set<Boostable> extraUnfilterable = new HashSet<>();
 
     private static final class Saved {
         final TECH tech;
@@ -66,6 +80,7 @@ final class TargetFilterApplier {
         for (TECH t : TECHS.ALL()) techByKey.put(t.key, t);
 
         int rewroteSpecs = 0;
+        int exemptSpecs = 0;
         int unmatchedTechs = 0;
         int unresolvedFilters = 0;
         int techsWithNoBoosts = 0;
@@ -100,6 +115,16 @@ final class TargetFilterApplier {
                 Boostable bo = original.boostable;
                 Booster src = original.booster;
 
+                if (isUnfilterable(bo)) {
+                    // Leave it in tech.boosters: PTech's BoostCompound will aggregate it in the
+                    // connecter that runs right after us, exactly as for an unflagged tech. Not
+                    // added to `saved` either — it was never removed, so re-adding would duplicate.
+                    exemptSpecs++;
+                    TargetFilterRegistry.announce("    - EXEMPT boostable=" + bo.key
+                            + " (no subject-scoped read-point; applies unfiltered via the vanilla tech path)");
+                    continue;
+                }
+
                 boolean removed = removeBoostSpec(tech, original);
 
                 TargetFilteredBooster filt = new TargetFilteredBooster(
@@ -119,10 +144,51 @@ final class TargetFilterApplier {
             }
         }
 
-        TargetFilterRegistry.announce("apply: rewrote " + rewroteSpecs + " BoostSpec(s) across "
-                + TargetFilterRegistry.flags.size() + " flagged tech(s); unmatchedTechs="
-                + unmatchedTechs + ", unresolvedFilters=" + unresolvedFilters
+        TargetFilterRegistry.announce("apply: rewrote " + rewroteSpecs + " BoostSpec(s), exempted "
+                + exemptSpecs + " across " + TargetFilterRegistry.flags.size()
+                + " flagged tech(s); unmatchedTechs=" + unmatchedTechs
+                + ", unresolvedFilters=" + unresolvedFilters
                 + ", techsWithNoBoosts=" + techsWithNoBoosts);
+    }
+
+    /** Register a boostable as unfilterable. See {@link TargetFilters#markUnfilterable(Boostable)}. */
+    static void markUnfilterable(Boostable bo) {
+        if (bo != null) extraUnfilterable.add(bo);
+    }
+
+    /**
+     * Drop the registrations from the previous game. {@code new INIT()} runs inside the GAME
+     * constructor, so every {@code Boostable} — engine and mod alike — is a fresh instance per game
+     * and the old entries could never match again; without this they would accumulate and keep the
+     * previous game's boostable graph alive. Called from {@code initBeforeGameCreated}, which the
+     * engine invokes per game start/load, before the marks come in at {@code initBeforeGameInited}.
+     */
+    static void resetUnfilterable() {
+        extraUnfilterable.clear();
+    }
+
+    /**
+     * True when no read-point of {@code bo} ever hands the engine a subject the filter could test,
+     * so a {@link TargetFilteredBooster} on it could only ever return identity — the boost would
+     * silently do nothing at every tech level, and would also be dropped from the effect tooltip
+     * (BHoverer skips MUL entries equal to 1 / ADD entries equal to 0 unless {@code keepNops}).
+     *
+     * <p>The two engine cases are the {@code SuperBoostable<Royalty>}-backed keys. Their value is
+     * read only through {@code SuperBoostable.get(Royalty)}, and the {@code SuperSpec.Wrap} that
+     * pulls plain Boosters into that pipeline <em>discards the royalty</em> and evaluates at
+     * {@code HCLASS_RACE.clP()} — the all-races/all-classes bucket, which no race or class filter
+     * can match. {@code CIVIC_TRUST} has a second faction-scoped read-point on top of that
+     * ({@code DipWarPlayer} reads it with a raw {@code Faction}). Compared by identity against the
+     * live engine objects rather than by key string; {@code BOOSTABLES} is INIT-scoped, so these
+     * are the same instances for the whole process.
+     *
+     * <p>Mod-registered keys with the same shape are added via {@link #markUnfilterable(Boostable)}
+     * by whoever owns them — the host script knows its own read-points.
+     */
+    private static boolean isUnfilterable(Boostable bo) {
+        if (bo == BOOSTABLES.CIVICS().bOpinion) return true; // CIVIC_OPINION
+        if (bo == BOOSTABLES.CIVICS().TRUST) return true;    // CIVIC_TRUST
+        return extraUnfilterable.contains(bo);
     }
 
     /** Resolve a scan {@link TargetFilterRegistry.Spec} into a live {@link SubjectFilter}; null if unsatisfiable. */

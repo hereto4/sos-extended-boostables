@@ -3,6 +3,7 @@ package your.mod.targetfilter;
 import init.race.Race;
 import init.type.CAUSE_ARRIVES;
 import init.type.HCLASS;
+import init.type.HCLASS_RACE;
 import settlement.stats.Induvidual;
 import settlement.stats.STATS;
 
@@ -52,6 +53,33 @@ final class SubjectFilter {
             return STATS.POP().COUNT.arrive.get(ind) == CAUSE_ARRIVES.EMANCIPATED();
         }
         if (hclass != null && ind.clas() != hclass) return false;
+        return true;
+    }
+
+    /**
+     * Match against a <b>population aggregate</b> — the engine's race × class bucket
+     * ({@link HCLASS_RACE}), used at read-points that ask what a boostable is worth for a
+     * <em>slice</em> of the population rather than for one subject. Two live examples:
+     * {@code Immigration.getRate} reads {@code IMMIGRATION.get(HCLASS_RACE.clP(race, CITIZEN))}
+     * and {@code StatsReproduction} projects births with {@code clP(r, cl)}.
+     *
+     * <p>A bucket answers a coarser question than an {@link Induvidual}, so a constraint can come
+     * back <em>undecidable</em> rather than true/false. A bucket with {@code race == null} means
+     * "all races" (that is what {@code HCLASS_RACE.clP()} — the citywide readout target — is), and
+     * a bucket records no arrival cause, so {@code EXSLAVE} can never be tested against one.
+     *
+     * <p>This returns true only when <b>every</b> constraint is definitively satisfied. Both
+     * "definitely a different race/class" and "too coarse to tell" collapse to false, which leaves
+     * the booster at identity — the same value it returned before this branch existed. So the
+     * citywide readouts are unchanged and only the genuinely race-named buckets start filtering.
+     */
+    boolean matches(HCLASS_RACE pop) {
+        if (pop == null) return false;
+        // pop.race == null is the "all races" bucket, so != race covers both "wrong race" and
+        // "undecidable" in one test. Same for pop.cl below.
+        if (race != null && pop.race != race) return false;
+        if (exslave) return false;
+        if (hclass != null && pop.cl != hclass) return false;
         return true;
     }
 }

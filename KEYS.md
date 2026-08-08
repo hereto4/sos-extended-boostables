@@ -391,15 +391,36 @@ TECHS: {
 > **How it works.** At load the mod scans every tech file for these keys (before the engine parses them,
 > so the custom keys never trip the "unknown key" warning). For each flagged tech it pulls the tech's
 > `BOOST` specs out of the global tech aggregator and reinstalls each as a **filtered booster** on the
-> same boostable: the booster returns the vanilla per-level effect for matching subjects and a neutral
-> identity (`×1` / `+0`) for everyone else and for non-subject boost targets. The tech scales with the
-> player's tech level exactly as a normal tech would. The tech-tree tooltip still shows the full effect
-> list (the originals are re-added for display after aggregation). See `your.mod.targetfilter`.
+> same boostable: the booster returns the vanilla per-level effect for matching targets and a neutral
+> identity (`×1` / `+0`) for everyone else. The tech scales with the player's tech level exactly as a
+> normal tech would. The tech-tree tooltip still shows the full effect list (the originals are re-added
+> for display after aggregation). See `your.mod.targetfilter`.
 >
-> **Only subject-facing boostables are actually narrowed.** The filter can only distinguish per-subject
-> (`Induvidual`) boost targets. A boost aimed at a region/faction/division target has no subject to test,
-> so it yields the neutral identity under a target key — pair `TARGET_*` with per-subject boostables
-> (need-rates, room per-employee output, submission, etc.) for it to do something.
+> **A filtered tech never loses a boost.** The engine reads different boostables against different kinds
+> of target, and the filter can only be evaluated against some of them. Each of a flagged tech's boosts is
+> handled according to what its boostable is actually read with:
+>
+> | The engine reads the boostable with… | What `TARGET_*` does to it |
+> |---|---|
+> | a **subject** (`Induvidual`) — need-rates, per-employee room output, submission, crime, lifespan, … | **filtered** — only matching subjects get the effect |
+> | a **population bucket** (`HCLASS_RACE`) that names a race/class — per-race immigration pull, the per-race birth projection | **filtered** — only the matching race/class bucket gets it |
+> | a **citywide** bucket (`HCLASS_RACE.clP()`, race and class both "all") | neutral — a race-scoped bonus is deliberately not folded into a citywide readout |
+> | **only** a faction/region/division — `CIVIC_OPINION`, `CIVIC_TRUST`, `CIVIC_VASSAL_OPINION`, `WORLD_PLUNDER`, `CIVIC_INDOCTRINATION`, `ROOM__SLAVER`, `ROOM__CANNIBAL` | **exempt — applies unfiltered**, exactly as if the tech carried no `TARGET_*` |
+>
+> The last row is the important one: those boostables have no subject anywhere in their read path, so a
+> filter could only ever evaluate to "no effect". Rather than let the boost silently vanish (which also
+> dropped it from the effect tooltip, since the game hides neutral modifier lines), the mod leaves those
+> specs on the vanilla tech path. So a tech can mix `TARGET_RACE: GARTHIMI` + `BATTLE_MORALE>MUL: 1.1`
+> (Garthimi only) + `CIVIC_OPINION>MUL: 0.9` (applies globally) and both take effect. Mods that register
+> their own faction-scoped keys can opt them in with
+> `your.mod.targetfilter.TargetFilters.markUnfilterable(boostable)`.
+>
+> **Known gap — world-map division battles.** Boosts on `BATTLE_*` / `PHYSICS_*` reach settlement combat
+> (read per-subject) but **not** world-map army battles. That read path
+> (`game.battle.util.Boosts`) only consults each race's own boost file plus `Boostable.fGlobal`, and
+> `fGlobal` is populated solely by the vanilla tech aggregator — the list a filtered tech is pulled out
+> of. There is no seam that both carries the tech's level scaling and exposes the division's race, so a
+> race-filtered battle tech is settlement-only. Author world-map battle bonuses in the race file instead.
 
 ---
 

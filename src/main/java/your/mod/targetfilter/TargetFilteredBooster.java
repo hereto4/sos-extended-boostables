@@ -5,16 +5,30 @@ import game.boosting.BSourceInfo;
 import game.boosting.Booster;
 import game.faction.FACTIONS;
 import init.tech.TECH;
+import init.type.HCLASS_RACE;
 import settlement.stats.Induvidual;
 import snake2d.util.misc.CLAMP;
 
 /**
  * A Booster that mirrors the math of a vanilla tech BoosterValue but only applies
- * its scaled effect to {@link Induvidual} subjects that pass a {@link SubjectFilter}
- * (race and/or class). For any other {@link BOOSTABLE_O} — a subject that fails the
- * filter, or a non-Induvidual target (regions, divisions, factions, rooms, ...) —
- * it returns the identity scaler so {@code getValue(scaler) == from()} (i.e. 1.0
- * for MUL, 0.0 for ADD: no effect).
+ * its scaled effect to targets that pass a {@link SubjectFilter} (race and/or class).
+ * Two kinds of target can be tested:
+ * <ul>
+ *   <li>{@link Induvidual} — one subject; the filter decides exactly.</li>
+ *   <li>{@link HCLASS_RACE} — a race × class population bucket, used by the engine's
+ *       aggregate read-points (per-race immigration pull, the per-race reproduction
+ *       projection, ...). Filterable only when the bucket names the race/class the
+ *       filter constrains; see {@link SubjectFilter#matches(HCLASS_RACE)}.</li>
+ * </ul>
+ * For anything else — a target that fails the filter, or a {@link BOOSTABLE_O} with no
+ * subject in it at all (regions, divisions, factions) — it returns the identity scaler
+ * so {@code getValue(scaler) == from()} (i.e. 1.0 for MUL, 0.0 for ADD: no effect).
+ *
+ * <p><b>Identity is indistinguishable from "not applied".</b> A boostable whose only
+ * read-point is faction- or region-scoped can therefore never be reached through this
+ * booster — it would silently contribute nothing at every tech level. Those boostables
+ * are not wrapped at all: {@link TargetFilterApplier} leaves their BoostSpec on the
+ * vanilla tech path instead. See {@code TargetFilterApplier#isUnfilterable}.
  *
  * <p>The scaler for matching subjects is the player's current tech progress
  * ({@code level / levelMax}). It is read on every {@code pget} call, so level
@@ -63,9 +77,13 @@ final class TargetFilteredBooster extends Booster {
 
     @Override
     protected double pget(BOOSTABLE_O o) {
-        if (!(o instanceof Induvidual)) return 0.0;
-        Induvidual ind = (Induvidual) o;
-        if (!filter.matches(ind)) return 0.0;
+        if (o instanceof Induvidual) {
+            if (!filter.matches((Induvidual) o)) return 0.0;
+        } else if (o instanceof HCLASS_RACE) {
+            if (!filter.matches((HCLASS_RACE) o)) return 0.0;
+        } else {
+            return 0.0;
+        }
         int level = FACTIONS.player().tech.level(tech);
         if (level <= 0) return 0.0;
         return (double) level / levelMaxCached;

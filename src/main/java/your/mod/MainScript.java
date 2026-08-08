@@ -351,6 +351,9 @@ public final class MainScript implements SCRIPT {
         if (roomSlaver != null) {
             registerSlaverEffect(roomSlaver);
         }
+        // Read only as roomSlaver.get(FACTIONS.player()) (inside registerSlaverEffect's per-subject
+        // BValue), never with the subject itself — so a TARGET_RACE/TARGET_CLASS tech cannot filter it.
+        your.mod.targetfilter.TargetFilters.markUnfilterable(roomSlaver);
 
         Boostable roomCannibal = ensureBoostable(CANNIBAL_KEY, "__CANNIBAL", "Cannibal",
                 "Multiplies the amount of resources gained when a corpse is butchered at a Cannibal Room.",
@@ -358,6 +361,9 @@ public final class MainScript implements SCRIPT {
         if (roomCannibal != null) {
             registerCannibalEffect(roomCannibal);
         }
+        // Read only as boost.get(FACTIONS.player()) in BoostedResAmount.amount() — butchering yield is
+        // a per-corpse resource amount with no subject attached, so there is nothing to filter on.
+        your.mod.targetfilter.TargetFilters.markUnfilterable(roomCannibal);
 
         // WORLD_PLUNDER: increases resources gained from raiding with your armies on enemy territory.
         // (Distinct from vanilla CIVIC_RAIDING / "Raid Security", which lowers the chance of being raided.)
@@ -368,6 +374,8 @@ public final class MainScript implements SCRIPT {
         worldPlunder = ensureBoostable(PLUNDER_KEY, "PLUNDER", "Raid Plunder",
                 "Multiplies the resources your armies plunder while raiding enemy territory.",
                 UI.icons().s.sword, BoostableCat.ALL().WORLD);
+        // Read only as worldPlunder.get(player) in handleRaidPlunder — faction-scoped, no subject.
+        your.mod.targetfilter.TargetFilters.markUnfilterable(worldPlunder);
 
         // CIVIC_INDOCTRINATION: increases the effectiveness (gain rate) of indoctrinating subjects.
         // Indoctrination is accumulated in the seam-less StatsEducation educate path, but a university's
@@ -380,6 +388,9 @@ public final class MainScript implements SCRIPT {
         if (civicIndoctrination != null) {
             registerIndoctrinationEffect(civicIndoctrination);
         }
+        // IndoctrinationBooster already does the per-subject test itself (policy == INDOCTRINATION) and
+        // reads the key at civic.get(FACTIONS.player()), so the key never sees an Induvidual.
+        your.mod.targetfilter.TargetFilters.markUnfilterable(civicIndoctrination);
 
         // ROOM_*_ALL umbrella keys: one tooltip line that cascades to every matching room boostable.
         registerUmbrellaCascade(MINE_ALL_KEY, "MINE_ALL", "Mines (All)", "ROOM_MINE_",
@@ -461,6 +472,9 @@ public final class MainScript implements SCRIPT {
                 "Raises the opinion of factions that are your vassals, keeping their trust above the point "
               + "where they would turn on you.",
                 UI.icons().s.noble, BOOSTABLES.CIVICS(), 0.0);
+        // Same shape as vanilla CIVIC_OPINION: VassalOpinionSpec.get(Royalty) reads the key at
+        // key.get(FACTIONS.player()), so no race/class filter can ever be evaluated against it.
+        your.mod.targetfilter.TargetFilters.markUnfilterable(vassalOpinion);
 
         // CLASS_* "Class Treatment" registration (un-shelved 2026-07-11). New "CLASS_" BoostableCat
         // (prefix applied by BOOSTING.push). In-game names follow "<ClassName-plural> (<aspect>)" ->
