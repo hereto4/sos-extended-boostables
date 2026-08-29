@@ -44,6 +44,9 @@ import settlement.entity.humanoid.ai.main.AI;
 import settlement.entity.humanoid.ai.main.AIManager;
 import settlement.entity.humanoid.ai.main.AISUB;
 import settlement.main.SETT;
+// RATES_NATURE pilgrimage: SComponent + DIR back the O(1) reachability pre-check that keeps us from
+// claiming a citizen for an unreachable nature tile (see THE CRASH TRAP by maybeStartPilgrimage).
+import settlement.path.components.SComponent;
 import settlement.stats.Induvidual;
 import settlement.stats.STATS;
 import settlement.stats.colls.StatsEducation;
@@ -52,6 +55,7 @@ import settlement.stats.colls.StatsEducation;
 // import settlement.stats.standing.STANDINGS;
 // import settlement.stats.standing.StatStanding;
 import snake2d.util.datatypes.COORDINATE;
+import snake2d.util.datatypes.DIR;
 import snake2d.util.file.FileGetter;
 import snake2d.util.file.FilePutter;
 import snake2d.util.misc.CLAMP;
@@ -1388,8 +1392,35 @@ public final class MainScript implements SCRIPT {
     // the PUBLIC AIManager surface: walk them to the nearest actual nature tile, let them linger, then
     // RELEASE (interrupt) so their real needs are never starved. Frequency is self-paced by the desire
     // accumulator (grows away from nature ∝ affinity, resets on arrival); a population-scaled cap (% of
-    // pop) + a per-episode watchdog bound how many run at once. Uses overwrite(sub)+poll (re-issuing if idle
-    // knocks it off) rather than a PLANRES plan, to stay within verified primitives. Master-switchable.
+    // pop) + a per-episode watchdog bound how many run at once. Uses overwrite(sub) rather than a mod-owned
+    // AIPLAN.PLANRES, so nothing mod-defined is ever written into a save. Master-switchable.
+    //
+    // ⚠️⚠️ THE CRASH TRAP — read before touching anything below. (Fixed 2026-08-29; this was a CTD for
+    // every player who unlocked a RATES_NATURE tech and then played long enough for a lover's desire to
+    // cross the trigger.)
+    //
+    // AISUB_walkTo.coo() is NOT a query. It mutates the humanoid's SHARED AIManager.path *before* it knows
+    // whether a route exists, and never restores it on failure:
+    //     coo():            d.path.request(a.physics.tileC(), dx, dy);
+    //                       if (d.path.isSuccessful()) return vanilla.activate(a, d);
+    //                       return null;                                   // <- path left POISONED
+    //     SPath.request():  this.successful = false;   ...search...   return successful;
+    // So a failed coo() hands back null AND leaves d.path with successful == false. If that humanoid's
+    // currently active AISUB is an engine PathWalker already mid-route, the next AIManager.update does:
+    //     AIManager.update -> setNextState -> PathWalker.resume -> PathWalker$next.res -> path.setNext()
+    //     SPath.setNext():  if (!successful) throw new RuntimeException();   // CTD @ SPath.java:357
+    // The old gate (AI.modules().idle.is) did not protect against this: the idle module walks constantly —
+    // it strolls (SubMove), steps out of the way (getOutofWay + walkTo.pathFull) and walks to benches
+    // (walkTo.serviceInclude) — and every one of those is a PathWalker. Diagnosis verified line-for-line
+    // against .claude/game-source-v71.44 (every frame of the reported stack matches exactly).
+    //
+    // THE RULE: never touch d.path — i.e. never call walkTo.coo() or overwrite() — on a humanoid the engine
+    // still owns. h.interrupt() (= AIManager.overwrite(a, AI.plans().NOP)) is the seam that transfers
+    // ownership: it cancels the live sub (running its abort(), which also releases any bench/service/
+    // resource reservation that sub was holding — the old code leaked those), restores and cancels a
+    // pending interruption, cancels the plan, and parks the citizen on NOP, whose sub is STAND and never
+    // reads d.path. Only after that is d.path ours to clobber, and a failed request is then harmless
+    // because nothing is consuming it.
 
     /** Try to launch a pilgrimage for an idle nature-lover (desire-gated by the caller) away from nature. */
     private void maybeStartPilgrimage(Humanoid h, double affinity, COORDINATE c) {
@@ -1397,14 +1428,30 @@ public final class MainScript implements SCRIPT {
         if (pilgrims.size() >= maxPilgrims) return;
         if (pilgrims.containsKey(h) || h.isRemoved()) return;
         AIManager d = (AIManager) h.ai();
+        // Half-built or mid-interruption AI (AIManager.interrupt nulls sub until the interrupter installs
+        // its own): not ours to touch — h.interrupt() would NPE on sub.cancel().
+        if (d.plansub() == null || d.plan() == null) return;
         if (!AI.modules().idle.is(h, d)) return; // only genuinely idle citizens
+        // Resolve a destination the pathfinder can plausibly reach BEFORE claiming the citizen, so a
+        // hopeless target (a tree inside a solid forest blob, across a wall, another landmass) costs
+        // nothing. A residual failure below is safe, this just keeps it rare.
         int dest = findNearestNature(c.x(), c.y());
         if (dest < 0) return;
         int w = SETT.TWIDTH, tx = dest % w, ty = dest / w;
+        h.interrupt();               // take ownership FIRST — see THE CRASH TRAP. Must precede coo().
         AISUB.AISubActivation walk = AI.SUBS().walkTo.coo(h, d, tx, ty);
-        if (walk == null) return; // unreachable — skip this citizen this round
+        if (walk == null) return;    // no route after all: d.path is dead but unowned, so harmless
         d.overwrite(h, walk);
         pilgrims.put(h, new Pilgrim(tx, ty));
+    }
+
+    /**
+     * True while the citizen is still parked on the NOP plan we claimed them with. Once the engine has
+     * handed them a real plan again (walk finished, sub failed, interruption, module switch) the episode is
+     * over and we must not interrupt or re-drive them — they are doing something of their own again.
+     */
+    private static boolean pilgrimStillOurs(AIManager d) {
+        return d.plan() == AI.plans().NOP;
     }
 
     /** Advance/finish every active pilgrimage. Runs every tick; releases on arrival-timeout or watchdog. */
@@ -1416,9 +1463,11 @@ public final class MainScript implements SCRIPT {
             Pilgrim p = en.getValue();
             if (h.isRemoved() || h.indu() == null) { it.remove(); continue; }
             AIManager d = (AIManager) h.ai();
+            // Mid-interruption / half-built AI: h.interrupt() would NPE on sub.cancel(). Drop the episode.
+            if (d.plansub() == null || d.plan() == null) { it.remove(); continue; }
             p.episodeTime += ds;
             if (p.episodeTime > NATURE_PILGRIM_MAX_EPISODE) { // watchdog: never pin a citizen
-                h.interrupt();
+                if (pilgrimStillOurs(d)) h.interrupt();
                 it.remove();
                 continue;
             }
@@ -1427,30 +1476,48 @@ public final class MainScript implements SCRIPT {
                 boolean near = c != null
                         && Math.max(Math.abs(c.x() - p.tx), Math.abs(c.y() - p.ty)) <= NATURE_PILGRIM_ARRIVE;
                 if (near) {
+                    // Reached nature. If the engine has already reclaimed them, leave them alone — they are
+                    // standing in nature either way, so the Stage-1 proximity pass still pays the piety.
+                    if (!pilgrimStillOurs(d)) { it.remove(); continue; }
+                    // Still ours: re-claim before swapping the sub, because our walk sub may have ended or
+                    // been interrupted and we must never overwrite a sub in place without cancelling it.
+                    h.interrupt();
                     d.overwrite(h, AI.SUBS().STAND.activateTime(h, d, NATURE_PILGRIM_STAND_SECS));
                     p.standing = true;
                     p.standLeft = NATURE_PILGRIM_STAND_SECS;
-                } else if (!AI.SUBS().walkTo.isWalking(d)) {
-                    // The idle module dropped our walk before arrival — re-issue to keep the pilgrim pinned.
-                    AISUB.AISubActivation walk = AI.SUBS().walkTo.coo(h, d, p.tx, p.ty);
-                    if (walk == null) { h.interrupt(); it.remove(); continue; }
-                    d.overwrite(h, walk);
+                } else if (!pilgrimStillOurs(d) || !AI.SUBS().walkTo.isWalking(d)) {
+                    // The engine took the citizen back (walk failed, interruption, new plan) before they
+                    // arrived. Do NOT re-issue the walk: they are engine-owned again, and coo() would
+                    // poison d.path underneath whatever sub is now running (THE CRASH TRAP). End the
+                    // episode; desire is still parked at the trigger, so the next reward pass simply
+                    // re-launches through maybeStartPilgrimage, which claims them properly.
+                    it.remove();
+                    continue;
                 }
-                // else: still walking — let the engine run the sub to completion.
+                // else: still walking under our NOP claim — let the engine run the sub to completion.
             } else {
                 p.standLeft -= ds;
-                if (p.standLeft <= 0) { h.interrupt(); it.remove(); }
+                boolean ours = pilgrimStillOurs(d);
+                if (p.standLeft <= 0 || !ours) {
+                    // Worshipped long enough (or the engine reclaimed them). Hand control back cleanly;
+                    // AIManager picks a fresh plan next tick, so real needs are never starved.
+                    if (ours) h.interrupt();
+                    it.remove();
+                }
             }
         }
     }
 
     /**
      * Nearest tile (as a {@code ty*TWIDTH+tx} index) with {@code natureValue > NATURE_PILGRIM_PICK} within
-     * {@link #NATURE_PILGRIM_SEARCH_RADIUS}, searched ring by ring so the closest strong nature tile wins;
-     * −1 if none. Only called on a pilgrimage trigger (≤ NATURE_MAX_PILGRIMS/period), so O(R²) is fine.
+     * {@link #NATURE_PILGRIM_SEARCH_RADIUS} that the citizen can actually path to, searched ring by ring so
+     * the closest strong nature tile wins; −1 if none. Only called on a pilgrimage trigger
+     * (≤ NATURE_MAX_PILGRIMS/period), so O(R²) is fine.
      */
     private int findNearestNature(int cx, int cy) {
         int w = SETT.TWIDTH, hgt = SETT.THEIGHT;
+        SComponent from = SETT.PATH().comps.superComp.get(cx, cy);
+        if (from == null) return -1; // walker is on an unwalkable/unconnected tile — nowhere to send them
         for (int r = 1; r <= NATURE_PILGRIM_SEARCH_RADIUS; r++) {
             int best = -1;
             double bestv = NATURE_PILGRIM_PICK;
@@ -1460,12 +1527,30 @@ public final class MainScript implements SCRIPT {
                     int x = cx + dx, y = cy + dy;
                     if (x < 0 || y < 0 || x >= w || y >= hgt) continue;
                     double v = natureValue(x, y);
-                    if (v > bestv) { bestv = v; best = y * w + x; }
+                    if (v > bestv && pathReachable(from, x, y)) { bestv = v; best = y * w + x; }
                 }
             }
             if (best >= 0) return best;
         }
         return -1;
+    }
+
+    /**
+     * O(1) pre-check that {@code walkTo.coo(x,y)} has a realistic chance of finding a route. {@code coo}
+     * requests a NON-full path, which may end on a tile orthogonally adjacent to the destination, so the
+     * destination itself may be solid (a tree) as long as a neighbour is walkable and in the SAME path
+     * super-component as the walker. Mirrors the engine's own guard in {@code AISUB_walkTo.room}. Not a
+     * guarantee — but it stops us claiming a citizen (h.interrupt()) for a target nothing can reach.
+     */
+    private static boolean pathReachable(SComponent from, int tx, int ty) {
+        var comps = SETT.PATH().comps.superComp;
+        if (comps.get(tx, ty) == from) return true;
+        for (int i = 0; i < DIR.ORTHO.size(); i++) {
+            DIR dd = DIR.ORTHO.get(i);
+            int x = tx + dd.x(), y = ty + dd.y();
+            if (SETT.IN_BOUNDS(x, y) && comps.get(x, y) == from) return true;
+        }
+        return false;
     }
 
     /** Resolve (once) the MONUMENT_NATURE blueprint from the settlement's monument list; null if absent. */
