@@ -1,0 +1,12 @@
+# Maven build output. The shipped artifact is V71/script/sos-extended-boostables.jar
+# (the deploy target the game loads from), which stays tracked on purpose.
+#
+# Tracking target/ was actively harmful: restoring its .class files with `git checkout`
+# gives them mtimes newer than the sources, so maven-compiler-plugin skips recompiling
+# and `install` silently re-jars stale bytecode. Never `mvn clean` here (the clean plugin
+# is pointed at the project root) — delete target/classes by hand if a rebuild is needed.
+target/
+
+# Per-user IDE state. The rest of .idea/ (compiler.xml, misc.xml, vcs.xml,
+# Changelog.txt, SteamDesc.bbcode, ...) is shared project config and stays tracked.
+.idea/workspace.xml
