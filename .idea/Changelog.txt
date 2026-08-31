@@ -1,3 +1,9 @@
+Changelog v1.4.1
+• This update fixes the AI pathing error/crash many users have been experiencing.
+FIXES
+• Culture techs granting "Piety (Nature)" no longer cause sudden crashes.
+⎿ subjects who attempt to worship a nature object that isn't accessible will now re-route to a different object (it crashed the game previously)
+
 Changelog v1.4.0
 MAJOR ADDITION: CLASS TREATMENT
 - added CLASS_<CLASSNAME> keys for Nobles, Slaves, and Plebeians; in-game "ClassName (Contentment)"
