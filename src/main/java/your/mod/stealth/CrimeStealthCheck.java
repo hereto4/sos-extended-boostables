@@ -35,8 +35,27 @@ import java.util.Map;
  *
  * <p><b>Losing the contest just means "not reinforced this tick".</b> We deliberately do NOT try to
  * suppress the engine's own independent notify()/report() calls for loud crimes (Murder/Vandalism/
- * Flasher) — there is no way to intercept those without reflection, and per project policy this mod
- * does not use reflection. A high-Stealth criminal therefore still benefits (their contest loss simply
+ * Flasher) — there is no way to intercept those without reflection, and this feature chose not to use
+ * any.
+ *
+ * <p><b>That was a self-imposed choice, not a project rule (corrected 2026-09-13).</b> The original
+ * wording here — "per project policy this mod does not use reflection" — was wrong: no such policy has
+ * ever existed. Extended Boostables already reflects in {@code your.mod.targetfilter}
+ * ({@code TargetFilters.queueWaitingAction} reaches the package-private {@code BOOSTING.waiting};
+ * {@code ParseWarningSuppressor} reaches {@code Json.untest}), and the upstream template docs recommend
+ * reflection outright. The project's actual rule is narrower: <b>never reflectively write or pin engine
+ * state the engine recomputes</b> (the {@code STAT_WORK_RETIREMENT} denominator-pinning bug), while
+ * reflecting to read — or to reach a member whose visibility moved between game versions — is fine when
+ * it runs once at init with a non-reflective fallback. See {@code .claude/memory/feedback_reflection_policy.md}.
+ *
+ * <p>So the {@link #REPORT_ATTEMPTS} hack below is not the only option available. A single reflective
+ * push into the sealed {@code CrimeReporter} would be a read-mostly, one-shot, fallback-able use that
+ * sits on the permitted side of that line — and it would avoid this workaround's real cost: each
+ * {@code reportCriminal} call that passes the engine's internal coin flip pushes a duplicate into a
+ * guard house's <b>5-entry</b> mailbox, which can fill it and de-register that guard house from the
+ * finder, starving unrelated crimes nearby. Revisit if this is ever tuned.
+ *
+ * <p>A high-Stealth criminal therefore still benefits (their contest loss simply
  * fails to add extra report attempts on top of the vanilla 50 %), while a high-Stealth criminal near NO
  * guard at all never gets reinforced regardless of the roll (see {@link #findBestGuard}).
  */
