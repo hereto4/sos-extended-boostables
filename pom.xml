@@ -10,16 +10,16 @@
          own local install (mvn install -Dmaven.test.skip=true — NEVER mvn clean, see CLAUDE.md) after
          this change so the corrected coordinate exists in the local repo before a dependent mod builds. -->
     <artifactId>sos-extended-boostables</artifactId>
-    <version>1.4.1</version>
+    <version>1.5.0</version>
 
     <profiles>
         <profile>
             <id>windows</id>
             <properties>
                 <game.mod.directory>${user.home}/AppData/Roaming/songsofsyx/mods</game.mod.directory>
-                <game.workshop.directory>D:/Games/Steam/steamapps/workshop/content/1162750</game.workshop.directory>
-                <game.install.directory>D:/Games/Steam/steamapps/common/Songs of Syx</game.install.directory>
-                <game.mod.uploader.directory>${user.home}/AppData/Roaming/songsofsyx/mods-uploader</game.mod.uploader.directory>
+                <game.workshop.directory>C:/Gaming/Steam/steamapps/workshop/content/1162750</game.workshop.directory>
+                <game.install.directory>C:/Gaming/Steam/steamapps/common/Songs of Syx</game.install.directory>
+                <game.mod.uploader.directory>C:/Gaming/Modding/SteamWorkshopUploader</game.mod.uploader.directory>
             </properties>
             <activation>
                 <os>

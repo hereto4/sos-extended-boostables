@@ -10,3 +10,29 @@ target/
 # Per-user IDE state. The rest of .idea/ (compiler.xml, misc.xml, vcs.xml,
 # Changelog.txt, SteamDesc.bbcode, ...) is shared project config and stays tracked.
 .idea/workspace.xml
+
+# --- Per-developer build config (feature/stealth-alertness-boostables, 2026-09-13) ---
+#
+# pom.xml carries MACHINE-SPECIFIC absolute paths in its <windows>/<linux> profiles:
+# game.install.directory, game.workshop.directory and game.mod.uploader.directory.
+# game.install.directory is read by the install-game-jar / install-game-sources-jar
+# executions in the *validate* phase, so a pom pointing at another developer's Steam
+# install fails the build before it compiles anything. That is exactly what landed on
+# this branch (D:/Games/... vs C:/Gaming/...), so the pom is ignored here to stop those
+# paths round-tripping between machines.
+#
+# NOTE: pom.xml is still TRACKED — .gitignore does not untrack an existing file. To make
+# this take effect run, once, and then commit:
+#     git rm --cached pom.xml
+# That removes the pom from the branch, so every developer must keep a local copy. If you
+# would rather keep the pom shared, revert this entry and move the three paths into
+# ~/.m2/settings.xml properties (or a -D override) instead.
+pom.xml
+
+# Eclipse project metadata. This project builds with Maven and is worked on in IntelliJ;
+# these were added on this branch by an Eclipse user and are per-developer state.
+# Also still tracked - untrack with:
+#     git rm --cached .classpath .project -r .settings
+.classpath
+.project
+.settings/
