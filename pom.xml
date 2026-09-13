@@ -5,12 +5,8 @@
     <modelVersion>4.0.0</modelVersion>
 
     <groupId>org.example</groupId>
-    <!-- Renamed 2026-09-13 from the leftover template artifactId "sos-scripting-template" so other mods
-         (e.g. Heroes of Syx) can declare a correctly-named Maven dependency on this jar. Bump this mod's
-         own local install (mvn install -Dmaven.test.skip=true — NEVER mvn clean, see CLAUDE.md) after
-         this change so the corrected coordinate exists in the local repo before a dependent mod builds. -->
-    <artifactId>sos-extended-boostables</artifactId>
-    <version>1.5.0</version>
+    <artifactId>sos-scripting-template</artifactId>
+    <version>1.4.1</version>
 
     <profiles>
         <profile>
