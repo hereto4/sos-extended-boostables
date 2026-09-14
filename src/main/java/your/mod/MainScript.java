@@ -541,11 +541,6 @@ public final class MainScript implements SCRIPT {
         // Registered last so it runs after the colour swap. NOTE: the old tech-boost-sort.jar must not
         // be loaded alongside this — both reorder the same list and whichever connecter runs last wins.
         your.mod.boostformat.BoostOrder.install();
-
-        // BEHAVIOUR_STEALTH / BEHAVIOUR_ALERTNESS: opt-in only (see your.mod.stealth.StealthAlertnessConfig
-        // — a hosting mod like a Heroes-style dependant must ship V<major>/StealthAlertness.txt with
-        // ENABLED: true). No-op, and no keys registered, unless that flag is found. See KEYS.md.
-        your.mod.stealth.StealthAlertnessBoostables.install();
     }
 
     // ===== STAT_WORK_RETIREMENT DISABLED (2026-06-27) — helper used only by that feature =====
@@ -1152,10 +1147,6 @@ public final class MainScript implements SCRIPT {
                 handleRaidPlunder(ds);
                 handleNaturePiety(ds);
 
-                // Stealth/Alertness crime-detection contest (no-op unless config-enabled — see
-                // your.mod.stealth.StealthAlertnessBoostables.install()).
-                your.mod.stealth.CrimeStealthCheck.update(ds);
-
                 // ===== STAT_WORK_RETIREMENT DISABLED (2026-06-27) — see note on the constants block =====
                 // statTimer -= ds;
                 // if (statTimer <= 0) {
@@ -1181,10 +1172,6 @@ public final class MainScript implements SCRIPT {
                 pilgrims.clear(); // any in-flight pilgrimages are transient; the engine resumes normal AI
                 natureDesire.clear();
                 natureSeen.clear();
-                // Stealth/Alertness growth + report cooldowns are ephemeral working state (see
-                // StealthAlertnessBoostables class javadoc) — reset cleanly on every load.
-                your.mod.stealth.StealthAlertnessBoostables.clearGrowthOnLoad();
-                your.mod.stealth.CrimeStealthCheck.clearOnLoad();
                 // ===== STAT_WORK_RETIREMENT DISABLED (2026-06-27) =====
                 // statTimer = 0; // reassert STAT scaling promptly after load (engine setAll ran during load)
             }
