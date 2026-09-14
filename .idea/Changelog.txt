@@ -1,3 +1,7 @@
+Changelog v1.5.0
+MAJOR ADDITIONS
+• first implementation of the Search/Stealth skills, created by @Urliam for use in his mod, Heroes of Syx
+
 Changelog v1.4.1
 • This update fixes the AI pathing error/crash many users have been experiencing.
 FIXES

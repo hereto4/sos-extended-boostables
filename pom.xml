@@ -5,8 +5,12 @@
     <modelVersion>4.0.0</modelVersion>
 
     <groupId>org.example</groupId>
-    <artifactId>sos-scripting-template</artifactId>
-    <version>1.4.1</version>
+    <!-- Renamed 2026-09-13 from the leftover template artifactId "sos-scripting-template" so other mods
+         (e.g. Heroes of Syx) can declare a correctly-named Maven dependency on this jar. Bump this mod's
+         own local install (mvn install -Dmaven.test.skip=true — NEVER mvn clean, see CLAUDE.md) after
+         this change so the corrected coordinate exists in the local repo before a dependent mod builds. -->
+    <artifactId>sos-extended-boostables</artifactId>
+    <version>1.5.0</version>
 
     <profiles>
         <profile>
@@ -101,7 +105,7 @@
         <mod.name>Extended Boostables</mod.name>
         <mod.description>Adds extended boostable keys for room types not covered by vanilla.</mod.description>
         <mod.author>Glorfy</mod.author>
-        <mod.info>Adds ROOM__SLAVER, ROOM__CANNIBAL, WORLD_PLUNDER, ROOM_MINE/WORKSHOP/FARM/REFINER_ALL, and BATTLE_FEAR boostables, plus TARGET_RACE/TARGET_CLASS tech-scoping keys and corrected tech-tooltip colouring for low-positive effects.</mod.info>
+        <mod.info>Adds ROOM__SLAVER, ROOM__CANNIBAL, WORLD_PLUNDER, ROOM_MINE/WORKSHOP/FARM/REFINER_ALL, and BATTLE_FEAR boostables, plus TARGET_RACE/TARGET_CLASS tech-scoping keys and corrected tech-tooltip colouring for low-positive effects. Adds opt-in BEHAVIOUR_STEALTH / BEHAVIOUR_ALERTNESS keys (Stealth vs Alertness contest for crime detection) - these stay completely inert unless another loaded mod opts in, so nothing changes for existing saves.</mod.info>
         <!--
             This is the game version you are currently using. When the game updates:
             * Download the new game version if you don't have it
