@@ -185,8 +185,13 @@ required on the hosting mod's side.
 
 | Key | Display | Category | Base | Effect |
 |---|---|---|---|---|
-| `BEHAVIOUR_STEALTH` | Stealth | Behaviour | `1.0` | A subject's ability to commit crimes unseen. |
-| `BEHAVIOUR_ALERTNESS` | Alertness | Behaviour | `1.0` | A guard's ability to notice crimes in progress, or a hero's ability to spot hidden dangers (e.g. traps). |
+| `BEHAVIOUR_STEALTH` | Stealth | Behaviour | `1.0` | A subject's ability to evade suspicion and avoid being reported after committing a crime. |
+| `BEHAVIOUR_ALERTNESS` | Alertness | Behaviour | `1.0` | A guard's ability to notice and report crimes already committed nearby, or a hero's ability to spot hidden dangers (e.g. traps). |
+
+> **M2 (review §3): Stealth does not affect whether a crime is spotted, only whether it's reported
+> afterwards.** `criminal` is set inside `AIModule_Crime.commitCrime()` — after vanilla's own detection
+> roll already decided the crime happened. Renamed from "commit crimes unseen" (2026-09-13) to match
+> what the code actually does.
 
 > **"Search" is just Alertness.** There is no separate `BEHAVIOUR_SEARCH` key — a hero's ability to
 > actively spot hidden things (dungeon traps, etc) is the same underlying concept as a guard's ability
@@ -208,14 +213,20 @@ once per game boot; if none is found, **neither boostable is registered at all**
 clutter). Author any key on a race/tech with `>ADD` or `>MUL` as usual.
 
 **What consumes them.** When enabled, `your.mod.stealth.CrimeStealthCheck` runs a settlement-wide sweep
-every 2 seconds: for every subject currently flagged a criminal (`AI.modules().isCriminal`), it finds the
-best (highest-Alertness) guard within **50 tiles of unbroken line-of-sight** (a new reusable
+every 2 seconds: for every subject **genuinely currently committing/having committed a crime and not yet
+caught** — `AI.modules().isCriminal`, narrowed to exclude hostile units (raiders mid-siege) and subjects
+merely marked by a PROSECUTION decree, neither of which is an in-progress crime (review §3, H2) — it finds
+the best (highest-Alertness) guard within **50 tiles of unbroken line-of-sight** (a new reusable
 `your.mod.los.TileLOS` Bresenham trace over the same wall map the engine's own pathfinding uses — see
 "Line-of-sight utility" below) and rolls `rnd(0, STEALTH)` for the criminal against `rnd(0, ALERTNESS)`
-for the guard. If the guard's roll wins, the crime is reinforced into the vanilla report queue (see
-`HANDOFF_SEARCH_STEALTH.md` for why this is a *reinforcement* of `CrimeReporter.reportCriminal`'s own
-internal 50 % flip rather than a full replacement — the engine's crime/report pipeline is sealed). No
-guard in range at all means no contest that tick, mirroring vanilla's own "no guard house nearby" gap.
+for the guard. If the guard's roll wins, the crime is reinforced into the vanilla report queue with a
+**single direct push** — a one-shot reflective call into `CrimeReporter`'s private `report(...)` (the
+same method `reportCriminal` delegates to, skipping only its internal flat 50% coin flip), falling back
+to the public `reportCriminal(Humanoid)` verbatim if reflection is ever unavailable. This replaced an
+earlier "call `reportCriminal` 7 times to compound past the coin flip" workaround that could push up to 7
+duplicate entries into a guard house's 5-slot mailbox and silently de-register it from the finder (review
+§2, H1) — the direct push adds exactly one entry, identical in shape to any single vanilla crime report.
+No guard in range at all means no contest that tick, mirroring vanilla's own "no guard house nearby" gap.
 
 **Both skills grow with use.** Every time a contest runs against a subject, that subject's Stealth (or
 the guard's Alertness — or, via a dependant mod's own trap-search sweep, a hero's Alertness) creeps up by

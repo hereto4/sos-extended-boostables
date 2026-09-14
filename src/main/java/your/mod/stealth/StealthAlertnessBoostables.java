@@ -84,13 +84,18 @@ public final class StealthAlertnessBoostables {
         if (!StealthAlertnessConfig.isEnabled())
             return;
 
+        // M2 fix: the crime flag is set inside commitCrime(), i.e. AFTER vanilla's own detection
+        // roll already decided the crime happened unnoticed by bystanders -- Stealth cannot affect
+        // whether the crime itself is spotted, only how well the subject evades being reported and
+        // caught afterwards. Wording corrected to match (review §3, M2).
         stealth = ensure(STEALTH_KEY, "STEALTH", "Stealth",
-                "A subject's ability to commit crimes unseen. Weighed against a nearby guard's "
-              + "Alertness when a crime is at risk of being reported.");
+                "A subject's ability to evade suspicion and avoid being reported after committing a "
+              + "crime. Weighed against a nearby guard's Alertness whenever a crime they got away "
+              + "with is at risk of being reported.");
         alertness = ensure(ALERTNESS_KEY, "ALERTNESS", "Alertness",
-                "A guard's ability to notice crimes in progress, or a hero's ability to spot hidden "
-              + "dangers such as dungeon traps. Weighed against a nearby criminal's Stealth when a "
-              + "crime is at risk of being reported.");
+                "A guard's ability to notice and report crimes already committed nearby, or a hero's "
+              + "ability to spot hidden dangers such as dungeon traps. Weighed against a nearby "
+              + "criminal's Stealth whenever a crime is at risk of being reported.");
 
         if (stealth == null || alertness == null) {
             System.out.println(LOG + "registration failed; feature disabled.");
@@ -183,7 +188,11 @@ public final class StealthAlertnessBoostables {
         }
 
         @Override public double from() { return 0; }
-        @Override public double to() { return 0; }
+        // L3 fix: from()/to() feed the tooltip's advertised min-to-max span (BUtil.min/max) and
+        // Boostable.progress() -- they must track GROWTH_CAP, not a hardcoded 0, or the UI
+        // undersells a stat that can actually reach 1.0 (authored) + GROWTH_CAP via practice.
+        // (Inherited flaw from IndoctrinationBooster; review §3, L3.)
+        @Override public double to() { return GROWTH_CAP; }
         @Override public double getValue(double input) { return input; }
         @Override protected double pget(BOOSTABLE_O o) { return o.boostableValue(value); }
     }
