@@ -1,5 +1,9 @@
 # HANDOFF — Search/Stealth review for urliamo
 
+> **Superseded in part by [`HANDOFF_STEALTH_REVIEW_R2.md`](HANDOFF_STEALTH_REVIEW_R2.md)** (review of
+> `102a78c`): H1 and H2 are now closed, and the §2d "gate on queue headroom" suggestion is withdrawn
+> there. H3 and M1 remain open. Read this file for the reasoning, R2 for current status.
+
 **Branch:** `feature/stealth-alertness-boostables` · **Head at review:** `dd2b849` (code unchanged from
 `3b0b09a`) · **Mod version:** 1.5.0 · **Game:** Songs of Syx v71.44
 
