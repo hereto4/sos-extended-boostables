@@ -69,6 +69,7 @@ final class TargetFilterApplier {
 
     static void applyAll() {
         saved.clear();
+        DivAggregate.reset();
         if (TargetFilterRegistry.flags.isEmpty()) {
             TargetFilterRegistry.announce("apply: nothing flagged, nothing to do");
             return;
@@ -136,6 +137,11 @@ final class TargetFilterApplier {
                         tech);
                 BoostSpec wrapped = new BoostSpec(filt, bo, null);
                 bo.addFactor(wrapped);
+                // Subject- and division-target reads go through the booster above (Boostable.all).
+                // The settlement regiments panel, army power and formation weighting do not read
+                // Boostable.all at all — they read Boostable.fGlobal. Register the booster so
+                // DivAggregate can give it that second channel, race- and faction-scoped.
+                DivAggregate.record(bo, filt);
                 saved.add(new Saved(tech, original));
                 rewroteSpecs++;
                 TargetFilterRegistry.announce("    - rewrote boostable=" + bo.key
@@ -149,6 +155,8 @@ final class TargetFilterApplier {
                 + " flagged tech(s); unmatchedTechs=" + unmatchedTechs
                 + ", unresolvedFilters=" + unresolvedFilters
                 + ", techsWithNoBoosts=" + techsWithNoBoosts);
+
+        DivAggregate.install();
     }
 
     /** Register a boostable as unfilterable. See {@link TargetFilters#markUnfilterable(Boostable)}. */

@@ -29,11 +29,13 @@ public final class TargetFilters {
 
     /**
      * initBeforeGameCreated: pre-scan tech files, record flags, pre-suppress parse warnings, and
-     * drop the previous game's {@link #markUnfilterable(Boostable)} registrations (boostables are
-     * rebuilt per game — {@code new INIT()} lives in the GAME constructor).
+     * drop the previous game's {@link #markUnfilterable(Boostable)} registrations and division-scope
+     * state (boostables and races alike are rebuilt per game — {@code new INIT()} lives in the GAME
+     * constructor).
      */
     public static void scan() {
         TargetFilterApplier.resetUnfilterable();
+        DivAggregate.reset();
         TargetFilterRegistry.scanTechFiles();
     }
 

@@ -1,5 +1,6 @@
 package your.mod.targetfilter;
 
+import game.battle.div.Div;
 import init.race.Race;
 import init.type.CAUSE_ARRIVES;
 import init.type.HCLASS;
@@ -81,5 +82,41 @@ final class SubjectFilter {
         if (exslave) return false;
         if (hclass != null && pop.cl != hclass) return false;
         return true;
+    }
+
+    /**
+     * Match against a <b>division</b> — the target the engine hands to every division-scope
+     * read-point ({@code BATTLE().FORMATION.get(a.division())} in live combat,
+     * {@code MORALE.get(div)} in {@code DivFactors}, {@code PHYSICS().SPEED.get(div)} for march
+     * speed, and the in-battle regiment card).
+     *
+     * <p>Same <b>definite-match</b> semantics as {@link #matches(HCLASS_RACE)}: a division names
+     * exactly one race ({@code Div.race()}) so a race constraint is decidable, but it carries no
+     * class and no arrival cause, so a {@code TARGET_CLASS} constraint — {@code EXSLAVE} included —
+     * is undecidable and collapses to false. False leaves the booster at identity, which is exactly
+     * the value it returned before this branch existed.
+     */
+    boolean matches(Div div) {
+        return div != null && matchesRace(div.race());
+    }
+
+    /**
+     * The race half of {@link #matches(Div)}, exposed for the division-scope aggregate booster in
+     * {@link DivAggregate}, which is handed a bare {@link Race} rather than a {@code Div}.
+     */
+    boolean matchesRace(Race r) {
+        if (exslave) return false;    // divisions carry no arrival cause
+        if (hclass != null) return false; // divisions carry no class
+        if (race == null) return true;    // unconstrained; the registry should never produce this
+        return r == race;
+    }
+
+    /**
+     * True when this filter can be decided for a division at all, i.e. when {@link #matchesRace}
+     * can return true for some race. A class-constrained filter never can, so {@link DivAggregate}
+     * skips it rather than installing machinery that could only ever return identity.
+     */
+    boolean divDecidable() {
+        return !exslave && hclass == null;
     }
 }

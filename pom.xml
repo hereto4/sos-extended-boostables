@@ -103,9 +103,17 @@
         <!-- These settings will go into the mods _Info.txt file -->
         <mod.version>${project.version}</mod.version>
         <mod.name>Extended Boostables</mod.name>
-        <mod.description>Adds extended boostable keys for room types not covered by vanilla.</mod.description>
+        <mod.description>Adds new boost effects and systems for other mods to call on.</mod.description>
         <mod.author>Glorfy</mod.author>
-        <mod.info>Adds ROOM__SLAVER, ROOM__CANNIBAL, WORLD_PLUNDER, ROOM_MINE/WORKSHOP/FARM/REFINER_ALL, and BATTLE_FEAR boostables, plus TARGET_RACE/TARGET_CLASS tech-scoping keys and corrected tech-tooltip colouring for low-positive effects. Adds opt-in BEHAVIOUR_STEALTH / BEHAVIOUR_ALERTNESS keys (Stealth vs Alertness contest for crime detection) - these stay completely inert unless another loaded mod opts in, so nothing changes for existing saves.</mod.info>
+        <mod.info>Load this mod BEFORE (i.e. a smaller number than) any mod that requires this mod!</mod.info>
+        <!--
+            The game version shown on the mod card. Deliberately SEPARATE from game.version.minor
+            below, which selects the jar Maven compiles against: the m2 "71.40" artifacts are
+            byte-identical to the installed v71.44 game, and bumping game.version.minor to 44 would
+            need a "mvn validate" to populate 71.44/ in m2 (it currently holds only .lastUpdated
+            failure markers). Edit this, never the rendered _Info.txt — the build regenerates it.
+         -->
+        <mod.game.version.minor>44</mod.game.version.minor>
         <!--
             This is the game version you are currently using. When the game updates:
             * Download the new game version if you don't have it

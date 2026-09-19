@@ -501,8 +501,9 @@ TECHS: {
 > |---|---|
 > | a **subject** (`Induvidual`) — need-rates, per-employee room output, submission, crime, lifespan, … | **filtered** — only matching subjects get the effect |
 > | a **population bucket** (`HCLASS_RACE`) that names a race/class — per-race immigration pull, the per-race birth projection | **filtered** — only the matching race/class bucket gets it |
+> | a **division** (`Div` or a division spec) — regiment stat cards, formation and morale in live combat, march speed, army power | **filtered by race** — a division names one race but carries no class, so `TARGET_RACE` applies and `TARGET_CLASS` stays neutral |
 > | a **citywide** bucket (`HCLASS_RACE.clP()`, race and class both "all") | neutral — a race-scoped bonus is deliberately not folded into a citywide readout |
-> | **only** a faction/region/division — `CIVIC_OPINION`, `CIVIC_TRUST`, `CIVIC_VASSAL_OPINION`, `WORLD_PLUNDER`, `CIVIC_INDOCTRINATION`, `ROOM__SLAVER`, `ROOM__CANNIBAL` | **exempt — applies unfiltered**, exactly as if the tech carried no `TARGET_*` |
+> | **only** a faction/region — `CIVIC_OPINION`, `CIVIC_TRUST`, `CIVIC_VASSAL_OPINION`, `WORLD_PLUNDER`, `CIVIC_INDOCTRINATION`, `ROOM__SLAVER`, `ROOM__CANNIBAL` | **exempt — applies unfiltered**, exactly as if the tech carried no `TARGET_*` |
 >
 > The last row is the important one: those boostables have no subject anywhere in their read path, so a
 > filter could only ever evaluate to "no effect". Rather than let the boost silently vanish (which also
@@ -512,12 +513,21 @@ TECHS: {
 > their own faction-scoped keys can opt them in with
 > `your.mod.targetfilter.TargetFilters.markUnfilterable(boostable)`.
 >
-> **Known gap — world-map division battles.** Boosts on `BATTLE_*` / `PHYSICS_*` reach settlement combat
-> (read per-subject) but **not** world-map army battles. That read path
-> (`game.battle.util.Boosts`) only consults each race's own boost file plus `Boostable.fGlobal`, and
-> `fGlobal` is populated solely by the vanilla tech aggregator — the list a filtered tech is pulled out
-> of. There is no seam that both carries the tech's level scaling and exposes the division's race, so a
-> race-filtered battle tech is settlement-only. Author world-map battle bonuses in the race file instead.
+> **Division scope (fixed 2026-09-16 — was a known gap).** `BATTLE_*` / `PHYSICS_*` boosts used to reach
+> settlement combat, which is resolved per subject, but evaluate to "no effect" at every *division*-level
+> read-point: the regiments panel showed the un-boosted total with nothing in its tooltip, and formation,
+> morale, march speed and army power silently lost the bonus. The mod now covers those too, race- and
+> faction-scoped, through `Boostable.fGlobal` — the same channel an unfiltered tech uses. A regiment of
+> the targeted race shows the boost on the **Faction** line of its stat tooltip; a regiment of any other
+> race, and any regiment that is not yours, is unaffected.
+>
+> **Only yours.** A filtered tech now applies strictly to subjects and regiments of
+> **your own faction**, matching what the engine does with an unfiltered tech (an NPC reads its own
+> faction bonus, never your tech tree). Before this, an invader of the targeted race picked up your
+> race-targeted techs.
+>
+> **Penalties apply.** When a tech is penalised for a currency shortfall, a filtered tech is throttled by
+> the same factor as an unfiltered one.
 
 ---
 
