@@ -1,9 +1,11 @@
-Changelog v1.5.1 RC1
-BUGFIXES
-• fixed numerous issues with how race-scoped battle effects apply to your soldiers (i.e. Focuses and Monorace techs)
+[b]CHANGELOG v1.5.1[/b]
+-------------------------------------
+[b]🐞 B U G F I X E S[/b]
+[b]• Fixed numerous issues with how race-scoped battle effects apply to your soldiers (i.e. Focuses and Monorace techs).[/b]
 ⎿ regiments use a different pipeline than subjects for boosts; TARGET_RACE now works on both pipelines
 ⎿ regiments/soldiers now get their race-scoped tech boosts in battle and display in the army editor
-⎿ "is player?" check was being bypassed in battles, causing tech boosts to apply to enemies; fixed 
+⎿ "is player?" check was being bypassed in battles, causing tech boosts to apply to enemies; fixed
+-------------------------------------
 
 Changelog v1.5.0
 MAJOR ADDITIONS
