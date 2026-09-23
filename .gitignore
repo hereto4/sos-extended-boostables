@@ -8,7 +8,7 @@
 target/
 
 # Per-user IDE state. The rest of .idea/ (compiler.xml, misc.xml, vcs.xml,
-# Changelog.txt, SteamDesc.bbcode, ...) is shared project config and stays tracked.
+# Changelog.bbcode, SteamDesc.bbcode, ...) is shared project config and stays tracked.
 .idea/workspace.xml
 
 # --- Per-developer build config (feature/stealth-alertness-boostables, 2026-09-13) ---
