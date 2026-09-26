@@ -18,6 +18,30 @@ Game version: 71.19.
 > Note the **double underscore**: the room's internal key starts with `_`, and the boost prefix
 > adds another, so `_SLAVER` → `ROOM__SLAVER`.
 
+### Cannibal yield keys — `ROOM__CANNIBAL_RESOURCE_<RESOURCE>`
+
+| Key | Display | Category | Effect |
+|---|---|---|---|
+| `ROOM__CANNIBAL_RESOURCE_KNOWLEDGE` | Cannibal: Knowledge | Rooms | Each subject **butchered at a Cannibal Room** also yields this much **Knowledge** (`CIVIC_KNOWLEDGE`). |
+
+- **Base 0 — author with `>ADD`**, e.g. `ROOM__CANNIBAL_RESOURCE_KNOWLEDGE>ADD: 2`. The value is the yield
+  of one whole, intact adult corpse. It's paid out as the corpse is butchered (in quarters, matching
+  vanilla's butcher steps), so a damaged corpse (×0.5) or a child (×0.25) yields less, just as with its
+  vanilla `RESOURCES`.
+- **Read per butchered subject**, so `TARGET_RACE` works on it (it matches the victim's race), and a
+  race file's own `BOOST` can grant it.
+- **`TARGET_CLASS` is ignored for this key.** The Cannibal Room only ever takes caged **prisoners**, and
+  a prisoner's class is always `OTHER`, so a class filter could only be redundant or wipe the yield out.
+  On a tech with both `TARGET_RACE` and `TARGET_CLASS`, this key is filtered by race only (the tech's
+  other boosts keep both filters). On a tech with only `TARGET_CLASS`, this key applies to every victim.
+- **Knowledge works like library knowledge.** It isn't a stockpile: butchering adds to a pool that shows up
+  as a **"Cannibalism"** line in the Knowledge breakdown and **fades by 5% a year** — deliberately
+  slower than library knowledge, which fades about 20% a year (`VALUE_DEGRADE_PER_YEAR: 0.225`). The
+  in-game key description says so too. Steady butchering holds a steady amount of
+  knowledge; it doesn't add up forever. The pool is saved with the game, and older saves load with
+  an empty pool.
+- Separate from `ROOM__CANNIBAL`: that multiplier scales the vanilla `RESOURCES` only, not this yield.
+
 ## Room "(All)" umbrella keys
 
 Each umbrella is a single key that shows as **one line** on a tech tooltip but applies its
@@ -499,7 +523,7 @@ TECHS: {
 >
 > | The engine reads the boostable with… | What `TARGET_*` does to it |
 > |---|---|
-> | a **subject** (`Induvidual`) — need-rates, per-employee room output, submission, crime, lifespan, … | **filtered** — only matching subjects get the effect |
+> | a **subject** (`Induvidual`) — need-rates, per-employee room output, submission, crime, lifespan, `ROOM__CANNIBAL_RESOURCE_*` (the butchered subject), … | **filtered** — only matching subjects get the effect |
 > | a **population bucket** (`HCLASS_RACE`) that names a race/class — per-race immigration pull, the per-race birth projection | **filtered** — only the matching race/class bucket gets it |
 > | a **division** (`Div` or a division spec) — regiment stat cards, formation and morale in live combat, march speed, army power | **filtered by race** — a division names one race but carries no class, so `TARGET_RACE` applies and `TARGET_CLASS` stays neutral |
 > | a **citywide** bucket (`HCLASS_RACE.clP()`, race and class both "all") | neutral — a race-scoped bonus is deliberately not folded into a citywide readout |

@@ -60,6 +60,23 @@ public final class TargetFilters {
     }
 
     /**
+     * Declare that {@code bo} ignores a tech's {@code TARGET_CLASS} but still honours its
+     * {@code TARGET_RACE}. For keys read against a subject whose subjects all share one class, so a
+     * class constraint can only be redundant or make the boost vanish — e.g.
+     * {@code ROOM__CANNIBAL_RESOURCE_*}, read against butchered prisoners (always {@code OTHER}).
+     *
+     * <p>A flagged tech naming both keeps race filtering on this key. One naming only
+     * {@code TARGET_CLASS} leaves nothing to filter on, so this key applies unfiltered through the
+     * vanilla tech path, as {@link #markUnfilterable(Boostable)} keys do. Same call window and
+     * null-safety as {@link #markUnfilterable(Boostable)}.
+     *
+     * @param bo the boostable; null is ignored
+     */
+    public static void markClassUnfilterable(Boostable bo) {
+        TargetFilterApplier.markClassUnfilterable(bo);
+    }
+
+    /**
      * initBeforeGameInited: scrub any leaked parse warning, then queue the applier
      * on {@code BOOSTING.waiting} (fires after BoostSpecs resolve but before
      * BoostCompound aggregates) and register a connecter that re-adds the original

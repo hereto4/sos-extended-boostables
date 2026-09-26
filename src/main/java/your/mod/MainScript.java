@@ -369,6 +369,12 @@ public final class MainScript implements SCRIPT {
         // a per-corpse resource amount with no subject attached, so there is nothing to filter on.
         your.mod.targetfilter.TargetFilters.markUnfilterable(roomCannibal);
 
+        // ROOM__CANNIBAL_RESOURCE_<RESOURCE>: extra yield per butchered corpse (first: KNOWLEDGE, which
+        // feeds CIVIC_KNOWLEDGE). Unlike ROOM__CANNIBAL this key IS read per subject — key.get(corpse.indu())
+        // — so it is deliberately NOT marked unfilterable: TARGET_RACE applies to it. TARGET_CLASS is
+        // ignored (register() marks it class-unfilterable): every victim is a prisoner, class OTHER.
+        your.mod.cannibal.CannibalYield.register(BOOSTABLES.ROOMS(), SETT.ROOMS().CANNIBAL.icon);
+
         // WORLD_PLUNDER: increases resources gained from raiding with your armies on enemy territory.
         // (Distinct from vanilla CIVIC_RAIDING / "Raid Security", which lowers the chance of being raided.)
         // Registered under the engine's world category (BoostableCat.ALL().WORLD — prefix "WORLD_",
@@ -1120,6 +1126,7 @@ public final class MainScript implements SCRIPT {
     @Override
     public SCRIPT_INSTANCE createInstance() {
         installVassalOpinion();
+        your.mod.cannibal.CannibalYield.reset(); // new game starts with no butchering knowledge
         return new SCRIPT_INSTANCE() {
             private double timer = 0;
             /** One-shot guard for the "mod updated" event window; keeps retrying until VIEW is ready. */
@@ -1151,6 +1158,7 @@ public final class MainScript implements SCRIPT {
                 }
                 handleRaidPlunder(ds);
                 handleNaturePiety(ds);
+                your.mod.cannibal.CannibalYield.update(ds);
 
                 // Stealth/Alertness crime-detection contest (no-op unless config-enabled — see
                 // your.mod.stealth.StealthAlertnessBoostables.install()).
@@ -1165,10 +1173,25 @@ public final class MainScript implements SCRIPT {
             }
 
             @Override
-            public void save(FilePutter file) {}
+            public void save(FilePutter file) {
+                your.mod.cannibal.CannibalYield.save(file);
+            }
 
             @Override
             public void load(FileGetter file) throws IOException {
+                // Saves before ROOM__CANNIBAL_RESOURCE_* wrote an empty chunk, and the engine does not hand
+                // us its length. It does write it: ScriptEngine.save puts the chunk size as an int directly
+                // before our data (file.i(0) ... setAtPosition), so peek back 4 bytes to read it, then seek
+                // to the chunk end when done so the engine's size check always passes.
+                int start = file.getPosition();
+                int size = 0;
+                if (start >= 4) {
+                    file.setPosition(start - 4);
+                    size = file.i();
+                }
+                your.mod.cannibal.CannibalYield.load(file, size);
+                file.setPosition(start + Math.max(0, size));
+
                 recomputeRatio();
                 raidTimers.clear();
                 // Nature-piety state is transient — force a fresh monument resolve + tree-map rebuild

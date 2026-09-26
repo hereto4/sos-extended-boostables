@@ -59,6 +59,12 @@ final class TargetFilterApplier {
      */
     private static final Set<Boostable> extraUnfilterable = new HashSet<>();
 
+    /**
+     * Boostables that ignore a tech's {@code TARGET_CLASS} but keep its {@code TARGET_RACE} — see
+     * {@link TargetFilters#markClassUnfilterable(Boostable)}. Identity-keyed, like the set above.
+     */
+    private static final Set<Boostable> classUnfilterable = new HashSet<>();
+
     private static final class Saved {
         final TECH tech;
         final BoostSpec original;
@@ -100,6 +106,9 @@ final class TargetFilterApplier {
 
             SubjectFilter filter = resolve(spec, raceByName, techKey);
             if (filter == null) { unresolvedFilters++; continue; }
+            // Same filter minus the class constraint, for class-exempt boostables. Null when the tech
+            // names no race, i.e. nothing is left to filter on once TARGET_CLASS is dropped.
+            SubjectFilter raceOnly = filter.withoutClass();
 
             // Snapshot before we mutate — tech.boosters.all() is a live view.
             List<BoostSpec> snapshot = new ArrayList<>();
@@ -126,6 +135,21 @@ final class TargetFilterApplier {
                     continue;
                 }
 
+                SubjectFilter use = filter;
+                if (spec.classToken != null && classUnfilterable.contains(bo)) {
+                    if (raceOnly == null) {
+                        // TARGET_CLASS was the tech's only constraint: leave the spec on the vanilla
+                        // tech path so it applies unfiltered, exactly as for the fully-exempt keys.
+                        exemptSpecs++;
+                        TargetFilterRegistry.announce("    - EXEMPT boostable=" + bo.key
+                                + " (ignores TARGET_CLASS, and the tech names no TARGET_RACE)");
+                        continue;
+                    }
+                    use = raceOnly;
+                    TargetFilterRegistry.announce("    - boostable=" + bo.key
+                            + " ignores TARGET_CLASS; filtering by race only");
+                }
+
                 boolean removed = removeBoostSpec(tech, original);
 
                 TargetFilteredBooster filt = new TargetFilteredBooster(
@@ -133,7 +157,7 @@ final class TargetFilterApplier {
                         src.isMul,
                         src.from(),
                         src.to(),
-                        filter,
+                        use,
                         tech);
                 BoostSpec wrapped = new BoostSpec(filt, bo, null);
                 bo.addFactor(wrapped);
@@ -173,6 +197,12 @@ final class TargetFilterApplier {
      */
     static void resetUnfilterable() {
         extraUnfilterable.clear();
+        classUnfilterable.clear();
+    }
+
+    /** Register a boostable as class-exempt. See {@link TargetFilters#markClassUnfilterable(Boostable)}. */
+    static void markClassUnfilterable(Boostable bo) {
+        if (bo != null) classUnfilterable.add(bo);
     }
 
     /**

@@ -47,6 +47,14 @@ final class SubjectFilter {
         this.exslave = exslave;
     }
 
+    /**
+     * This filter with its class constraint ({@code TARGET_CLASS}, {@code EXSLAVE} included) dropped,
+     * or null when no race constraint remains — i.e. nothing would be left to filter on.
+     */
+    SubjectFilter withoutClass() {
+        return race == null ? null : new SubjectFilter(race, null, false);
+    }
+
     boolean matches(Induvidual ind) {
         if (ind == null) return false;
         if (race != null && ind.race() != race) return false;
