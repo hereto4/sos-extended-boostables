@@ -528,6 +528,12 @@ public final class MainScript implements SCRIPT {
         // Low-Positive coloring problem is solved instead by your.mod.boostformat, which re-colours the
         // tech-node effect line directly. Recover the agent from git history if it is ever revived.
 
+        // *_ALL umbrellas: queue the pass that strips wildcard-made boosts off every umbrella registered
+        // above (e.g. CRETONIAN's ROOM_FARM*>MUL also matching ROOM_FARM_ALL, which then applied the race
+        // bonus twice). MUST be queued BEFORE TargetFilters.install(): both are BOOSTING.waiting actions,
+        // and the strip has to see tech.boosters before the applier moves filtered techs' specs out.
+        your.mod.umbrella.UmbrellaWildcardGuard.install();
+
         // TARGET_RACE / TARGET_CLASS: queue the tech-boost rewriter on
         // BOOSTING.waiting and register the UI re-add connecter. Must run at this
         // hook (BoostSpecs resolve at the start of BOOSTING.finishSetup, which
@@ -774,6 +780,9 @@ public final class MainScript implements SCRIPT {
 
         Boostable umbrella = ensureBoostable(fullKey, pushKey, name, desc, icon, cat);
         if (umbrella == null) return;
+        // Content wildcards (a race's ROOM_FARM*) would also match this key and then apply twice via the
+        // cascade below; the guard strips those once BoostSpecs resolve. See UmbrellaWildcardGuard.
+        your.mod.umbrella.UmbrellaWildcardGuard.register(umbrella);
 
         BSourceInfo info = new BSourceInfo(name, icon);
         for (Boostable child : children) {
