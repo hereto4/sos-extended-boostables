@@ -73,7 +73,21 @@ final class TargetFilterApplier {
 
     private TargetFilterApplier() {}
 
+    /**
+     * Set when {@link #applyAll()} actually runs for the game being built; cleared by {@link #arm()}.
+     * Lets {@link #reAddOriginalsForUI()} tell "the applier ran and found nothing" from "the applier
+     * never ran" — the second means every flagged tech is applying UNFILTERED to all subjects.
+     */
+    private static boolean applierRan = false;
+
+    /** Per-game reset, from {@code TargetFilters.install()} (initBeforeGameInited). */
+    static void arm() {
+        applierRan = false;
+        saved.clear(); // never re-add a previous game's specs if this game's applier doesn't run
+    }
+
     static void applyAll() {
+        applierRan = true;
         saved.clear();
         DivAggregate.reset();
         if (TargetFilterRegistry.flags.isEmpty()) {
@@ -294,6 +308,20 @@ final class TargetFilterApplier {
      * pipeline no longer cares.
      */
     static void reAddOriginalsForUI() {
+        if (!applierRan && !TargetFilterRegistry.flags.isEmpty()) {
+            String m = "[sos-extended-boostables] [target-filter] ERROR: the TARGET_RACE/TARGET_CLASS applier"
+                    + " never ran (it was queued on BOOSTING.waiting but the queue did not reach it). "
+                    + TargetFilterRegistry.flags.size() + " flagged tech(s) will apply their boosts UNFILTERED"
+                    + " to every subject, shown in tooltips as \"Technology\". Flagged: "
+                    + new java.util.TreeSet<>(TargetFilterRegistry.flags.keySet());
+            System.out.println(m);
+            System.err.println(m);
+            try {
+                game.GAME.Warn(m); // pops up only with developer/debug on; harmless otherwise
+            } catch (Throwable ignored) {
+                // never let the diagnostic itself break game creation
+            }
+        }
         if (saved.isEmpty()) {
             TargetFilterRegistry.announce("re-add: nothing to do");
             return;

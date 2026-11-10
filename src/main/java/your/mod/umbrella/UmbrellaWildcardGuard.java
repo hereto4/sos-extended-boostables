@@ -47,7 +47,14 @@ import snake2d.util.misc.ACTION;
  * <p><b>Known gap.</b> {@code PBonusSetting.add} resolves wildcards itself via {@code BOOSTING.MAP().get}
  * without a promise, so it is not covered. No vanilla content reaches it with an umbrella-matching
  * wildcard. Boost lists another mod parses <em>after</em> this mod's {@code initBeforeGameInited} sit
- * behind our action in the queue and are also not covered; the count is logged.
+ * behind our action in the queue and are also not covered (they still resolve normally); the count is
+ * logged.
+ *
+ * <p><b>Never iterate {@code BOOSTING.waiting} from inside the strip pass.</b> It runs inside the
+ * engine's own for-each over that list, and snake2d's {@code LinkedList} shares a single iterator, so a
+ * nested for-each ends the engine's drain at this action. The pass works from a snapshot taken in
+ * {@link #install()} instead. (v1.6.1 did iterate it, and so silently disabled the TARGET_RACE /
+ * TARGET_CLASS applier queued behind it.)
  */
 public final class UmbrellaWildcardGuard {
 
@@ -90,11 +97,27 @@ public final class UmbrellaWildcardGuard {
             return;
         }
 
+        // Snapshot the queue NOW, while nothing is draining it. strip() must never iterate
+        // BOOSTING.waiting itself: snake2d's LinkedList has ONE shared Itr (iterator() resets and
+        // returns the same object), and strip() runs from inside finishSetup()'s for-each over
+        // that very list. A nested for-each there rewinds the shared cursor and walks it to the
+        // end, so the engine's drain stops right after us and every later waiting action —
+        // TargetFilters' applier included — silently never runs (the v1.6.1 regression).
+        // Everything we are meant to check was parsed in the GAME ctor and is already queued here.
+        final java.util.List<Object> snapshot = new java.util.ArrayList<>();
+        try {
+            for (Object action : (Iterable<?>) waiting)
+                snapshot.add(action);
+        } catch (Throwable t) {
+            fail("could not snapshot BOOSTING.waiting (" + t + ")");
+            return;
+        }
+
         ACTION strip = new ACTION() {
             @Override
             public void exe() {
                 try {
-                    strip(waiting, umbrellas, this);
+                    strip(snapshot, waiting, umbrellas, this);
                 } catch (Throwable t) {
                     fail("strip pass failed (" + t + ")");
                 }
@@ -108,24 +131,16 @@ public final class UmbrellaWildcardGuard {
         }
     }
 
-    private static void strip(Object waiting, Set<Boostable> umbrellas, ACTION self) throws ReflectiveOperationException {
+    private static void strip(java.util.List<Object> snapshot, Object waiting, Set<Boostable> umbrellas,
+                              ACTION self) throws ReflectiveOperationException {
         Field fColl = null, fAll = null, fKey = null, fFactor = null;
 
         Map<String, Integer> perKey = new TreeMap<>();
-        int removed = 0, sources = 0, late = 0;
-        boolean afterSelf = false;
+        int removed = 0, sources = 0;
 
-        for (Object action : (Iterable<?>) waiting) {
-            if (action == self) {
-                afterSelf = true;
+        for (Object action : snapshot) {
+            if (!isPromiseList(action))
                 continue;
-            }
-            if (!action.getClass().getName().equals("game.boosting.BoostSpecs$PromiseList"))
-                continue;
-            if (afterSelf) { // not resolved yet when we run — see "Known gap"
-                late++;
-                continue;
-            }
 
             if (fColl == null) {
                 fColl = field(action.getClass(), "coll");
@@ -169,9 +184,35 @@ public final class UmbrellaWildcardGuard {
                 .append(sources).append(" source(s)");
         if (!perKey.isEmpty())
             sb.append(": ").append(perKey);
+        int late = countLate(waiting, self);
         if (late > 0)
             sb.append("; ").append(late).append(" boost list(s) queued after the guard were not checked");
         System.out.println(sb.toString());
+    }
+
+    private static boolean isPromiseList(Object action) {
+        return action != null && action.getClass().getName().equals("game.boosting.BoostSpecs$PromiseList");
+    }
+
+    /**
+     * Boost lists queued behind us (see "Known gap"), for the log only. Indexed {@code get(i)} walk on
+     * purpose — {@code LinkedList.get} follows the node links directly and never touches the shared
+     * iterator that {@code finishSetup()} is draining with. Do NOT turn this into a for-each.
+     */
+    private static int countLate(Object waiting, ACTION self) {
+        if (!(waiting instanceof snake2d.util.sets.LIST))
+            return 0;
+        snake2d.util.sets.LIST<?> q = (snake2d.util.sets.LIST<?>) waiting;
+        int late = 0;
+        boolean afterSelf = false;
+        for (int i = 0, n = q.size(); i < n; i++) {
+            Object a = q.get(i);
+            if (a == self)
+                afterSelf = true;
+            else if (afterSelf && isPromiseList(a))
+                late++;
+        }
+        return late;
     }
 
     private static Field field(Class<?> c, String name) throws NoSuchFieldException {

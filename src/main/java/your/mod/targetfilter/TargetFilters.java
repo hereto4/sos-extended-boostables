@@ -93,6 +93,7 @@ public final class TargetFilters {
         // "unknown key: TARGET_*" line before any UnhandledDump is written.
         ParseWarningSuppressor.scrubFromErrBuffer();
 
+        TargetFilterApplier.arm();
         queueWaitingAction(new ACTION() {
             @Override public void exe() { TargetFilterApplier.applyAll(); }
         });

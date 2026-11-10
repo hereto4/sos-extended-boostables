@@ -220,6 +220,77 @@ When a new game is started or loaded, the GAME constructor runs in this order (`
 
 ---
 
+## Engine setup-queue rules (`BOOSTING.waiting` / `BOOSTING.connecters`)
+
+`BOOSTING.finishSetup()` drains both queues with plain for-each loops:
+
+```java
+for (ACTION a : waiting)    a.exe();   // every BoostSpecs PromiseList, then our waiting actions
+for (ACTION a : connecters) a.exe();   // aggregators (PTech BoostCompound, RaceBoosts, …), then ours
+```
+
+Both are `snake2d.util.sets.LinkedList`, which has **one shared iterator per instance** (`iterator()`
+resets and returns the same `Itr`). This mod queues several actions there (`UmbrellaWildcardGuard` and
+the `TargetFilters` applier on `waiting`; the target-filter UI re-add, `BoostFormats` and `BoostOrder` on
+`connecters`), so every one of them must follow these rules:
+
+1. **Never for-each (or otherwise call `iterator()` on) the queue you are running from.** A nested
+   for-each rewinds the shared cursor and walks it to the end; the engine's loop then stops right after
+   your action and **every later action silently never runs** — including other mods' boost lists.
+   - Need to inspect the queue? **Snapshot it into a `java.util.ArrayList` at install time** (in
+     `initBeforeGameInited`, when nothing is draining it) and walk the snapshot. Need to look at what
+     was queued *after* you? Read by index — `((LIST<?>) waiting).get(i)` for `i < size()` — which
+     follows node links and never touches the cursor. See `UmbrellaWildcardGuard.install()` /
+     `countLate()`.
+   - Do not add or remove queue entries from inside the drain either.
+2. **Log when the action actually runs, not only when it is queued.** "queued … on BOOSTING.waiting"
+   proves nothing about execution. Each action needs at least one unconditional line from inside
+   `exe()` (e.g. the applier's `apply: …` summary), so a skipped action shows up as a missing line in
+   the [Target-filter log checklist](#target-filter-log-checklist).
+3. **If a later step depends on an earlier action having run, check it and fail loudly.** Pattern:
+   `TargetFilterApplier.applierRan` is cleared by `arm()` at install and set at the top of `applyAll()`;
+   the re-add connecter (which runs afterwards) prints an `ERROR` to stdout **and** stderr (plus
+   `GAME.Warn`, visible only in developer/debug mode) if flagged techs exist but the applier never ran.
+4. **Order is queue order.** Queue position = call order in `MainScript.initBeforeGameInited()`. The
+   guard must precede `TargetFilters.install()` (it cleans `tech.boosters` before the applier moves
+   specs out); `BoostFormats` / `BoostOrder` must follow it (their connecters must run after the re-add).
+
+**Precedent (v1.6.1, fixed in v1.6.2):** `UmbrellaWildcardGuard.strip()` did
+`for (Object action : (Iterable<?>) waiting)` from inside the drain. The applier queued right behind it
+never ran, so every `TARGET_RACE` / `TARGET_CLASS` tech in every mod applied to all subjects (tooltip
+label "Technology" instead of the tech's own name). Log signature: `queued applier on BOOSTING.waiting`,
+then no `apply:` lines at all, then `re-add: nothing to do`.
+
+---
+
+## Target-filter log checklist
+
+How to capture it: these lines go to **stdout only** (`LOG.ln` / `System.out`), never to the game's
+`logs\` folder. Use the launcher-with-redirect recipe in
+`sos-scripting-template/.claude/HANDOFF_DIV_SCOPE_FILTER.md` → "How to see the `[target-filter]` log".
+
+Expected sequence for one game start/load, in order. Lines are prefixed `[target-filter] ` unless shown
+otherwise; `…` is variable text.
+
+| # | Phase | Expected line(s) | If missing / different |
+|---|---|---|---|
+| 1 | `initBeforeGameCreated` (scan) | `scan starting`, `known races (N): [...]`, `known classes: …` | `ABORT: PATHS not initialized` / `WARNING: no race files…` → scan can't validate anything |
+| 2 | scan | `  + flagged tech=<FILE>_<NODE> TARGET_RACE=<RACE>` per flagged tech, then `scan complete; N tech(s) flagged (race=…, class=…) across M file(s)` | Tech not listed → wrong key/file, or `  ! … TARGET_RACE='x' …` (race key unknown — matching is **case-sensitive**) |
+| 3 | `initBeforeGameInited` | `scrub: …` / `scrubbed …` (parse-warning cleanup) | harmless either way |
+| 4 | `initBeforeGameInited` | `queued applier on BOOSTING.waiting (reflective; …)` | `could not access BOOSTING.waiting … running applier eagerly` → engine drift; the eager run happens before tech boosts exist, so expect `snapshot size=0` everywhere and **all filters off** |
+| 5 | `finishSetup` → waiting | `[sos-extended-boostables] umbrella wildcard guard: stripped N wildcard-made umbrella boost(s) from M source(s)…` (no `[target-filter]` prefix) | `… DISABLED — …` on stderr → guard off (wildcards double-apply via `*_ALL`), filters unaffected |
+| 6 | waiting → applier | per flagged tech: `  * tech=<KEY> race=… -> snapshot size=N (tech.levelMax=L)`, then per boost `    - rewrote boostable=<BOOSTABLE> isMul=… from=… to=… (removedFromTechBoosters=true)` (or `    - EXEMPT boostable=…` for CIVIC_OPINION/TRUST and marked keys) | **No `* tech=` / `apply:` lines at all → the applier never ran** (step 9 will also print the ERROR). `! TECH key not loaded` → key mismatch. `snapshot size=0` / `(no BOOST entries — no-op)` → ran too early. `removedFromTechBoosters=false` → the vanilla aggregate will still apply it unfiltered |
+| 7 | applier end | `apply: rewrote R BoostSpec(s), exempted E across F flagged tech(s); unmatchedTechs=0, unresolvedFilters=0, techsWithNoBoosts=0` | Non-zero counters point back at the `!` lines in step 6 |
+| 8 | applier end | `div-scope: installed G aggregate booster(s) over B boostable(s); probes P race(s)` (or `div-scope: no div-decidable boosts…`) | `div-scope: DISABLED — …` → army/regiment panels won't see race-scoped boosts |
+| 9 | connecters (after PTech aggregates) | `re-added R BoostSpec(s) to tech.boosters for tech-tree UI display` — R must equal step 7's R | `re-add: nothing to do` with F > 0 → applier didn't rewrite anything. **`ERROR: the TARGET_RACE/TARGET_CLASS applier never ran …`** (stdout + stderr) → a queue problem; see [Engine setup-queue rules](#engine-setup-queue-rules-boostingwaiting--boostingconnecters) |
+
+In-game cross-check: a filtered tech's effect in a room/subject tooltip is labelled with **the tech's own
+NAME** and diluted by the share of matching workers. A line labelled **"Technology"** carrying that tech's
+value means it went through vanilla's unfiltered `BoostCompound` aggregate instead — i.e. one of the
+failures above.
+
+---
+
 ## MainScript.java Implementation
 
 The actual source is in `src/main/java/your/mod/MainScript.java`. Key responsibilities:
