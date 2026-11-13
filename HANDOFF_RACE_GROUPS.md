@@ -11,6 +11,17 @@ citations are against `sos-scripting-template/.claude/game-source-v71.44/`.
 > zero errors). The data file was parsed with the game's own `snake2d.util.file.Json`, and the cross-mod
 > merge logic was exercised with a scratch harness. **No Maven build, no deploy, no in-game run yet.**
 > Still to do: **Build** and the **In-game test plan** below.
+>
+> **Re-checked 2026-11-13 after rebasing onto v1.6.2** (commits 394ba9d…f20b1bc: v1.5.1, cannibal
+> yield, umbrella wildcard guard, TARGET_RACE division scope + 1.6.2 queue fix). None of those commits
+> touch faction GVALUEs, `REQUIRES`, `POPULATION_*` keys, `_OFCLASS_F` or mod-file scanning. Specific
+> checks:
+> - **Shared-iterator trap:** `RaceGroups` queues nothing on `BOOSTING.waiting`/`connecters`, and never
+>   nests a loop over a snake2d list the engine is iterating. The hook is dispatched from `ScriptEngine`'s
+>   own `loads` loop, not from `currentMods()`.
+> - **Wildcard trap:** GVALUE lookups are exact. `GValueCat`'s `*` form has no live caller in v71.44, and
+>   the vanilla `POPULATION*` race entries are stat standings, not GVALUEs.
+> - **Type-check:** the merged tree type-checks clean (21 files, exit 0).
 
 ---
 
@@ -89,6 +100,8 @@ cd C:\Users\Nate\AppData\Roaming\songsofsyx\mods\sos-extended-boostables
   in Git-Bash, `unzip -l V71/script/sos-extended-boostables.jar | grep racegroup` must list
   `RaceGroups.class` and `RaceGroups$Def.class`.
 - **Verify the data file deployed:** `V71/RaceGroups.txt` must exist after the build.
+- **When releasing:** bump `<version>` in `pom.xml`, never `_Info.txt`. The build regenerates
+  `_Info.txt` from the pom and silently reverts hand edits (see `SESSION_LOG.md`, 2026-08-30 and 2026-09-16).
 
 Compile risk is low. Everything was type-checked against v71.44, and the only engine API the new class uses
 is already used elsewhere in EB (`POP`, `GVALUES.FACTION.push`, `HCLASSES`, `PATHS.currentMods()`, `Json`).
@@ -97,16 +110,29 @@ is already used elsewhere in EB (`POP`, `GVALUES.FACTION.push`, `HCLASSES`, `PAT
 
 ## In-game test plan
 
-**Stdout matters:** the log lines are stdout-only, so launch from IntelliJ (`.run/Main`) to see them.
-Load Extended Boostables plus as many of the four aquatic race mods as are available.
+**Pre-flight:**
+- **Capture stdout.** The `race groups:` lines go to stdout only and never reach
+  `AppData\Roaming\songsofsyx\logs\`. Use the launcher-with-redirect PowerShell recipe in
+  `sos-scripting-template/.claude/HANDOFF_DIV_SCOPE_FILTER.md` → "How to see the `[target-filter]` log",
+  then search `out.log`.
+- **Enable the dev copies.** In the launcher, enable the dev copy of Extended Boostables under `mods\`,
+  not a Workshop entry. `LauncherSettings.txt` has been found holding Workshop IDs before, which tests a
+  stale jar. Load EB before any mod that requires it (see EB's `_Info.txt`).
+- **Load the races.** Also enable as many of the four aquatic race mods as are available.
 
 1. **Log — registration.** At game start there should be one line per group and a summary:
    `race groups: GAQUATIC "Aquatic (…)": 4/4 member races loaded; 11 keys; defined by [Extended Boostables].`
    and `race groups: registered 11 POPULATION_<GROUP>_* values for 1 group(s).`
    With fewer race mods loaded, expect `k/4 … (not loaded: [...])`, still with 11 keys.
-2. **No boot warning.** No "no FACTION named …" popup, and no new entries in the error log.
-3. **Values match per-race keys.** Turn on developer mode. The cog button on the top panel opens the debug
-   panel; its `values` entry lists every faction value live (`init/value/GVALUES.java` `finishSetup`).
+2. **No missing-key warning.** Run with **Developer mode on** (step 3 needs it anyway). A missing
+   requirement key never shows a popup. The first miss is reported by `GAME.Warn`, which writes
+   `SYX WARNING: … no FACTION named : <key>` to stderr **only in developer/debug mode**
+   (`game/GAME.java:421`). Later misses go to stderr via `LOG.err`. So search `err.log` for
+   `no FACTION named`; no line may name a `POPULATION_<GROUP>_*` key. A normal player gets no warning at
+   all: the tech shows an "unknown" requirement and never unlocks (`init/value/Lockable.java:145-162`).
+3. **Values match per-race keys.** With Developer mode enabled in the launcher, the developer-tools (cog)
+   button opens the debug panel. Its `values` entry lists every faction value live
+   (`init/value/GVALUES.java` `finishSetup`).
    Check that:
    - `POPULATION_GAQUATIC_CITIZEN_I` = the sum of `POPULATION_<RACE>_CITIZEN_I` over the loaded members;
    - `POPULATION_GAQUATIC_CITIZEN_OFCLASS_F` = the sum of the members' `POPULATION_<RACE>_CITIZEN_OFCLASS_F`.
@@ -120,7 +146,7 @@ Load Extended Boostables plus as many of the four aquatic race mods as are avail
 5. **Tooltip label.** Hovering the requirement shows "Plebeians: Aquatic (…)", listing the loaded member
    races, then `>=`, `100%`, and the current value.
 6. **Missing member.** Disable one aquatic race mod and restart. Step 1 shows it under `not loaded`, the keys
-   still exist, and there's no popup.
+   still exist, and `err.log` has no `no FACTION named` line for a group key.
 7. **Second game in one session.** Return to the main menu and start or load another game. There should be
    no crash (that would be a duplicate key), and step 1's lines appear again with the same counts. The
    `GVALUES` map is cleared per game, so re-registering is expected.
@@ -128,10 +154,22 @@ Load Extended Boostables plus as many of the four aquatic race mods as are avail
 ## Rollback
 
 Delete the one `RaceGroups.install()` line in `MainScript` and nothing registers. Any tech file that
-references a group key would then show the "no FACTION named" warning and lock, so revert those too.
+references a group key would then lock permanently behind an "unknown" requirement (the "no FACTION
+named" warning only appears in developer/debug mode), so revert those too.
 
 ## Not in scope (phase 2)
 
 Making a group work wherever a race key works: `TARGET_RACE: GAQUATIC` (EB's own `your.mod.targetfilter`,
 so feasible), `FACTION_IS_*`, `LOYALTY_*`, and race-specific boosts. A group is not a `Race`, so each of
 those needs separate work.
+
+For `TARGET_RACE` as of v1.6.2:
+- **Name lookup:** a tech's race name is resolved in `TargetFilterApplier.resolve` (`raceByName`).
+- **Matching:** `SubjectFilter` holds a single `Race` and compares by identity at three points:
+  `matches(Induvidual)`, `matches(HCLASS_RACE)` for population buckets, and the division match that feeds
+  `DivAggregate`.
+- **Phase 2 shape:** turn that single `Race` into a member set, have `resolve` look the name up in the
+  race groups, and give `RaceGroups` a public accessor for a group's resolved members. Its definitions
+  are private today.
+- **Matching semantics stay as they are:** an "all races" bucket is still "too coarse to tell", so it
+  stays unmatched.

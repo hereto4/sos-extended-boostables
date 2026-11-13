@@ -520,10 +520,16 @@ Notes:
   denominator. Nobles and slaves are separate classes, so they never affect the `CITIZEN` key. A city with
   zero citizens reads `0`.
 - **Missing member races are skipped.** If a member race's mod isn't loaded, the group just counts the rest
-  (logged). The keys themselves always exist while this mod is loaded, so a tech using them never hits the
-  engine's "no FACTION named …" warning — which would otherwise lock that tech permanently.
+  (logged). The keys themselves always exist while this mod is loaded, so a tech using them never hits an
+  unknown key. The engine handles an unknown key quietly: the requirement shows as "unknown" and the tech
+  **never unlocks**. The "no FACTION named …" warning only appears in developer/debug mode, so players
+  get no explanation.
 - **Requires this mod.** A tech file that uses a group key needs Extended Boostables enabled, exactly like
-  the `_OFCLASS_F` keys.
+  the `_OFCLASS_F` keys. Without it, the tech locks permanently as described above.
+- **Always the player's settlement.** Like vanilla's per-race `POPULATION_*` keys, a group value ignores
+  which faction is asked and reads the player's city. Techs only ask about the player. It only matters
+  for the copies the engine makes of every faction value for region and royalty requirements
+  (`FACTION_POPULATION_<G>_*`), which also return the player's numbers, exactly as vanilla's do.
 - **Not a race (yet).** Groups only work in these `POPULATION_*` values. `TARGET_RACE: GAQUATIC`,
   `FACTION_IS_*`, `LOYALTY_*` and race-specific boosts don't accept them.
 
