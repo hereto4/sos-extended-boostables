@@ -49,11 +49,17 @@ import util.data.DOUBLE_O;
  *   POPULATION_&lt;G&gt;_&lt;CLASS&gt;_F          sum POP.tot(cl, r) / POP.tot(*, *)        (vanilla v71 meaning)
  *   POPULATION_&lt;G&gt;_&lt;CLASS&gt;_I          sum POP.tot(cl, r)
  *   POPULATION_&lt;G&gt;_&lt;CLASS&gt;_OFCLASS_F  sum POP.pop(cl, r) / POP.pop(cl, *)       (fraction OF THE CLASS)
+ *   POPULATION_&lt;G&gt;__MIN_I / __MAX_I     min / max over r of POP.tot(*, r)       (per-race extremes)
+ *   POPULATION_&lt;G&gt;_&lt;CLASS&gt;_MIN_I / _MAX_I  min / max over r of POP.tot(cl, r)
  * </pre>
- * for every player class (NOBLE, CITIZEN, SLAVE). The {@code _OFCLASS_F} form is the exact
- * expression of {@code MainScript.registerCitizenRaceFractions} with the numerator summed over the
- * group, so {@code POPULATION_GAQUATIC_CITIZEN_OFCLASS_F >= 1} means "every citizen is one of the
- * group's races, in any mix".
+ * for every player class (NOBLE, CITIZEN, SLAVE) — 19 keys per group. The {@code _OFCLASS_F} form is
+ * the exact expression of {@code MainScript.registerCitizenRaceFractions} with the numerator summed
+ * over the group, so {@code POPULATION_GAQUATIC_CITIZEN_OFCLASS_F >= 1} means "every citizen is one of
+ * the group's races, in any mix". The {@code _MIN_I}/{@code _MAX_I} pair quantifies over the
+ * <em>installed</em> members: {@code CITIZEN_MIN_I >= 150} = every member race has at least 150
+ * citizens, {@code CITIZEN_MAX_I >= 150} = at least one does; both read 0 when no member is installed.
+ * The modifier sits after the class (like {@code _OFCLASS_F}) so the key can never coincide with the
+ * plain {@code _<CLASS>_I} key of a race or group whose name ends in {@code _MIN}/{@code _MAX}.
  *
  * <p><b>Exactness.</b> Every value is computed as (integer sum of member head counts) / (integer
  * total) in a single division — never as a sum of per-race fractions. {@code COMPARATOR.GREATERE} is
@@ -208,10 +214,11 @@ public final class RaceGroups {
                 missing.add(k);
         }
         final Race[] rs = present.toArray(new Race[0]);
+        final String baseName = d.name != null ? d.name : d.key;
 
         // Display name, e.g. "Aquatic (Verathids, Khelians, Thryxarii, Onari)". Only loaded members
         // are listed, so the requirement tooltip tells the player exactly which races count.
-        StringBuilder label = new StringBuilder(d.name != null ? d.name : d.key);
+        StringBuilder label = new StringBuilder(baseName);
         if (rs.length > 0) {
             label.append(" (");
             for (int i = 0; i < rs.length; i++) {
@@ -222,6 +229,10 @@ public final class RaceGroups {
             label.append(')');
         }
         final String name = label.toString();
+        // MIN/MAX label (user-chosen 2026-11-13): "<NAME> (per race)" with no member list, e.g.
+        // "Plebeians: Aquatic (per race)   >=   150   (42)". The current value shown is the smallest
+        // (MIN) or largest (MAX) single-race count, not which race it belongs to.
+        final String perRace = baseName + " (per race)";
 
         String k = "POPULATION_" + d.key + "_";
         int n = 0;
@@ -242,12 +253,26 @@ public final class RaceGroups {
                 return sumTot(null, rs);
             }
         }, false);
+        // Per-race extremes over the whole population: POPULATION_<G>__MIN_I / __MAX_I.
+        n += push(k + "_MIN_I", perRace, UI.icons().s.human, new DOUBLE_O<Faction>() {
+            @Override
+            public double getD(Faction o) {
+                return minTot(null, rs);
+            }
+        }, false);
+        n += push(k + "_MAX_I", perRace, UI.icons().s.human, new DOUBLE_O<Faction>() {
+            @Override
+            public double getD(Faction o) {
+                return maxTot(null, rs);
+            }
+        }, false);
 
         for (HCLASS cl : HCLASSES.ALL()) {
             if (!cl.player)
                 continue;
             final HCLASS fcl = cl;
             String clName = cl.names + ": " + name;
+            String clPerRace = cl.names + ": " + perRace;
 
             // Vanilla v71 meaning: share of the WHOLE population.
             n += push(k + cl.key + "_F", clName, cl.icon(), new DOUBLE_O<Faction>() {
@@ -275,6 +300,20 @@ public final class RaceGroups {
                     return sumPop(fcl, rs) / div;
                 }
             }, true);
+            // Per-race extremes of this class. MIN >= N <=> every installed member race has >= N;
+            // MAX >= N <=> at least one does. Same head-count terms as _I (POP.tot).
+            n += push(k + cl.key + "_MIN_I", clPerRace, cl.icon(), new DOUBLE_O<Faction>() {
+                @Override
+                public double getD(Faction o) {
+                    return minTot(fcl, rs);
+                }
+            }, false);
+            n += push(k + cl.key + "_MAX_I", clPerRace, cl.icon(), new DOUBLE_O<Faction>() {
+                @Override
+                public double getD(Faction o) {
+                    return maxTot(fcl, rs);
+                }
+            }, false);
         }
 
         System.out.println(LOG + d.key + " \"" + name + "\": " + rs.length + "/" + d.members.size()
@@ -311,5 +350,27 @@ public final class RaceGroups {
         for (Race r : rs)
             s += POP.pop(cl, r);
         return s;
+    }
+
+    /**
+     * Smallest single-member head count ({@code POP.tot} terms). A group with no installed member
+     * reads 0 (user decision 2026-11-13), so a {@code GREATERE} requirement on it stays locked rather
+     * than passing vacuously.
+     */
+    private static int minTot(HCLASS cl, Race[] rs) {
+        if (rs.length == 0)
+            return 0;
+        int m = Integer.MAX_VALUE;
+        for (Race r : rs)
+            m = Math.min(m, POP.tot(cl, r));
+        return m;
+    }
+
+    /** Largest single-member head count ({@code POP.tot} terms); 0 when no member is installed. */
+    private static int maxTot(HCLASS cl, Race[] rs) {
+        int m = 0;
+        for (Race r : rs)
+            m = Math.max(m, POP.tot(cl, r));
+        return m;
     }
 }

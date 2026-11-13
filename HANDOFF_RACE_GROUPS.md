@@ -54,10 +54,17 @@ the `GAQUATIC` definition itself.
 - **Merge rules:** a group's `RACES` = union across files; `NAME` = from the first mod in
   `PATHS.currentMods()` that sets it, which is the highest-priority mod in the game's own asset overriding
   (`init/paths/VirtualFolder.getPossibleFile` searches bases in that order, vanilla last).
-- **Per group `<G>`, 11 keys** pushed to `GVALUES.FACTION`: `POPULATION_<G>__F`, `__I`, and for each player
-  class (NOBLE, CITIZEN, SLAVE) `_<CLASS>_F`, `_<CLASS>_I`, `_<CLASS>_OFCLASS_F`. The `_F`/`_I` mirror vanilla
-  `settlement/stats/SValues.java` (`POP.tot` terms); `_OFCLASS_F` mirrors
-  `MainScript.registerCitizenRaceFractions` (`POP.pop(cl, r) / POP.pop(cl, null)`).
+- **Per group `<G>`, 19 keys** pushed to `GVALUES.FACTION`: `POPULATION_<G>__F`, `__I`, `__MIN_I`, `__MAX_I`,
+  and for each player class (NOBLE, CITIZEN, SLAVE) `_<CLASS>_F`, `_<CLASS>_I`, `_<CLASS>_OFCLASS_F`,
+  `_<CLASS>_MIN_I`, `_<CLASS>_MAX_I`. The `_F`/`_I` mirror vanilla `settlement/stats/SValues.java`
+  (`POP.tot` terms); `_OFCLASS_F` mirrors `MainScript.registerCitizenRaceFractions`
+  (`POP.pop(cl, r) / POP.pop(cl, null)`).
+- **`_MIN_I` / `_MAX_I` (added 2026-11-13, same day):** the smallest / largest single-member head count,
+  in the same `POP.tot` terms as `_I`, over the *installed* members only. Both read 0 when no member is
+  installed (user decision). `CITIZEN_MIN_I >= N` means each member race has at least N citizens;
+  `MAX_I >= N` means at least one does. The modifier comes after the class, as with `_OFCLASS_F`, so it
+  can't clash with a race or group named `…_MIN`. Label, chosen by the user:
+  `<Class>: <NAME> (per race)` for both keys, with no member list.
 - **Exactness:** each value is one division of *integer* head-count sums, never a sum of per-race fractions.
   `COMPARATOR.GREATERE` is an exact `a >= b`, so summed fractions could read 0.9999… at 100% and fail.
 - **Robustness:** member races that aren't loaded are skipped and logged, so the keys always exist. A group
@@ -121,9 +128,9 @@ is already used elsewhere in EB (`POP`, `GVALUES.FACTION.push`, `HCLASSES`, `PAT
 - **Load the races.** Also enable as many of the four aquatic race mods as are available.
 
 1. **Log — registration.** At game start there should be one line per group and a summary:
-   `race groups: GAQUATIC "Aquatic (…)": 4/4 member races loaded; 11 keys; defined by [Extended Boostables].`
-   and `race groups: registered 11 POPULATION_<GROUP>_* values for 1 group(s).`
-   With fewer race mods loaded, expect `k/4 … (not loaded: [...])`, still with 11 keys.
+   `race groups: GAQUATIC "Aquatic (…)": 4/4 member races loaded; 19 keys; defined by [Extended Boostables].`
+   and `race groups: registered 19 POPULATION_<GROUP>_* values for 1 group(s).`
+   With fewer race mods loaded, expect `k/4 … (not loaded: [...])`, still with 19 keys.
 2. **No missing-key warning.** Run with **Developer mode on** (step 3 needs it anyway). A missing
    requirement key never shows a popup. The first miss is reported by `GAME.Warn`, which writes
    `SYX WARNING: … no FACTION named : <key>` to stderr **only in developer/debug mode**
@@ -135,7 +142,9 @@ is already used elsewhere in EB (`POP`, `GVALUES.FACTION.push`, `HCLASSES`, `PAT
    (`init/value/GVALUES.java` `finishSetup`).
    Check that:
    - `POPULATION_GAQUATIC_CITIZEN_I` = the sum of `POPULATION_<RACE>_CITIZEN_I` over the loaded members;
-   - `POPULATION_GAQUATIC_CITIZEN_OFCLASS_F` = the sum of the members' `POPULATION_<RACE>_CITIZEN_OFCLASS_F`.
+   - `POPULATION_GAQUATIC_CITIZEN_OFCLASS_F` = the sum of the members' `POPULATION_<RACE>_CITIZEN_OFCLASS_F`;
+   - `POPULATION_GAQUATIC_CITIZEN_MIN_I` / `_MAX_I` = the smallest / largest of the members'
+     `POPULATION_<RACE>_CITIZEN_I`.
 4. **The motivating case (needs a test tech).** Temporarily give a tech in a locally enabled mod the
    `REQUIRES` from the TL;DR. Don't commit it.
    - City whose citizens are **all** one aquatic race: the requirement reads 100% and is met.
@@ -145,6 +154,14 @@ is already used elsewhere in EB (`POP`, `GVALUES.FACTION.push`, `HCLASSES`, `PAT
      citizen-class, or aren't counted in `_OFCLASS_F`.
 5. **Tooltip label.** Hovering the requirement shows "Plebeians: Aquatic (…)", listing the loaded member
    races, then `>=`, `100%`, and the current value.
+5a. **`MIN` per race (needs a test tech).** Temporarily give a tech
+   `GREATERE: { POPULATION_GAQUATIC_CITIZEN_MIN_I: 150 }`.
+   - It's met only once **every** installed aquatic race has at least 150 citizens, and fails while any
+     one of them is below.
+   - The tooltip reads "Plebeians: Aquatic (per race)   >=   150   (n)", where n is the smallest of the
+     per-race counts.
+   - Swap in `…_CITIZEN_MAX_I: 150`: it's met as soon as **any one** race reaches 150.
+   - With one race mod disabled, `MIN` ignores that race; it doesn't read 0.
 6. **Missing member.** Disable one aquatic race mod and restart. Step 1 shows it under `not loaded`, the keys
    still exist, and `err.log` has no `no FACTION named` line for a group key.
 7. **Second game in one session.** Return to the main menu and start or load another game. There should be

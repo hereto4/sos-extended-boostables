@@ -7,7 +7,7 @@ type: project
 `registerCitizenRaceFractions()`) registers pseudo-race GVALUEs for **race groups** declared in any loaded
 mod's `V<major>/RaceGroups.txt` (EB ships `src/main/resources/mod-files/RaceGroups.txt` → `V71/RaceGroups.txt`).
 First group: `GAQUATIC` = VERATHID, KHELIAN, THRYXARII, ONARI (third-party race mods; Q_AMEVIA deliberately
-excluded by the user). Per group: `POPULATION_<G>__F/__I` + per player class `_<CLASS>_F/_I/_OFCLASS_F` (11 keys).
+excluded by the user). Per group: `POPULATION_<G>__F/__I/__MIN_I/__MAX_I` + per player class `_<CLASS>_F/_I/_OFCLASS_F/_MIN_I/_MAX_I` (19 keys; MIN/MAX added 2026-11-13).
 Status 2026-11-13: written on the Mac, javac type-checked clean against v71.44, **NOT built, NOT tested** —
 see `HANDOFF_RACE_GROUPS.md` (repo root) for build + in-game test plan. Committed as `c6f549b` on top
 of v1.6.2. Re-checked against v1.5.1 to v1.6.2 the same day: no interaction. The snake2d shared-iterator
@@ -16,14 +16,14 @@ ScriptEngine's `loads`. The wildcard-umbrella trap doesn't reach GVALUEs, which 
 
 **Why:** the user wanted "100% of citizens are any mix of the aquatic races" tech requirements
 (`POPULATION_GAQUATIC_CITIZEN_OFCLASS_F` in a GREATERE block). User chose a data file over hardcoding, and
-the full 11-key set (not just OFCLASS_F); TYPE_* variants skipped.
+the full key set (not just OFCLASS_F); TYPE_* and share-based MIN/MAX variants skipped. MIN/MAX = smallest/largest single-member head count over INSTALLED members, 0 if none installed (user decision); label `<Class>: <NAME> (per race)` for both (user choice).
 
 **How to apply:**
 - Values are one division of integer head-count sums — never sum per-race fractions (GREATERE is exact `>=`,
   summed fractions can read 0.9999… at 100%).
 - Merge: RACES union across mods; NAME from the first mod in `PATHS.currentMods()` = highest asset priority
   (`VirtualFolder.getPossibleFile` searches bases first→last, vanilla last). Not "last loaded wins".
-- Missing member races are skipped (keys still exist → no "no FACTION named" popup / permanent tech lock).
+- Missing member races are skipped (keys still exist → no unknown-key "unknown" line / permanent tech lock).
 - Diagnostics to stdout only (stderr trips the engine error handler — see UpdateNotifier).
 - **An unknown `REQUIRES` key is silent for players.** `Lockable.RPromise` reports the first miss via
   `GAME.Warn`, which only writes a `SYX WARNING` to stderr in developer/debug mode (`GAME.java:421`) — no

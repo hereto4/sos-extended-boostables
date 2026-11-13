@@ -2,10 +2,13 @@
 **
 ** Each entry declares a group of races that acts as ONE pseudo-race in the POPULATION_* requirement
 ** values used by REQUIRES blocks (techs, events, room unlocks, titles). For a group key <G> you get:
-**   POPULATION_<G>__F, POPULATION_<G>__I
-**   POPULATION_<G>_<CLASS>_F, POPULATION_<G>_<CLASS>_I, POPULATION_<G>_<CLASS>_OFCLASS_F
-** with <CLASS> = NOBLE, CITIZEN or SLAVE. Example: POPULATION_GAQUATIC_CITIZEN_OFCLASS_F: 1 in a
-** GREATERE block = every citizen is one of the group's races, in any mix.
+**   POPULATION_<G>__F, POPULATION_<G>__I, POPULATION_<G>__MIN_I, POPULATION_<G>__MAX_I
+**   POPULATION_<G>_<CLASS>_F, POPULATION_<G>_<CLASS>_I, POPULATION_<G>_<CLASS>_OFCLASS_F,
+**   POPULATION_<G>_<CLASS>_MIN_I, POPULATION_<G>_<CLASS>_MAX_I
+** with <CLASS> = NOBLE, CITIZEN or SLAVE. Examples, in a GREATERE block:
+**   POPULATION_GAQUATIC_CITIZEN_OFCLASS_F: 1 = every citizen is one of the group's races, in any mix.
+**   POPULATION_GAQUATIC_CITIZEN_MIN_I: 150 = at least 150 citizens of EACH installed member race.
+** MIN/MAX are the smallest/largest single-race count; they read 0 if no member race is installed.
 **
 ** Any mod can ship its own V71/RaceGroups.txt. Files from all loaded mods are merged: a group's
 ** RACES are combined across files, and NAME comes from the highest-priority mod that sets it (the

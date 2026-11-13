@@ -498,6 +498,11 @@ the `_OFCLASS_F` registration).
 | `POPULATION_<G>_<CLASS>_F` | share **of the whole population** that is that class *and* any member race | vanilla `POPULATION_<RACE>_<CLASS>_F` |
 | `POPULATION_<G>_<CLASS>_I` | head count of that class that is any member race | vanilla `POPULATION_<RACE>_<CLASS>_I` |
 | `POPULATION_<G>__F` / `__I` | share / head count of the whole population that is any member race (double underscore, as vanilla) | vanilla `POPULATION_<RACE>__F` / `__I` |
+| `POPULATION_<G>_<CLASS>_MIN_I` | head count of that class for the **smallest** installed member race | — (new) |
+| `POPULATION_<G>_<CLASS>_MAX_I` | head count of that class for the **largest** installed member race | — (new) |
+| `POPULATION_<G>__MIN_I` / `__MAX_I` | the same, over the whole population | — (new) |
+
+That is **19 keys per group**.
 
 Example — "100% of citizens are aquatic, in any mix of the four races":
 
@@ -509,11 +514,44 @@ REQUIRES: {
 },
 ```
 
+Example — "at least 150 citizens of **each** aquatic race that is installed":
+
+```
+REQUIRES: {
+    GREATERE: {
+        POPULATION_GAQUATIC_CITIZEN_MIN_I: 150,
+    },
+},
+```
+
+**`MIN` and `MAX` together cover every "each / any" requirement.** The key is just a number, and the
+comparator decides what it means:
+
+| Meaning | Write |
+|---|---|
+| every installed member race has at least N | `GREATERE: { POPULATION_<G>_<CLASS>_MIN_I: N }` |
+| at least one member race has at least N | `GREATERE: { POPULATION_<G>_<CLASS>_MAX_I: N }` |
+| every member race has fewer than N | `LESS: { POPULATION_<G>_<CLASS>_MAX_I: N }` |
+| at least one member race has fewer than N | `LESS: { POPULATION_<G>_<CLASS>_MIN_I: N }` |
+
+- **Head counts are the same as the per-race `_I` keys.** With every member installed, `…_CITIZEN_MIN_I >= 150`
+  is exactly equivalent to writing one `POPULATION_<RACE>_CITIZEN_I: 150` line per member race.
+- **Only installed members count.** A member race whose mod isn't installed is left out, which
+  effectively waives its share of the requirement. A group with **no** installed member reads `0` for both
+  keys, so a `GREATERE` requirement stays locked.
+- **Tooltip:** "Plebeians: Aquatic (per race)   >=   150   (42)". The bracketed current value is the
+  smallest (`MIN`) or largest (`MAX`) single-race count. It doesn't say which race that is, so a player
+  checks the population panel for that. `MIN` and `MAX` share this label.
+
 Notes:
 
 - **Exact at 100%.** Each value is one division of whole head counts (sum of the members ÷ total), never a
   sum of per-race fractions, so an all-aquatic citizenry reads exactly `1.0` and `GREATERE: 1` /
   `EQUAL: 1.0` both pass.
+- **The tooltip rounds percentages, the check doesn't.** The engine shows percentages with no decimals
+  and rounds them, but compares exactly. With 200 or more citizens, a single non-member citizen gives
+  99.5%, so the line reads "(100%)" in red while failing. This applies to every vanilla and EB `_F` key
+  and can't be changed from a mod.
 - **Who counts in `_OFCLASS_F`** (same as the per-race key): citizen-class subjects physically in the city —
   workers, retirees, guards, recruits, students, in-city soldiers, parents. Children, rioters, deranged,
   prisoners, tourists and soldiers away in world-map armies are in neither the numerator nor the
@@ -546,7 +584,8 @@ GAQUATIC: {
 - The group key must be `UPPER_CASE` and must not equal a race key (a clash is skipped and logged). By
   convention prefix it with `G` ("group").
 - `NAME` is optional (defaults to the key). The in-game label is `NAME` plus the loaded members, e.g.
-  "Plebeians: Aquatic (…)" with each loaded member's plural race name in the brackets.
+  "Plebeians: Aquatic (…)" with each loaded member's plural race name in the brackets. For the
+  `_MIN_I`/`_MAX_I` keys the label is `NAME (per race)` instead, e.g. "Plebeians: Aquatic (per race)".
 - **Files from every loaded mod are merged:** a group's `RACES` is the union across files, and `NAME` comes
   from the highest-priority mod that sets it (the same mod whose files win when two mods ship the same
   file). So another mod can add a race to `GAQUATIC` without replacing this mod's list.
