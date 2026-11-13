@@ -1,0 +1,21 @@
+** RACE GROUPS - read by Extended Boostables (your.mod.racegroup.RaceGroups).
+**
+** Each entry declares a group of races that acts as ONE pseudo-race in the POPULATION_* requirement
+** values used by REQUIRES blocks (techs, events, room unlocks, titles). For a group key <G> you get:
+**   POPULATION_<G>__F, POPULATION_<G>__I
+**   POPULATION_<G>_<CLASS>_F, POPULATION_<G>_<CLASS>_I, POPULATION_<G>_<CLASS>_OFCLASS_F
+** with <CLASS> = NOBLE, CITIZEN or SLAVE. Example: POPULATION_GAQUATIC_CITIZEN_OFCLASS_F: 1 in a
+** GREATERE block = every citizen is one of the group's races, in any mix.
+**
+** Any mod can ship its own V71/RaceGroups.txt. Files from all loaded mods are merged: a group's
+** RACES are combined across files, and NAME comes from the highest-priority mod that sets it (the
+** same mod whose files win when two mods ship the same file). Races that
+** are not loaded are skipped, so the keys always exist even if some member race mods are missing.
+**
+** Convention: prefix group keys with G ("group") so they can't collide with a race key.
+** NAME is the in-game label; the loaded member races are listed after it automatically.
+
+GAQUATIC: {
+	NAME: "Aquatic",
+	RACES: [VERATHID, KHELIAN, THRYXARII, ONARI,],
+},

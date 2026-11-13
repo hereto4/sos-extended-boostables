@@ -455,7 +455,8 @@ Grant via a tech `BOOST:` block, e.g. `CLASS_CITIZEN>MUL: 1.25` or `CLASS_CITIZE
 ## Requirement keys (`REQUIRES:` blocks — GVALUES, not boostables)
 
 These are **faction GVALUES** (the registry tech `REQUIRES:` blocks query), not `BOOST:` boostables.
-They reinstate the pre-v71 meaning of the vanilla population-fraction value.
+The `_OFCLASS_F` keys reinstate the pre-v71 meaning of the vanilla population-fraction value; the
+race-group keys ([below](#race-groups-population_group_)) let several races count as one.
 
 | Key pattern | Value |
 |---|---|
@@ -475,6 +476,76 @@ REQUIRES: {
     },
 },
 ```
+
+### Race groups (`POPULATION_<GROUP>_*`)
+
+A **race group** is a named set of races that acts as **one pseudo-race** in the `POPULATION_*` values
+above, so a requirement can say "any mix of these races". Groups are declared in a data file, not in
+code (implementation: `your.mod.racegroup.RaceGroups`, called from `initBeforeGameInited` right after
+the `_OFCLASS_F` registration).
+
+**Groups shipped by this mod:**
+
+| Group | In-game label | Member race keys |
+|---|---|---|
+| `GAQUATIC` | Aquatic | `VERATHID`, `KHELIAN`, `THRYXARII`, `ONARI` (all from other race mods) |
+
+**Keys registered per group `<G>`** (`<CLASS>` = `NOBLE`, `CITIZEN`, `SLAVE`):
+
+| Key | Value | Same meaning as |
+|---|---|---|
+| `POPULATION_<G>_<CLASS>_OFCLASS_F` | share **of that class** that is any member race | `POPULATION_<RACE>_<CLASS>_OFCLASS_F` |
+| `POPULATION_<G>_<CLASS>_F` | share **of the whole population** that is that class *and* any member race | vanilla `POPULATION_<RACE>_<CLASS>_F` |
+| `POPULATION_<G>_<CLASS>_I` | head count of that class that is any member race | vanilla `POPULATION_<RACE>_<CLASS>_I` |
+| `POPULATION_<G>__F` / `__I` | share / head count of the whole population that is any member race (double underscore, as vanilla) | vanilla `POPULATION_<RACE>__F` / `__I` |
+
+Example — "100% of citizens are aquatic, in any mix of the four races":
+
+```
+REQUIRES: {
+    GREATERE: {
+        POPULATION_GAQUATIC_CITIZEN_OFCLASS_F: 1,
+    },
+},
+```
+
+Notes:
+
+- **Exact at 100%.** Each value is one division of whole head counts (sum of the members ÷ total), never a
+  sum of per-race fractions, so an all-aquatic citizenry reads exactly `1.0` and `GREATERE: 1` /
+  `EQUAL: 1.0` both pass.
+- **Who counts in `_OFCLASS_F`** (same as the per-race key): citizen-class subjects physically in the city —
+  workers, retirees, guards, recruits, students, in-city soldiers, parents. Children, rioters, deranged,
+  prisoners, tourists and soldiers away in world-map armies are in neither the numerator nor the
+  denominator. Nobles and slaves are separate classes, so they never affect the `CITIZEN` key. A city with
+  zero citizens reads `0`.
+- **Missing member races are skipped.** If a member race's mod isn't loaded, the group just counts the rest
+  (logged). The keys themselves always exist while this mod is loaded, so a tech using them never hits the
+  engine's "no FACTION named …" warning — which would otherwise lock that tech permanently.
+- **Requires this mod.** A tech file that uses a group key needs Extended Boostables enabled, exactly like
+  the `_OFCLASS_F` keys.
+- **Not a race (yet).** Groups only work in these `POPULATION_*` values. `TARGET_RACE: GAQUATIC`,
+  `FACTION_IS_*`, `LOYALTY_*` and race-specific boosts don't accept them.
+
+**Defining a group (any mod).** Ship `V71/RaceGroups.txt` — directly inside the mod's `V71/` folder, *not*
+under `assets/` (the same place as `UpdateNotice.txt`) — in game-Json syntax:
+
+```
+GAQUATIC: {
+	NAME: "Aquatic",
+	RACES: [VERATHID, KHELIAN, THRYXARII, ONARI,],
+},
+```
+
+- The group key must be `UPPER_CASE` and must not equal a race key (a clash is skipped and logged). By
+  convention prefix it with `G` ("group").
+- `NAME` is optional (defaults to the key). The in-game label is `NAME` plus the loaded members, e.g.
+  "Plebeians: Aquatic (…)" with each loaded member's plural race name in the brackets.
+- **Files from every loaded mod are merged:** a group's `RACES` is the union across files, and `NAME` comes
+  from the highest-priority mod that sets it (the same mod whose files win when two mods ship the same
+  file). So another mod can add a race to `GAQUATIC` without replacing this mod's list.
+- Diagnostics go to stdout with the prefix `[sos-extended-boostables] race groups:` — one line per group
+  showing its loaded/missing members and key count, plus any malformed-file or skipped-group messages.
 
 ## Tech-scoping keys (`TARGET_RACE`, `TARGET_CLASS`) — tech-node keys, not boostables
 

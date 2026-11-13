@@ -523,6 +523,12 @@ public final class MainScript implements SCRIPT {
         // per-tick handleRaidPlunder, which early-returns when plunder<=1.0, so it never ran.)
         registerCitizenRaceFractions();
 
+        // POPULATION_<GROUP>_* GVALUEs for race groups (e.g. GAQUATIC) declared in any loaded mod's
+        // V<major>/RaceGroups.txt. Same window and same reason as the OFCLASS_F call above: the keys
+        // must be in GVALUES.FACTION before init.finish() resolves REQUIRES promises. See
+        // your.mod.racegroup.RaceGroups.
+        your.mod.racegroup.RaceGroups.install();
+
         // NOTE (2026-07-29): the your.mod.boostcolor recolor agent used to self-attach here. It was
         // removed — self-attach is impossible on the game's bundled JRE (no jdk.attach module), and the
         // Low-Positive coloring problem is solved instead by your.mod.boostformat, which re-colours the
